@@ -2,30 +2,31 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 
 // =========================================================================
-// ROBÔ EXTRATOR INVISÍVEL NA NUVEM V8 (GITHUB ACTIONS + CONTROLE REMOTO MOBILE + PROTEÇÃO FIREBASE)
+// ROBÔ EXTRATOR INVISÍVEL NA NUVEM V9 (IMPARÁVEL + FILA EDITÁVEL + LOGS + HISTÓRICO INTELIGENTE)
 // =========================================================================
 
 const FIREBASE_BASE = (process.env.FIREBASE_BASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com/").replace(/\/$/, "");
 const FIREBASE_ENDPOINT = `${FIREBASE_BASE}/koch_loja_1408.json`;
 const FIREBASE_TELEMETRIA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/telemetria.json`;
 const FIREBASE_COMANDOS_ENDPOINT = `${FIREBASE_BASE}/robo_controle/comandos.json`;
+const FIREBASE_FILA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
 
 const CONFIG = {
   delayMs: Math.max(800, Number(process.env.DELAY_MS) || 2200),
   delayTrocaRotaMs: Math.max(1500, Number(process.env.DELAY_ROTA_MS) || 3800),
-  backoffMs: 15000,
-  maxRetries: 6,
+  esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos (300.000 ms) de espera em caso de queda de rede/bloqueio persistente
+  backoffCurtoMs: 15000,
   size: 12, // Padrão exato do site oficial SuperKoch (var rx = 12)
   salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 1),   // Salva ao adicionar 1 produto novo
   salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 50),  // Salva ao atualizar 50 produtos existentes
-  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000), // Respiro mínimo de 25s entre saves de catálogo durante paginação para não pesar
+  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000), // Respiro mínimo de 25s entre saves de catálogo durante paginação
   autoSaveEveryDepto: true,
   startIndex: Math.max(0, (Number(process.env.START_INDEX) || 1) - 1),
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
 };
 
-// Lista sequencial personalizada (121 rotas na ordem exata definida pelo usuário)
-const ROTAS_SEQUENCIAIS = [
+// Lista sequencial padrão (121 rotas na ordem original)
+const ROTAS_PADRAO_SEQUENCIAIS = [
   { url: "https://www.superkoch.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "Página Inicial (Home)" },
   { url: "https://www.superkoch.com.br/categorias", pathReal: "/categorias", tipo: "categorias_index", id: null, depto: "Categorias", nome: "Índice Geral de Categorias" },
 
@@ -203,6 +204,8 @@ const ROTAS_SEQUENCIAIS = [
   { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
 ];
 
+let ROTAS_ATIVAS = [...ROTAS_PADRAO_SEQUENCIAIS];
+
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const dormirHumano = (baseMs) => {
   const jitter = Math.floor(Math.random() * Math.max(600, Math.round(baseMs * 0.45)));
@@ -213,17 +216,46 @@ const horaAtualBR = () => new Date().toLocaleTimeString("pt-BR", { timeZone: "Am
 const mapaProdutos = new Map();
 const dataHojeISO = new Date().toISOString().slice(0, 10);
 
-// Contadores e telemetria ao vivo para acompanhar pelo celular
+// =========================================================================
+// LÓGICA DE HISTÓRICO DE PREÇOS INTELIGENTE (SEM DUPLICATAS CONSECUTIVAS)
+// - Se tiver 2 preços no mesmo dia: mantém apenas o mais novo.
+// - Se o preço novo for igual ao último preço salvo: NÃO salva preço repetido!
+// - Se for 10.50 -> 10.20 -> 10.50: salva os 3! Mas se for 10.50 -> 10.50: salva só 1!
+// =========================================================================
+function atualizarHistoricoSemDuplicarConsecutivos(historicoExistente, dataHoje, precoNovo) {
+  const bruto = { ...(historicoExistente || {}) };
+  if (precoNovo > 0) {
+    bruto[dataHoje] = Number(precoNovo.toFixed(2));
+  }
+  const datasOrdenadas = Object.keys(bruto).sort((a, b) => a.localeCompare(b));
+  const limpo = {};
+  let ultimoPrecoSalvo = null;
+
+  for (const dt of datasOrdenadas) {
+    const val = Number(bruto[dt]);
+    if (!val || val <= 0) continue;
+    const valArred = Number(val.toFixed(2));
+    if (ultimoPrecoSalvo === null || Math.abs(valArred - ultimoPrecoSalvo) >= 0.01) {
+      limpo[dt] = valArred;
+      ultimoPrecoSalvo = valArred;
+    }
+  }
+  return limpo;
+}
+
+// Contadores, logs e telemetria ao vivo para acompanhar pelo celular
 const sessao = {
   idExecucao: `cloud_${Date.now()}`,
-  origem: "GitHub Actions (Nuvem Invisível)",
+  origem: "GitHub Actions (Nuvem Invisível V9)",
   iniciadoEm: new Date().toISOString(),
+  tempoInicioMs: Date.now(),
   status: "INICIANDO", // INICIANDO | RODANDO | PAUSADO | BLOQUEIO_ESPERA | CANCELADO_SALVO | CONCLUIDO | ERRO
   mensagem: "Carregando e protegendo banco de dados inicial...",
   rotaIndiceAtual: CONFIG.startIndex,
-  rotaTotal: ROTAS_SEQUENCIAIS.length,
-  rotaNomeAtual: ROTAS_SEQUENCIAIS[CONFIG.startIndex]?.nome || "Início",
-  rotaUrlAtual: ROTAS_SEQUENCIAIS[CONFIG.startIndex]?.url || "",
+  rotaTotal: ROTAS_ATIVAS.length,
+  rotaNomeAtual: ROTAS_ATIVAS[CONFIG.startIndex]?.nome || "Início",
+  rotaUrlAtual: ROTAS_ATIVAS[CONFIG.startIndex]?.url || "",
+  deptoAtualNome: ROTAS_ATIVAS[CONFIG.startIndex]?.depto || "Geral",
   paginaAtual: 1,
   totalPaginasEstimadoRota: 1,
   offsetAtual: 0,
@@ -241,11 +273,12 @@ const sessao = {
   ultimoSaveMotivo: "Nenhum ainda",
   ultimoSaveMs: Date.now(),
   requisicoesFeitas: 0,
-  tempoInicioMs: Date.now(),
   ultimosNovos: [],             // Até 50 novos produtos adicionados
   ultimosPrecosAlterados: [],   // Até 60 produtos que mudaram de preço (Antigo -> Novo)
   ultimosEstoquesAlterados: [], // Até 40 produtos que mudaram estoque/promoção
   ultimosLidos: [],             // Últimos 8 produtos processados
+  ultimosLogs: [],              // Até 80 eventos e erros detalhados para a aba Logs do site
+  contagemLogs: { ERRO: 0, AVISO: 0, OK: 0 },
   progressoRotas: {},           // { [idx]: { st: 'ok'|'run'|'skip', lidos: 0, novos: 0, precos: 0, pags: 0 } }
   pausadoRemoto: false,
   canceladoRemoto: false,
@@ -254,49 +287,114 @@ const sessao = {
   ultimoComandoIdProcessado: 0
 };
 
+function registrarLog(tipo, contexto, mensagem, detalhe = "") {
+  const hora = horaAtualBR();
+  sessao.ultimosLogs.unshift({ hora, tipo, contexto, mensagem, detalhe });
+  if (sessao.ultimosLogs.length > 80) sessao.ultimosLogs.pop();
+  if (sessao.contagemLogs[tipo] !== undefined) sessao.contagemLogs[tipo]++;
+  const prefixo = tipo === "ERRO" ? "❌" : (tipo === "AVISO" ? "⚠️" : "ℹ️");
+  console.log(`${prefixo} [${hora}] [${contexto}] ${mensagem}${detalhe ? ` (${detalhe})` : ""}`);
+}
+
+function formatarDuracaoSeg(segTotal) {
+  const s = Math.max(0, Math.round(segTotal));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const seg = s % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(seg).padStart(2, "0")}s`;
+  if (m > 0) return `${m}m ${String(seg).padStart(2, "0")}s`;
+  return `${seg}s`;
+}
+
+function calcularMetricasTempoEProgresso() {
+  const agora = Date.now();
+  const decorridoSeg = Math.max(1, Math.round((agora - sessao.tempoInicioMs) / 1000));
+  const tempoDecorridoStr = formatarDuracaoSeg(decorridoSeg);
+
+  // Tempo estimado para acabar a categoria atual
+  const pagsRestantesCat = Math.max(0, (sessao.totalPaginasEstimadoRota || 1) - (sessao.paginaAtual || 1));
+  const segPorPag = (CONFIG.delayMs * 1.25 + 650) / 1000;
+  const estCatSeg = Math.round(pagsRestantesCat * segPorPag);
+  const tempoEstimadoCategoriaStr = pagsRestantesCat <= 0
+    ? "Finalizando categoria..."
+    : `~${formatarDuracaoSeg(estCatSeg)} (faltam ${pagsRestantesCat} págs)`;
+
+  // Subcategorias do Departamento Atual
+  const rotaAtual = ROTAS_ATIVAS[sessao.rotaIndiceAtual] || {};
+  const deptoNome = rotaAtual.depto || "Geral";
+  const indicesMesmoDepto = [];
+  ROTAS_ATIVAS.forEach((r, idx) => {
+    if (r.depto === deptoNome) indicesMesmoDepto.push(idx);
+  });
+  const totalNoDepto = indicesMesmoDepto.length || 1;
+  const posNoDepto = Math.max(1, indicesMesmoDepto.indexOf(sessao.rotaIndiceAtual) + 1);
+  const faltamNoDepto = Math.max(0, totalNoDepto - posNoDepto);
+
+  // Tempo estimado para o processo total
+  const rotasConcluidas = Math.max(0, sessao.rotaIndiceAtual - CONFIG.startIndex);
+  const rotasRestantes = Math.max(0, ROTAS_ATIVAS.length - (sessao.rotaIndiceAtual + 1));
+  let estTotalSeg = 0;
+  if (rotasConcluidas >= 2 && decorridoSeg > 20) {
+    const mediaPorRotaSeg = decorridoSeg / rotasConcluidas;
+    estTotalSeg = Math.round(rotasRestantes * mediaPorRotaSeg + estCatSeg);
+  } else {
+    const mediaPadraoRotaSeg = (CONFIG.delayMs * 8 + CONFIG.delayTrocaRotaMs) / 1000;
+    estTotalSeg = Math.round(rotasRestantes * mediaPadraoRotaSeg + estCatSeg);
+  }
+  const tempoRestanteTotalStr = rotasRestantes === 0 && pagsRestantesCat === 0
+    ? "Concluído!"
+    : `~${formatarDuracaoSeg(estTotalSeg)}`;
+
+  return {
+    decorridoSeg,
+    tempoDecorridoStr,
+    estCatSeg,
+    tempoEstimadoCategoriaStr,
+    estTotalSeg,
+    tempoRestanteTotalStr,
+    categoriasFaltando: rotasRestantes,
+    deptoAtualNome: deptoNome,
+    subcategoriaPosNoDepto: posNoDepto,
+    subcategoriasTotalNoDepto: totalNoDepto,
+    subcategoriasFaltandoNoDepto: faltamNoDepto
+  };
+}
+
 // =========================================================================
-// SINCRONIZAÇÃO LEVE COM PAINEL MOBILE (TELEMETRIA ~2KB + COMANDOS REMOTOS)
+// SINCRONIZAÇÃO LEVE COM PAINEL MOBILE (TELEMETRIA + COMANDOS + FILA)
 // =========================================================================
 let ultimoEnvioTelemetriaMs = 0;
-
-function calcularTempoRestanteStr() {
-  const rotasConcluidas = Math.max(0, sessao.rotaIndiceAtual - CONFIG.startIndex);
-  const rotasRestantes = Math.max(0, sessao.rotaTotal - sessao.rotaIndiceAtual);
-  if (rotasRestantes === 0) return "Concluindo...";
-  const decorridoMs = Date.now() - sessao.tempoInicioMs;
-  if (rotasConcluidas >= 2 && decorridoMs > 15000) {
-    const mediaPorRotaMs = decorridoMs / rotasConcluidas;
-    const restanteMin = Math.max(1, Math.round((mediaPorRotaMs * rotasRestantes) / 60000));
-    return restanteMin >= 60
-      ? `~${Math.floor(restanteMin / 60)}h ${restanteMin % 60}min (${rotasRestantes} categorias restantes)`
-      : `~${restanteMin} min (${rotasRestantes} categorias restantes)`;
-  }
-  // Estimativa inicial baseada nos delays configurados (~35s por subcategoria em média)
-  const estMin = Math.max(1, Math.round((rotasRestantes * (CONFIG.delayMs * 8 + CONFIG.delayTrocaRotaMs)) / 60000));
-  return `~${estMin} min (${rotasRestantes} categorias restantes)`;
-}
 
 async function enviarTelemetriaAoVivo(forcar = false) {
   const agora = Date.now();
   if (!forcar && agora - ultimoEnvioTelemetriaMs < 2500) return;
   ultimoEnvioTelemetriaMs = agora;
 
-  const pct = Math.min(100, Math.max(1, Math.round(((sessao.rotaIndiceAtual + 1) / sessao.rotaTotal) * 100)));
+  const metricas = calcularMetricasTempoEProgresso();
+  const pct = Math.min(100, Math.max(1, Math.round(((sessao.rotaIndiceAtual + 1) / Math.max(1, ROTAS_ATIVAS.length)) * 100)));
+
   const payload = {
     idExecucao: sessao.idExecucao,
     origem: sessao.origem,
     iniciadoEm: sessao.iniciadoEm,
+    tempoInicioMs: sessao.tempoInicioMs,
     atualizadoEm: new Date().toISOString(),
     heartbeatMs: agora,
     status: sessao.status,
     mensagem: sessao.mensagem,
     progressoPct: sessao.status === "CONCLUIDO" ? 100 : pct,
-    tempoRestante: sessao.status === "CONCLUIDO" ? "Concluído!" : calcularTempoRestanteStr(),
+    tempoDecorrido: metricas.tempoDecorridoStr,
+    tempoEstimadoCategoria: metricas.tempoEstimadoCategoriaStr,
+    tempoRestante: sessao.status === "CONCLUIDO" ? "Concluído!" : metricas.tempoRestanteTotalStr,
     rotaIndiceAtual: sessao.rotaIndiceAtual + 1,
-    rotaTotal: sessao.rotaTotal,
-    categoriasFaltando: Math.max(0, sessao.rotaTotal - (sessao.rotaIndiceAtual + 1)),
+    rotaTotal: ROTAS_ATIVAS.length,
+    categoriasFaltando: metricas.categoriasFaltando,
     rotaNomeAtual: sessao.rotaNomeAtual,
     rotaUrlAtual: sessao.rotaUrlAtual,
+    deptoAtualNome: metricas.deptoAtualNome,
+    subcategoriaPosNoDepto: metricas.subcategoriaPosNoDepto,
+    subcategoriasTotalNoDepto: metricas.subcategoriasTotalNoDepto,
+    subcategoriasFaltandoNoDepto: metricas.subcategoriasFaltandoNoDepto,
     paginaAtual: sessao.paginaAtual,
     totalPaginasEstimadoRota: sessao.totalPaginasEstimadoRota,
     offsetAtual: sessao.offsetAtual,
@@ -325,6 +423,8 @@ async function enviarTelemetriaAoVivo(forcar = false) {
     ultimosPrecosAlterados: sessao.ultimosPrecosAlterados.slice(0, 50),
     ultimosEstoquesAlterados: sessao.ultimosEstoquesAlterados.slice(0, 30),
     ultimosLidos: sessao.ultimosLidos.slice(0, 8),
+    ultimosLogs: sessao.ultimosLogs.slice(0, 70),
+    contagemLogs: sessao.contagemLogs,
     progressoRotas: sessao.progressoRotas
   };
 
@@ -349,7 +449,6 @@ async function verificarComandosRemotos(forcar = false) {
     const cmd = await resp.json();
     if (!cmd || typeof cmd !== "object") return;
 
-    // Aplica configurações em tempo real se enviadas pelo painel web/celular
     if (cmd.config && typeof cmd.config === "object") {
       if (Number(cmd.config.delayMs) >= 600) CONFIG.delayMs = Number(cmd.config.delayMs);
       if (Number(cmd.config.delayTrocaRotaMs) >= 1000) CONFIG.delayTrocaRotaMs = Number(cmd.config.delayTrocaRotaMs);
@@ -363,7 +462,7 @@ async function verificarComandosRemotos(forcar = false) {
     sessao.ultimoComandoIdProcessado = cmdId;
 
     const acao = String(cmd.acao || "").toUpperCase();
-    console.log(`📱 [Controle Remoto Celular/Web] Comando recebido: ${acao}`);
+    registrarLog("OK", "Controle Remoto", `Comando recebido do painel: ${acao}`);
 
     if (acao === "PAUSAR") {
       sessao.pausadoRemoto = true;
@@ -385,20 +484,32 @@ async function verificarComandosRemotos(forcar = false) {
       sessao.pausadoRemoto = false;
       sessao.mensagem = `⏭ Pulando categoria ${sessao.rotaNomeAtual} por comando remoto...`;
       await enviarTelemetriaAoVivo(true);
-    } else if (acao === "IR_PARA_ROTA" && Number(cmd.rotaNumero) >= 1 && Number(cmd.rotaNumero) <= ROTAS_SEQUENCIAIS.length) {
+    } else if (acao === "IR_PARA_ROTA" && Number(cmd.rotaNumero) >= 1 && Number(cmd.rotaNumero) <= ROTAS_ATIVAS.length) {
       sessao.irParaRotaIndice = Number(cmd.rotaNumero) - 1;
       sessao.pularRotaAtual = true;
       sessao.pausadoRemoto = false;
-      sessao.mensagem = `🎯 Indo para categoria #${cmd.rotaNumero} (${ROTAS_SEQUENCIAIS[sessao.irParaRotaIndice]?.nome})...`;
+      sessao.mensagem = `🎯 Indo para categoria #${cmd.rotaNumero} (${ROTAS_ATIVAS[sessao.irParaRotaIndice]?.nome})...`;
+      await enviarTelemetriaAoVivo(true);
+    } else if (acao === "ATUALIZAR_FILA" && Array.isArray(cmd.rotasCustom) && cmd.rotasCustom.length > 0) {
+      ROTAS_ATIVAS = cmd.rotasCustom;
+      sessao.rotaTotal = ROTAS_ATIVAS.length;
+      registrarLog("OK", "Fila", `Fila atualizada remotamente pelo painel (${ROTAS_ATIVAS.length} categorias).`);
+      await enviarTelemetriaAoVivo(true);
+    } else if (acao === "RESETAR_FILA") {
+      ROTAS_ATIVAS = [...ROTAS_PADRAO_SEQUENCIAIS];
+      sessao.rotaTotal = ROTAS_ATIVAS.length;
+      sessao.irParaRotaIndice = 0;
+      sessao.pularRotaAtual = true;
+      sessao.progressoRotas = {};
+      registrarLog("OK", "Fila", `Fila restaurada para as 121 categorias padrão e reiniciada do #1.`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "CANCELAR") {
       sessao.canceladoRemoto = true;
       sessao.pausadoRemoto = false;
       sessao.status = "CANCELADO_SALVO";
-      sessao.mensagem = `⏹ Cancelado pelo painel em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Salvando tudo no Firebase...`;
-      await gravarComSegurancaNoFirebase(`Cancelado pelo Painel em ${sessao.rotaNomeAtual}`);
+      sessao.mensagem = `⏹ Parado pelo usuário em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Salvando tudo no Firebase...`;
+      await gravarComSegurancaNoFirebase(`Parado pelo Painel em ${sessao.rotaNomeAtual}`);
       await enviarTelemetriaAoVivo(true);
-      console.log(`✅ [Controle Remoto] Cancelamento concluído com salvamento seguro.`);
       process.exit(0);
     }
   } catch {}
@@ -418,13 +529,34 @@ async function aguardarSePausadoRemoto() {
 // CAMADA 1 DE PROTEÇÃO DO FIREBASE: LEITURA E BACKUP ANTES DE QUALQUER AÇÃO
 // =========================================================================
 async function carregarProtegerFirebaseInicial() {
-  console.log(`🔒 [Proteção Firebase] Lendo banco atual em: ${FIREBASE_ENDPOINT}`);
-  const resp = await fetch(FIREBASE_ENDPOINT);
-  if (!resp.ok) {
-    throw new Error(`ABORTADO POR SEGURANÇA: Não foi possível ler o Firebase inicial (HTTP ${resp.status}). Nenhuma alteração será feita para proteger seu banco.`);
+  registrarLog("OK", "Proteção Firebase", `Lendo banco atual em: ${FIREBASE_ENDPOINT}`);
+
+  // Tenta ler o Firebase inicial (se houver falha de rede inicial, espera 5 minutos e tenta novamente, nunca desiste!)
+  let resp = null;
+  while (!resp || !resp.ok) {
+    try {
+      resp = await fetch(FIREBASE_ENDPOINT);
+      if (resp.ok) break;
+      registrarLog("ERRO", "Firebase Inicial", `HTTP ${resp.status} ao ler banco inicial. Aguardando 30s para tentar novamente...`);
+    } catch (err) {
+      registrarLog("ERRO", "Firebase Inicial", `Erro de conexão ao ler banco inicial: ${err.message}. Aguardando 30s...`);
+    }
+    await dormir(30000);
   }
 
-  // Inicializa o último comando remoto existente para não executar comandos antigos de sessões passadas
+  // Verifica se o usuário salvou uma fila personalizada no Firebase
+  try {
+    const rFila = await fetch(FIREBASE_FILA_ENDPOINT);
+    if (rFila.ok) {
+      const filaSalva = await rFila.json();
+      if (Array.isArray(filaSalva) && filaSalva.length > 0) {
+        ROTAS_ATIVAS = filaSalva;
+        sessao.rotaTotal = ROTAS_ATIVAS.length;
+        registrarLog("OK", "Fila Customizada", `Fila personalizada carregada do painel (${ROTAS_ATIVAS.length} categorias).`);
+      }
+    }
+  } catch {}
+
   try {
     const rCmd = await fetch(FIREBASE_COMANDOS_ENDPOINT);
     if (rCmd.ok) {
@@ -432,7 +564,6 @@ async function carregarProtegerFirebaseInicial() {
       if (cAntigo && (cAntigo.id || cAntigo.timestamp)) {
         sessao.ultimoComandoIdProcessado = Number(cAntigo.id || cAntigo.timestamp || 0);
       }
-      // Se na configuração remota existir velocidade ou limites personalizados salvos pelo usuário, aplica:
       if (cAntigo?.config) {
         if (Number(cAntigo.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cAntigo.config.salvarAoAdicionar);
         if (Number(cAntigo.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cAntigo.config.salvarAoAtualizar);
@@ -446,19 +577,23 @@ async function carregarProtegerFirebaseInicial() {
 
     for (const p of dados.produtos) {
       if (p && p.id) {
+        // Já higieniza históricos antigos que tinham preços iguais repetidos consecutivos!
+        if (p.historicoPrecos && typeof p.historicoPrecos === "object") {
+          p.historicoPrecos = atualizarHistoricoSemDuplicarConsecutivos(p.historicoPrecos, "", 0);
+        }
         mapaProdutos.set(p.id, p);
       }
     }
     sessao.totalInicialFirebase = mapaProdutos.size;
     sessao.totalAtualNoBanco = mapaProdutos.size;
-    console.log(`✅ [Proteção Firebase] ${sessao.totalInicialFirebase} produtos carregados e protegidos na memória (Backup local criado).`);
+    registrarLog("OK", "Proteção Firebase", `${sessao.totalInicialFirebase} produtos carregados e protegidos na memória.`);
   } else {
-    console.log(`ℹ️ [Proteção Firebase] Banco inicial vazio ou novo (0 produtos).`);
+    registrarLog("AVISO", "Proteção Firebase", `Banco inicial vazio ou novo (0 produtos).`);
   }
 }
 
 // =========================================================================
-// CAMADA 2 DE PROTEÇÃO DO FIREBASE: MERGE + DETECÇÃO DE PREÇOS ATUALIZADOS E NOVOS
+// CAMADA 2: MERGE INCREMENTAL + HISTÓRICO SEM REPETIÇÃO CONSECUTIVA
 // =========================================================================
 function processarHits(hits, rotaContexto = null) {
   if (!Array.isArray(hits) || hits.length === 0) {
@@ -480,7 +615,6 @@ function processarHits(hits, rotaContexto = null) {
     const precoPromo = Number(item.pricing?.promotionalPrice || item.activePrice || precoNormal);
     const precoFinal = precoPromo > 0 && precoPromo < precoNormal ? precoPromo : (precoNormal || precoPromo);
 
-    // Se por algum motivo a API vier com preço zerado, preserva o preço anterior do Firebase!
     const precoSeguro = precoFinal > 0 ? precoFinal : Number(existente?.preco || 0);
     const precoOrigSeguro = precoNormal > precoSeguro ? precoNormal : Number(existente?.precoOriginal || precoSeguro);
 
@@ -512,15 +646,12 @@ function processarHits(hits, rotaContexto = null) {
     const nomeLimpo = String(item.name || existente?.nome || "Produto sem nome").trim();
     const estoqueNovo = item.quantity?.inStock ?? existente?.estoque ?? 0;
 
-    const historico = { ...(existente?.historicoPrecos || {}) };
-    if (precoSeguro > 0) {
-      historico[dataHojeISO] = precoSeguro;
-    }
+    // Histórico inteligente: nunca salva 2 preços iguais consecutivos, e no mesmo dia mantém o mais novo
+    const historico = atualizarHistoricoSemDuplicarConsecutivos(existente?.historicoPrecos, dataHojeISO, precoSeguro);
 
     const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0));
     const descPct = item.pricing?.discount || (precoOrigSeguro > precoSeguro && precoOrigSeguro > 0 ? Math.round(((precoOrigSeguro - precoSeguro) / precoOrigSeguro) * 100) : 0);
 
-    // Verifica se é PRODUTO NOVO ou PRODUTO ATUALIZADO (Preço / Estoque / Promoção)
     if (!existente) {
       novosLote++;
       sessao.novosNaSessao++;
@@ -611,65 +742,67 @@ function processarHits(hits, rotaContexto = null) {
 }
 
 // =========================================================================
-// GRAVAÇÃO INTELIGENTE COM TRAVA ANTI-ENCOLHIMENTO E ANTI-PESO
-// Regra solicitada: Salva quando adicionar >= 1 novo OU atualizar >= 50 existentes
-// (respeitando respiro mínimo durante loop de páginas para nunca ficar pesado!)
+// GRAVAÇÃO INTELIGENTE (NUNCA PARA O ROBÔ SE HOUVER OSCILAÇÃO)
 // =========================================================================
 async function gravarComSegurancaNoFirebase(motivo = "") {
-  const listaFinal = Array.from(mapaProdutos.values());
-  if (listaFinal.length === 0) {
-    console.warn(`⚠️ [Proteção Firebase] Lista vazia — gravação ignorada.`);
-    return false;
-  }
+  try {
+    const listaFinal = Array.from(mapaProdutos.values());
+    if (listaFinal.length === 0) {
+      registrarLog("AVISO", "Proteção Firebase", `Lista vazia — gravação ignorada.`);
+      return false;
+    }
 
-  // TRAVA RÍGIDA ANTI-ENCOLHIMENTO: Nunca permite gravar menos itens do que já existia no banco!
-  if (sessao.totalInicialFirebase > 0 && listaFinal.length < sessao.totalInicialFirebase) {
-    console.error(`🛑 [Proteção Firebase] TRAVA ACIONADA! Tentativa de gravar ${listaFinal.length} itens, mas o banco tinha ${sessao.totalInicialFirebase}. Operação bloqueada para proteger seu Firebase!`);
-    return false;
-  }
+    if (sessao.totalInicialFirebase > 0 && listaFinal.length < sessao.totalInicialFirebase) {
+      registrarLog("ERRO", "Proteção Firebase", `TRAVA ACIONADA! Tentativa de gravar ${listaFinal.length} itens, mas o banco tinha ${sessao.totalInicialFirebase}. Operação bloqueada!`);
+      return false;
+    }
 
-  if (CONFIG.dryRun) {
-    console.log(`🧪 [Modo Teste / Dry Run] Simulação (${motivo}): ${listaFinal.length} produtos prontos.`);
+    if (CONFIG.dryRun) {
+      registrarLog("OK", "Modo Teste", `Simulação (${motivo}): ${listaFinal.length} produtos prontos.`);
+      sessao.novosDesdeUltimoSave = 0;
+      sessao.atualizadosDesdeUltimoSave = 0;
+      sessao.ultimoSaveMs = Date.now();
+      return true;
+    }
+
+    const resp = await fetch(FIREBASE_ENDPOINT, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        atualizadoEm: new Date().toISOString(),
+        totalItens: listaFinal.length,
+        resumoUltimaSessao: {
+          novosAdicionados: sessao.novosNaSessao,
+          precosAtualizados: sessao.precosAlteradosNaSessao,
+          estoquesAtualizados: sessao.estoquesAlteradosNaSessao,
+          motivoUltimoSave: motivo
+        },
+        produtos: listaFinal
+      })
+    });
+
+    if (!resp.ok) {
+      registrarLog("ERRO", "Firebase Save", `Erro HTTP ${resp.status} ao salvar (${motivo}). O robô continuará rodando e salvará no próximo ciclo.`);
+      return false;
+    }
+
+    sessao.totalInicialFirebase = Math.max(sessao.totalInicialFirebase, listaFinal.length);
+    sessao.savesRealizados++;
+    sessao.ultimoSaveEm = new Date().toISOString();
+    sessao.ultimoSaveMotivo = motivo;
+    sessao.ultimoSaveMs = Date.now();
+    const nSalvos = sessao.novosDesdeUltimoSave;
+    const aSalvos = sessao.atualizadosDesdeUltimoSave;
     sessao.novosDesdeUltimoSave = 0;
     sessao.atualizadosDesdeUltimoSave = 0;
-    sessao.ultimoSaveMs = Date.now();
+
+    registrarLog("OK", `Firebase Salvo #${sessao.savesRealizados}`, `${listaFinal.length} produtos no banco (+${nSalvos} novos, ${aSalvos} atualizados | ${motivo}).`);
+    await enviarTelemetriaAoVivo(true);
     return true;
-  }
-
-  const resp = await fetch(FIREBASE_ENDPOINT, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      atualizadoEm: new Date().toISOString(),
-      totalItens: listaFinal.length,
-      resumoUltimaSessao: {
-        novosAdicionados: sessao.novosNaSessao,
-        precosAtualizados: sessao.precosAlteradosNaSessao,
-        estoquesAtualizados: sessao.estoquesAlteradosNaSessao,
-        motivoUltimoSave: motivo
-      },
-      produtos: listaFinal
-    })
-  });
-
-  if (!resp.ok) {
-    console.error(`❌ [Firebase] Erro HTTP ${resp.status} ao salvar (${motivo}).`);
+  } catch (err) {
+    registrarLog("ERRO", "Firebase Save", `Falha de rede ao salvar no Firebase (${motivo}): ${err.message}. Continuando execução sem parar!`);
     return false;
   }
-
-  sessao.totalInicialFirebase = Math.max(sessao.totalInicialFirebase, listaFinal.length);
-  sessao.savesRealizados++;
-  sessao.ultimoSaveEm = new Date().toISOString();
-  sessao.ultimoSaveMotivo = motivo;
-  sessao.ultimoSaveMs = Date.now();
-  const nSalvos = sessao.novosDesdeUltimoSave;
-  const aSalvos = sessao.atualizadosDesdeUltimoSave;
-  sessao.novosDesdeUltimoSave = 0;
-  sessao.atualizadosDesdeUltimoSave = 0;
-
-  console.log(`☁️ [Firebase Salvo #${sessao.savesRealizados}] ${listaFinal.length} produtos no banco (+${nSalvos} novos, ${aSalvos} atualizados neste lote | Motivo: ${motivo}).`);
-  await enviarTelemetriaAoVivo(true);
-  return true;
 }
 
 async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
@@ -678,8 +811,6 @@ async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
 
   if (!atingiuMetaNovos && !atingiuMetaAtualizados) return;
 
-  // Para não ficar pesado enviando 8 MB várias vezes no mesmo segundo, durante a rolagem de páginas
-  // respeita o cooldownSaveMs (ex: 25s), mas ao concluir a categoria (fimDeRota=true) salva imediatamente!
   const tempoDesdeUltimoSave = Date.now() - sessao.ultimoSaveMs;
   if (!fimDeRota && tempoDesdeUltimoSave < CONFIG.cooldownSaveMs) {
     return;
@@ -689,10 +820,10 @@ async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
     ? `+${sessao.novosDesdeUltimoSave} novo(s) em ${contextoCurto}`
     : `${sessao.atualizadosDesdeUltimoSave} atualizados em ${contextoCurto}`;
 
+  // Salva e segue rodando sem parar!
   await gravarComSegurancaNoFirebase(motivoDetalhe);
 }
 
-// Construtor de URL 100% idêntico ao site oficial SuperKoch (bundle-B9szzJz7.js)
 function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, size = 12, from = 0, categoryId = "", categoryName = "" }) {
   const base = `https://sense.osuper.com.br${storePath}`;
   const q = [];
@@ -715,13 +846,13 @@ function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, si
 }
 
 // =========================================================================
-// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL (PLAYWRIGHT HEADLESS FURTIVO)
+// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL (IMPARÁVEL: REDE 5 MIN + AUTO TOKEN)
 // =========================================================================
 async function executarRoboCloud() {
   await carregarProtegerFirebaseInicial();
   await enviarTelemetriaAoVivo(true);
 
-  console.log(`🚀 Iniciando navegador invisível (Headless Stealth)...`);
+  registrarLog("OK", "Navegador", `Iniciando navegador invisível (Headless Stealth)...`);
   const browser = await chromium.launch({
     headless: true,
     args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -749,92 +880,173 @@ async function executarRoboCloud() {
     const tk = req.headers()["x-osuper-identity-token"];
     if (tk && tk !== tokenCapturado) {
       tokenCapturado = tk;
-      console.log(`🔑 Token de sessão detectado automaticamente.`);
+      registrarLog("OK", "Token", `Token de sessão capturado automaticamente.`);
     }
   });
+
+  async function renovarSessaoETokenAutomatico(motivoRenovacao = "Token solicitado") {
+    try {
+      registrarLog("AVISO", "Token", `${motivoRenovacao} — Coletando novo token automaticamente...`);
+      tokenCapturado = "";
+      await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
+      await dormirHumano(3500);
+
+      // Tenta também via GraphQL interno da página caso ainda não tenha vindo no header
+      if (!tokenCapturado) {
+        const tkGql = await page.evaluate(async () => {
+          try {
+            const initTk = window.INITIAL_STATE?.auth?.searchIdentityToken;
+            if (initTk) return initTk;
+            const r = await fetch("https://api.superkoch.com.br:443/storefront/graphql", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json", "accept": "*/*" },
+              body: JSON.stringify({
+                operationName: "SearchIdentityTokenQuery",
+                variables: {},
+                query: "query SearchIdentityTokenQuery { customerViewer { id searchIdentityToken } }"
+              })
+            });
+            if (r.ok) {
+              const j = await r.json();
+              return j?.data?.customerViewer?.searchIdentityToken || "";
+            }
+          } catch {}
+          return "";
+        });
+        if (tkGql) {
+          tokenCapturado = tkGql;
+          registrarLog("OK", "Token", `Token renovado via GraphQL interno.`);
+        }
+      }
+
+      // Simula um scroll na home para disparar requisições naturais se necessário
+      await page.evaluate(() => window.scrollBy(0, 500)).catch(() => {});
+      await dormirHumano(2000);
+    } catch (e) {
+      registrarLog("ERRO", "Token", `Erro ao tentar renovar sessão: ${e.message}`);
+    }
+  }
 
   sessao.status = "RODANDO";
   sessao.mensagem = "Abrindo página inicial do SuperKoch para estabelecer sessão legítima...";
   await enviarTelemetriaAoVivo(true);
 
-  console.log(`🌐 Abrindo página inicial do SuperKoch para estabelecer sessão legítima...`);
-  await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
   await dormirHumano(3500);
 
-  // Função que executa o fetch dentro da própria aba invisível do navegador (mesmo IP/Cookies/Origin do site)
-  async function consultarAPINoPontoExato(url, rotulo, pag, from) {
-    for (let tentativa = 1; tentativa <= CONFIG.maxRetries; tentativa++) {
+  // Espera de 5 minutos com telemetria viva a cada 10s (para nunca travar o controle remoto)
+  async function aguardarCincoMinutosComTelemetria(rotulo, pag, from, motivoErro) {
+    const totalSeg = Math.round(CONFIG.esperaErroRedeMs / 1000); // 300 segundos (5 minutos)
+    registrarLog("AVISO", rotulo, `${motivoErro} na Pág ${pag} (off ${from}). Aguardando 5 minutos para tentar novamente do mesmo ponto sem parar!`);
+    for (let s = totalSeg; s > 0; s -= 5) {
       await aguardarSePausadoRemoto();
-      sessao.requisicoesFeitas++;
+      if (sessao.pularRotaAtual || sessao.canceladoRemoto) return;
+      sessao.status = "BLOQUEIO_ESPERA";
+      sessao.mensagem = `⏳ [${rotulo}] ${motivoErro} (Pág ${pag}). Tentando novamente em ${formatarDuracaoSeg(s)}...`;
+      await enviarTelemetriaAoVivo(false);
+      await dormir(5000);
+    }
+    sessao.status = "RODANDO";
+  }
 
-      const resultado = await page.evaluate(async ({ targetUrl, tk }) => {
-        try {
-          const headers = { accept: "application/json, text/plain, */*" };
-          if (tk) headers["x-osuper-identity-token"] = tk;
-          const r = await fetch(targetUrl, { method: "GET", headers });
-          if (!r.ok) return { ok: false, status: r.status };
-          const data = await r.json();
-          return { ok: true, status: 200, data };
-        } catch (err) {
-          return { ok: false, status: 0, error: err.message };
-        }
-      }, { targetUrl: url, tk: tokenCapturado });
+  // Motor de consulta IMPARÁVEL: nunca desiste em erro de rede ou token!
+  async function consultarAPINoPontoExato(url, rotulo, pag, from) {
+    let tentativa = 0;
+    while (!sessao.pularRotaAtual && !sessao.canceladoRemoto) {
+      tentativa++;
+      await aguardarSePausadoRemoto();
+      if (sessao.pularRotaAtual || sessao.canceladoRemoto) return null;
+
+      sessao.requisicoesFeitas++;
+      let resultado = { ok: false, status: 0, error: "Sem resposta" };
+
+      try {
+        resultado = await page.evaluate(async ({ targetUrl, tk }) => {
+          try {
+            const headers = { accept: "application/json, text/plain, */*" };
+            if (tk) headers["x-osuper-identity-token"] = tk;
+            const r = await fetch(targetUrl, { method: "GET", headers });
+            if (!r.ok) return { ok: false, status: r.status };
+            const data = await r.json();
+            return { ok: true, status: 200, data };
+          } catch (err) {
+            return { ok: false, status: 0, error: err.message };
+          }
+        }, { targetUrl: url, tk: tokenCapturado });
+      } catch (evalErr) {
+        resultado = { ok: false, status: 0, error: evalErr.message };
+      }
 
       if (resultado.ok && resultado.data) {
         if (sessao.status === "BLOQUEIO_ESPERA") sessao.status = "RODANDO";
         return resultado.data;
       }
 
-      if (resultado.status === 429 || resultado.status >= 500 || resultado.status === 0 || resultado.status === 401 || resultado.status === 403) {
-        const espera = CONFIG.backoffMs * tentativa;
-        sessao.status = "BLOQUEIO_ESPERA";
-        sessao.mensagem = `⏳ Status ${resultado.status} em ${rotulo} (Pág ${pag}, offset ${from}). Parado no ponto exato! Aguardando ${Math.round(espera / 1000)}s (Tentativa ${tentativa}/${CONFIG.maxRetries})...`;
-        console.warn(sessao.mensagem);
-        await enviarTelemetriaAoVivo(true);
-        await dormirHumano(espera);
-
-        if (resultado.status === 401 || resultado.status === 403) {
-          tokenCapturado = "";
-          await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-          await dormirHumano(4000);
+      // 1. Erro de Token (401 / 403): Coleta novo token automaticamente e continua!
+      if (resultado.status === 401 || resultado.status === 403) {
+        await renovarSessaoETokenAutomatico(`HTTP ${resultado.status} em ${rotulo} (Pág ${pag})`);
+        if (tentativa >= 3) {
+          await aguardarCincoMinutosComTelemetria(rotulo, pag, from, `Token/Acesso HTTP ${resultado.status}`);
+        } else {
+          await dormirHumano(CONFIG.backoffCurtoMs);
         }
         continue;
       }
 
-      console.warn(`⚠️ [${rotulo}] Status HTTP ${resultado.status} ignorado.`);
+      // 2. Erro de Rede (status 0), Rate Limit (429) ou Servidor (500+):
+      // Na 1ª tentativa faz um respiro curto (15s); se persistir, espera 5 minutos e tenta novamente sem parar!
+      if (resultado.status === 0 || resultado.status === 429 || resultado.status >= 500) {
+        const descErro = resultado.status === 0
+          ? `Erro de Rede (${resultado.error || "Falha de conexão"})`
+          : `Limite/Servidor HTTP ${resultado.status}`;
+
+        if (tentativa === 1) {
+          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag}. Aguardando 15s para re-tentativa rápida...`);
+          await dormirHumano(CONFIG.backoffCurtoMs);
+        } else {
+          await aguardarCincoMinutosComTelemetria(rotulo, pag, from, descErro);
+          await renovarSessaoETokenAutomatico("Reconexão após espera de 5 minutos");
+        }
+        continue;
+      }
+
+      // 400 ou 404 (categoria inexistente na API): registra aviso e passa adiante
+      registrarLog("AVISO", rotulo, `Status HTTP ${resultado.status} ignorado na Pág ${pag}.`);
       return null;
     }
-    throw new Error(`Limite de tentativas excedido em ${rotulo} (Pág ${pag}, offset ${from}). Parando execução com progresso salvo.`);
+    return null;
   }
 
   try {
-    for (let i = CONFIG.startIndex; i < ROTAS_SEQUENCIAIS.length; i++) {
+    for (let i = CONFIG.startIndex; i < ROTAS_ATIVAS.length; i++) {
       await aguardarSePausadoRemoto();
 
-      // Verifica se o usuário pediu para pular para uma categoria específica pelo celular
       if (sessao.irParaRotaIndice !== null) {
         i = sessao.irParaRotaIndice;
         sessao.irParaRotaIndice = null;
         sessao.pularRotaAtual = false;
       }
 
-      const rota = ROTAS_SEQUENCIAIS[i];
+      const rota = ROTAS_ATIVAS[i];
       if (!rota) break;
 
       sessao.rotaIndiceAtual = i;
+      sessao.rotaTotal = ROTAS_ATIVAS.length;
       sessao.rotaNomeAtual = rota.nome;
       sessao.rotaUrlAtual = rota.url;
+      sessao.deptoAtualNome = rota.depto || "Geral";
       sessao.paginaAtual = 1;
       sessao.totalPaginasEstimadoRota = 1;
       sessao.offsetAtual = 0;
       sessao.pularRotaAtual = false;
 
-      const rotulo = `[#${i + 1}/${ROTAS_SEQUENCIAIS.length}] ${rota.nome}`;
+      const rotulo = `[#${i + 1}/${ROTAS_ATIVAS.length}] ${rota.nome}`;
       sessao.progressoRotas[i] = { st: "run", lidos: 0, novos: 0, precos: 0, pags: 0 };
 
       if (rota.tipo === "categorias_index") {
         sessao.progressoRotas[i] = { st: "ok", lidos: 0, novos: 0, precos: 0, pags: 1 };
-        console.log(`📂 ${rotulo} -> Índice verificado.`);
+        registrarLog("OK", rotulo, `Índice de categorias verificado.`);
         await enviarTelemetriaAoVivo(false);
         continue;
       }
@@ -847,7 +1059,7 @@ async function executarRoboCloud() {
         if (dadosHome?.hits) {
           const { novosLote, precosLote } = processarHits(dadosHome.hits, rota);
           sessao.progressoRotas[i] = { st: "ok", lidos: dadosHome.hits.length, novos: novosLote, precos: precosLote, pags: 1 };
-          console.log(`🏠 ${rotulo}: ${dadosHome.hits.length} itens lidos (+${novosLote} novos, ${precosLote} preços alterados).`);
+          registrarLog("OK", rotulo, `${dadosHome.hits.length} itens lidos (+${novosLote} novos, ${precosLote} preços alterados).`);
           await verificarAutoSaveInteligente(rota.nome, true);
         }
         await enviarTelemetriaAoVivo(true);
@@ -877,7 +1089,8 @@ async function executarRoboCloud() {
           promo: ehPromo,
           size: CONFIG.size,
           from,
-          categoryId: rota.id || ""
+          categoryId: rota.id || "",
+          categoryName: !rota.id && !ehPromo ? rota.nome.split(">").pop().trim() : ""
         });
 
         const dados = await consultarAPINoPontoExato(urlBusca, rotulo, pag, from);
@@ -902,7 +1115,7 @@ async function executarRoboCloud() {
 
         sessao.progressoRotas[i] = { st: "run", lidos: totalLidosRota, novos: novosRota, precos: precosRota, pags: pag };
 
-        // Verifica se atingiu +1 novo ou 50 atualizados (com proteção de cooldown durante as páginas)
+        // Salva automaticamente se atingiu +1 novo ou 50 atualizados (respeitando cooldown e SEM parar o robô!)
         await verificarAutoSaveInteligente(rota.nome, false);
         await enviarTelemetriaAoVivo(false);
 
@@ -921,6 +1134,14 @@ async function executarRoboCloud() {
         await dormirHumano(CONFIG.delayMs);
       }
 
+      // Verifica se houve comando de ir para rota específica durante a saída do while
+      if (sessao.irParaRotaIndice !== null) {
+        i = sessao.irParaRotaIndice - 1; // O for fará i++
+        sessao.irParaRotaIndice = null;
+        sessao.pularRotaAtual = false;
+        continue;
+      }
+
       sessao.progressoRotas[i] = {
         st: sessao.pularRotaAtual ? "skip" : "ok",
         lidos: totalLidosRota,
@@ -929,21 +1150,19 @@ async function executarRoboCloud() {
         pags: pag
       };
 
-      console.log(`✅ ${rotulo}: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços alterados | Total Banco: ${mapaProdutos.size}).`);
+      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços | Total Banco: ${mapaProdutos.size}).`);
 
-      // Ao finalizar uma categoria, verifica imediatamente se tem >= 1 novo ou >= 50 atualizados para salvar!
       await verificarAutoSaveInteligente(rota.nome, true);
 
-      // E se for fim de um Departamento principal com qualquer pendência, garante checkpoint no banco
       if (CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes") && (sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0)) {
         await gravarComSegurancaNoFirebase(`Fim do Depto ${rota.nome}`);
       }
 
       await enviarTelemetriaAoVivo(true);
 
-      if ((i + 1) % 12 === 0 && i + 1 < ROTAS_SEQUENCIAIS.length) {
+      if ((i + 1) % 12 === 0 && i + 1 < ROTAS_ATIVAS.length) {
         sessao.mensagem = `☕ Pausa furtiva de respiro (~12s) após ${i + 1} categorias...`;
-        console.log(sessao.mensagem);
+        registrarLog("OK", "Respiro Furtivo", sessao.mensagem);
         await enviarTelemetriaAoVivo(true);
         await dormirHumano(11000);
       } else {
@@ -951,32 +1170,27 @@ async function executarRoboCloud() {
       }
     }
 
-    // Gravação final se restou qualquer alteração pendente
     await gravarComSegurancaNoFirebase("Extração 100% Concluída");
     sessao.status = "CONCLUIDO";
     sessao.mensagem = `🎉 Concluído! ${mapaProdutos.size} produtos no banco (+${sessao.novosNaSessao} novos, 🔄 ${sessao.precosAlteradosNaSessao} preços atualizados).`;
+    registrarLog("OK", "Finalizado", sessao.mensagem);
     await enviarTelemetriaAoVivo(true);
-    console.log(sessao.mensagem);
   } finally {
     await browser.close();
   }
 }
 
-// CAPTURA DE SINAIS DE CANCELAMENTO (Se cancelar no GitHub Actions, Painel ou Ctrl+C)
 let salvandoCancelamento = false;
 const tratarCancelamento = async (sinal) => {
   if (salvandoCancelamento) return;
   salvandoCancelamento = true;
-  console.log(`\n🛑 Cancelamento detectado (${sinal}). Salvando imediatamente tudo o que foi coletado até o momento no Firebase...`);
+  registrarLog("AVISO", "Sistema", `Sinal de encerramento (${sinal}). Salvando tudo no Firebase antes de sair...`);
   try {
     sessao.status = "CANCELADO_SALVO";
-    sessao.mensagem = `⏹ Cancelado (${sinal}) em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Tudo salvo com segurança!`;
+    sessao.mensagem = `⏹ Encerrado (${sinal}) em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Tudo salvo com segurança!`;
     await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
     await enviarTelemetriaAoVivo(true);
-    console.log(`✅ Salvo com sucesso antes de encerrar!`);
-  } catch (e) {
-    console.error(`Erro ao salvar no cancelamento:`, e.message);
-  }
+  } catch (e) {}
   process.exit(0);
 };
 
@@ -984,10 +1198,10 @@ process.on("SIGINT", () => tratarCancelamento("SIGINT"));
 process.on("SIGTERM", () => tratarCancelamento("SIGTERM"));
 
 executarRoboCloud().catch(async (err) => {
-  console.error(`❌ Erro durante a execução:`, err.message);
+  registrarLog("ERRO", "Fatal", `Exceção: ${err.message}`);
   sessao.status = "ERRO";
-  sessao.mensagem = `❌ Parado em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}): ${err.message}. Progresso salvo!`;
-  await gravarComSegurancaNoFirebase("Salvamento de Emergência no Ponto de Parada").catch(() => {});
+  sessao.mensagem = `❌ Erro em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}): ${err.message}. Progresso salvo!`;
+  await gravarComSegurancaNoFirebase("Salvamento de Emergência").catch(() => {});
   await enviarTelemetriaAoVivo(true).catch(() => {});
   process.exit(1);
 });

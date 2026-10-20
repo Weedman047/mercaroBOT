@@ -974,10 +974,23 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       const nomeLimpo = String(item.name || existente?.nome || "Produto sem nome").trim();
       const estoqueNovo = item.quantity?.inStock ?? existente?.estoque ?? 0;
 
-      // Histórico de preços acumulado por dia
-      const historico = { ...(existente?.historicoPrecos || {}) };
+      // Histórico inteligente: nunca salva 2 preços iguais consecutivos, e no mesmo dia mantém apenas o mais novo
+      const brutoHist = { ...(existente?.historicoPrecos || {}) };
       if (precoSeguro > 0) {
-        historico[dataHojeISO] = precoSeguro;
+        brutoHist[dataHojeISO] = Number(precoSeguro.toFixed(2));
+      }
+      const datasHist = Object.keys(brutoHist).sort((a, b) => a.localeCompare(b));
+      const historico = {};
+      let ultimoValHist = null;
+      for (let dIdx = 0; dIdx < datasHist.length; dIdx++) {
+        const dtKey = datasHist[dIdx];
+        const vNum = Number(brutoHist[dtKey]);
+        if (!vNum || vNum <= 0) continue;
+        const vArr = Number(vNum.toFixed(2));
+        if (ultimoValHist === null || Math.abs(vArr - ultimoValHist) >= 0.01) {
+          historico[dtKey] = vArr;
+          ultimoValHist = vArr;
+        }
       }
 
       const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0));
@@ -1284,6 +1297,16 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
   // Sincronização leve com Painel Mobile / Central do Robô (~2 KB)
   let ultimoEnvioTelemetriaMs = 0;
+  const formatarDuracaoSeg = (sTot) => {
+    const s = Math.max(0, Math.round(sTot));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const seg = s % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m ${String(seg).padStart(2, "0")}s`;
+    if (m > 0) return `${m}m ${String(seg).padStart(2, "0")}s`;
+    return `${seg}s`;
+  };
+
   const enviarTelemetriaAoVivo = async (forcar = false, statusOverride = null, msgOverride = null) => {
     const agora = Date.now();
     if (!forcar && agora - ultimoEnvioTelemetriaMs < 2500) return;
@@ -1291,25 +1314,42 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
     const rotaAtualObj = rotasAtivas[estado.indiceRotaAtual] || {};
     const rotasRestantes = Math.max(0, rotasAtivas.length - (estado.indiceRotaAtual + 1));
-    const pct = Math.min(100, Math.max(1, Math.round(((estado.indiceRotaAtual + 1) / rotasAtivas.length) * 100)));
+    const pct = Math.min(100, Math.max(1, Math.round(((estado.indiceRotaAtual + 1) / Math.max(1, rotasAtivas.length)) * 100)));
     const statusEnvio = statusOverride || (estado.cancelado ? "CANCELADO_SALVO" : (estado.pausado ? "PAUSADO" : (estado.bloqueioAtivo ? "BLOQUEIO_ESPERA" : (estado.rodando ? "RODANDO" : "PRONTO"))));
-    const estMin = Math.max(1, Math.round((rotasRestantes * (config.delayMs * 8 + config.delayTrocaRotaMs)) / 60000));
+
+    const decorridoSeg = Math.max(1, Math.round((agora - estado.tempoInicioMs) / 1000));
+    const pagsRestCat = Math.max(0, (estado.totalPaginasEstimadoRota || 1) - (estado.paginaAtualNaRota || 1));
+    const estCatSeg = Math.round(pagsRestCat * ((config.delayMs * 1.25 + 650) / 1000));
+    const estTotalSeg = Math.round((rotasRestantes * (config.delayMs * 8 + config.delayTrocaRotaMs)) / 1000 + estCatSeg);
+
+    const deptoNome = rotaAtualObj.depto || "Geral";
+    const idxsDepto = [];
+    rotasAtivas.forEach((r, idx) => { if (r.depto === deptoNome) idxsDepto.push(idx); });
+    const posNoDepto = Math.max(1, idxsDepto.indexOf(estado.indiceRotaAtual) + 1);
+    const totNoDepto = idxsDepto.length || 1;
 
     const payload = {
       idExecucao: estado.idExecucao,
       origem: "Navegador (Robô V7)",
       iniciadoEm: new Date(estado.tempoInicioMs).toISOString(),
+      tempoInicioMs: estado.tempoInicioMs,
       atualizadoEm: new Date().toISOString(),
       heartbeatMs: agora,
       status: statusEnvio,
       mensagem: msgOverride || elStatus?.innerText || "Ativo",
       progressoPct: statusEnvio === "CONCLUIDO" ? 100 : pct,
-      tempoRestante: statusEnvio === "CONCLUIDO" ? "Concluído!" : `~${estMin} min (${rotasRestantes} categorias restantes)`,
+      tempoDecorrido: formatarDuracaoSeg(decorridoSeg),
+      tempoEstimadoCategoria: pagsRestCat <= 0 ? "Finalizando categoria..." : `~${formatarDuracaoSeg(estCatSeg)} (faltam ${pagsRestCat} págs)`,
+      tempoRestante: statusEnvio === "CONCLUIDO" ? "Concluído!" : `~${formatarDuracaoSeg(estTotalSeg)}`,
       rotaIndiceAtual: estado.indiceRotaAtual + 1,
       rotaTotal: rotasAtivas.length,
       categoriasFaltando: rotasRestantes,
       rotaNomeAtual: rotaAtualObj.nome || "Início",
       rotaUrlAtual: rotaAtualObj.url || "",
+      deptoAtualNome: deptoNome,
+      subcategoriaPosNoDepto: posNoDepto,
+      subcategoriasTotalNoDepto: totNoDepto,
+      subcategoriasFaltandoNoDepto: Math.max(0, totNoDepto - posNoDepto),
       paginaAtual: estado.paginaAtualNaRota,
       totalPaginasEstimadoRota: estado.totalPaginasEstimadoRota || 1,
       offsetAtual: estado.offsetFromAtual,
@@ -1337,7 +1377,9 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       ultimosNovos: estado.ultimosNovos.slice(0, 40),
       ultimosPrecosAlterados: estado.ultimosPrecosAlterados.slice(0, 50),
       ultimosEstoquesAlterados: estado.ultimosEstoquesAlterados.slice(0, 30),
-      ultimosLidos: estado.ultimosNomes.slice(0, 8)
+      ultimosLidos: estado.ultimosNomes.slice(0, 8),
+      ultimosLogs: estado.logs.slice(0, 70),
+      contagemLogs: estado.contagemLogs
     };
 
     try {
@@ -1497,19 +1539,19 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     } catch (e) {}
   };
 
-  // Garante que o Token da sessão do SuperKoch está ativo (PASSIVO: sem fazer loop de requisições!)
+  // Garante que o Token da sessão do SuperKoch está ativo (PASSIVO + AUTO-RENOVAÇÃO SEM PARAR!)
   let ultimaTentativaGql = 0;
   const garantirTokenNoPontoExato = async (contextoParada = "", forcarEspera = false) => {
     if (estado.token) return estado.token;
 
-    // Tenta no máximo 1 chamada GraphQL a cada 60s (nunca em loop!)
-    if (Date.now() - ultimaTentativaGql > 60000) {
+    // 1. Tenta renovar token via GraphQL / sessão
+    if (Date.now() - ultimaTentativaGql > 15000 || forcarEspera) {
       ultimaTentativaGql = Date.now();
       await tentarRenovarTokenViaGraphQL();
       if (estado.token) return estado.token;
     }
 
-    // Estimula rolagem leve apenas 1 vez para ver se a própria página já tem sessão ativa
+    // 2. Estimula rolagem leve para capturar token de sessão ativa da página
     try {
       window.scrollBy(0, 350);
       setTimeout(() => window.scrollTo(0, 0), 400);
@@ -1520,18 +1562,29 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       await dormir(300);
     }
 
-    // Se ainda não tiver token e o servidor exigiu (401/403), aguarda passivamente 1 clique na página (ZERO requisições no loop!)
+    // 3. Se o servidor exigiu token (401/403), tenta coletar automaticamente a cada 30s sem nunca parar!
     if (!estado.token && !estado.cancelado && forcarEspera) {
       estado.aguardandoToken = true;
       salvarCheckpointLocal();
-      const msgParada = `Parado exatamente em: ${contextoParada || "Início"} (Pág ${estado.paginaAtualNaRota}, offset ${estado.offsetFromAtual}). Clique em qualquer categoria ou produto da página para gerar o token (aguardando em silêncio sem fazer requisições)...`;
-      exibirAlertaParada(true, "🔑 Aguardando 1 clique na página para liberar Token", msgParada);
-      registrarLog("ESPERADO", "Token", msgParada);
-      atualizarUI("🔑 Aguardando 1 clique...", "Clique em qualquer categoria do site que eu capturo o token e retomo daqui!");
-
+      let cicloToken = 0;
       while (!estado.token && !estado.cancelado) {
-        // Espera 100% passiva na memória (não dispara NENHUMA requisição enquanto aguarda seu clique!)
-        await dormir(500);
+        cicloToken++;
+        const msgParada = `Renovando token automaticamente (tentativa #${cicloToken}) em: ${contextoParada || "Início"} (Pág ${estado.paginaAtualNaRota}, offset ${estado.offsetFromAtual})...`;
+        exibirAlertaParada(true, "🔑 Renovando Token Automaticamente", msgParada);
+        registrarLog("ESPERADO", "Token", msgParada);
+        atualizarUI("🔑 Coletando Token...", msgParada);
+        await enviarTelemetriaAoVivo(true, "RODANDO", msgParada);
+
+        await tentarRenovarTokenViaGraphQL();
+        try {
+          window.scrollBy(0, 400);
+          setTimeout(() => window.scrollTo(0, 0), 500);
+        } catch (e) {}
+
+        for (let s = 0; s < 30; s++) {
+          if (estado.token || estado.cancelado) break;
+          await dormir(1000);
+        }
       }
       estado.aguardandoToken = false;
       exibirAlertaParada(false);
@@ -1540,9 +1593,32 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
   };
 
   // =======================================================================
-  // MOTOR DE REQUISIÇÃO COM PARADA EXATA EM CASO DE BLOQUEIO (429) OU TOKEN
-  // Nunca avança o offset se houver bloqueio: espera, renova e repete o mesmo ponto!
+  // MOTOR DE REQUISIÇÃO ININTERRUPTO (NUNCA PARA SOZINHO!)
+  // Em erro de rede ou bloqueio, aguarda 5 minutos e tenta novamente do mesmo ponto!
+  // Em erro de token (401/403), coleta novo token e continua!
   // =======================================================================
+  const aguardarCincoMinutosRobo = async (contextoLog, motivo) => {
+    const totalSegundos = 300; // 5 minutos = 300s
+    salvarCheckpointLocal();
+    if (estado.novosDesdeUltimoSave > 0 || estado.atualizadosDesdeUltimoSave > 0) {
+      await gravarNoFirebase(true, `Save preventivo antes da espera de 5m (${motivo})`);
+    }
+    for (let segRestante = totalSegundos; segRestante > 0; segRestante--) {
+      if (estado.cancelado || estado.salvarAgora) break;
+      await aguardarSePausado();
+      if (segRestante % 10 === 0 || segRestante === totalSegundos) {
+        const min = Math.floor(segRestante / 60);
+        const seg = segRestante % 60;
+        const msgEspera = `⏳ [${motivo}] Aguardando ${min}m ${seg}s para tentar novamente em ${contextoLog} (Pág ${estado.paginaAtualNaRota})...`;
+        exibirAlertaParada(true, "⏳ Aguardando 5 Minutos p/ Retentar Automaticamente", msgEspera);
+        atualizarUI(null, msgEspera);
+        await enviarTelemetriaAoVivo(true, "BLOQUEIO_ESPERA", msgEspera);
+      }
+      await dormir(1000);
+    }
+    exibirAlertaParada(false);
+  };
+
   const requisitarAPINoPontoExato = async (urlBuilderFn, contextoLog) => {
     lerConfigDaUI();
     let tentativa = 0;
@@ -1568,44 +1644,24 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
           return await resp.json();
         }
 
-        // Token expirado ou exigido (401 / 403): para no ponto exato e aguarda passivamente sem floodar!
+        // Token expirado ou exigido (401 / 403): coleta novo token automaticamente e continua!
         if (resp.status === 401 || resp.status === 403) {
-          registrarLog("ESPERADO", contextoLog, `Token solicitado/expirado (HTTP ${resp.status}) na pág ${estado.paginaAtualNaRota}. Parando em silêncio no ponto exato...`);
+          registrarLog("ESPERADO", contextoLog, `Token solicitado/expirado (HTTP ${resp.status}) na pág ${estado.paginaAtualNaRota}. Coletando novo token e continuando...`);
           estado.token = "";
           estado.customerId = "";
           estado.isEmployee = "";
           salvarCheckpointLocal();
           await garantirTokenNoPontoExato(contextoLog, true);
-          tentativa = 0; // Reseta tentativas após recuperar token
           continue;
         }
 
-        // Muitas requisições / Rate Limit (429) ou instabilidade do servidor (500+):
+        // Muitas requisições / Rate Limit (429) ou instabilidade do servidor (500+): espera 5 minutos e tenta novamente sem parar!
         if (resp.status === 429 || resp.status >= 500) {
           estado.bloqueioAtivo = true;
-          salvarCheckpointLocal();
-          const espera = config.backoffMs * Math.min(tentativa, 6);
-          const msgBloq = `HTTP ${resp.status} em ${contextoLog} (Pág ${estado.paginaAtualNaRota}, offset ${estado.offsetFromAtual}). Aguardando ${Math.round(espera / 1000)}s em silêncio no ponto exato (Tentativa ${tentativa}/${config.maxRetries})...`;
-          exibirAlertaParada(true, "⏳ Pausa Furtiva Anti-Bloqueio no Ponto Exato", msgBloq);
+          const msgBloq = `HTTP ${resp.status} em ${contextoLog} (Pág ${estado.paginaAtualNaRota}, offset ${estado.offsetFromAtual}). Aguardando 5 minutos para tentar novamente (Tentativa #${tentativa})...`;
           registrarLog("ESPERADO", contextoLog, msgBloq);
-          atualizarUI(null, `⏳ Pausa anti-bloqueio: aguardando ${Math.round(espera / 1000)}s para repetir pág ${estado.paginaAtualNaRota}...`);
-
-          await dormir(espera);
-
-          // Se atingiu o limite de tentativas seguidas e "pararNoLocalExato" está ativo, pausa para proteger a conta/IP
-          if (tentativa >= config.maxRetries && config.pararNoLocalExato) {
-            estado.pausado = true;
-            btnPause.innerText = "▶ Retomar";
-            btnPause.style.background = "#2563eb";
-            elDot.style.background = "#f59e0b";
-            await gravarNoFirebase(true);
-            const msgPausa = `O servidor limitou as requisições. O robô pausou em segurança em ${contextoLog} (Pág ${estado.paginaAtualNaRota}, offset ${estado.offsetFromAtual}). Aguarde 1 a 2 minutos e clique em ▶ Retomar para continuar daqui!`;
-            exibirAlertaParada(true, "⏸ Pausado no Ponto Exato (Proteção de IP)", msgPausa);
-            registrarLog("INESPERADO", "Anti-Bloqueio", msgPausa);
-            await aguardarSePausado();
-            exibirAlertaParada(false);
-            tentativa = 0;
-          }
+          await aguardarCincoMinutosRobo(contextoLog, `HTTP ${resp.status} - Tentativa #${tentativa}`);
+          await tentarRenovarTokenViaGraphQL();
           continue;
         }
 
@@ -1615,25 +1671,11 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
           return null;
         }
 
-        registrarLog("INESPERADO", contextoLog, `Status HTTP inesperado: ${resp.status}`);
-        return null;
+        registrarLog("INESPERADO", contextoLog, `Status HTTP inesperado: ${resp.status}. Aguardando 5 min e tentando novamente...`);
+        await aguardarCincoMinutosRobo(contextoLog, `HTTP ${resp.status}`);
       } catch (err) {
-        salvarCheckpointLocal();
-        const esperaRede = config.backoffMs * Math.min(tentativa, 4);
-        exibirAlertaParada(true, "🌐 Oscilação de Rede no Ponto Exato", `Falha de conexão em ${contextoLog} (Pág ${estado.paginaAtualNaRota}). Tentando novamente do mesmo ponto em ${Math.round(esperaRede / 1000)}s...`);
-        registrarLog("INESPERADO", contextoLog, `Erro de rede na tentativa ${tentativa}. Repetindo mesmo ponto...`, err.message);
-        await dormir(esperaRede);
-
-        if (tentativa >= config.maxRetries && config.pararNoLocalExato) {
-          estado.pausado = true;
-          btnPause.innerText = "▶ Retomar";
-          btnPause.style.background = "#2563eb";
-          elDot.style.background = "#f59e0b";
-          exibirAlertaParada(true, "⏸ Pausado no Ponto Exato (Sem Conexão)", `Verifique a internet e clique em ▶ Retomar para continuar exatamente de ${contextoLog} (Pág ${estado.paginaAtualNaRota}).`);
-          await aguardarSePausado();
-          exibirAlertaParada(false);
-          tentativa = 0;
-        }
+        registrarLog("INESPERADO", contextoLog, `Erro de rede na tentativa #${tentativa} (${err.message}). Aguardando 5 minutos e tentando novamente...`, err.message);
+        await aguardarCincoMinutosRobo(contextoLog, `Erro de Rede #${tentativa}`);
       }
     }
     return null;

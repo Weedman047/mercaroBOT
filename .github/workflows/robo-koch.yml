@@ -36,7 +36,7 @@ on:
 jobs:
   extrair-catalogo-koch:
     runs-on: ubuntu-latest
-    timeout-minutes: 240 # Até 4 horas de folga para rodar bem devagar sem bloquear
+    timeout-minutes: 360 # Até 6 horas de folga para rodar devagar e suportar esperas de 5 min em oscilações de rede
 
     steps:
       - name: "📥 Baixar código do repositório"
