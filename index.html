@@ -242,16 +242,25 @@
               </div>
               <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2">
                 <div class="text-[9px] font-bold text-emerald-400 uppercase">📂 Categorias Faltando</div>
-                <div id="roboDetalheFaltam" class="text-xs sm:text-sm font-black text-emerald-300 mt-0.5">121 restantes</div>
+                <div id="roboDetalheFaltam" class="text-xs sm:text-sm font-black text-emerald-300 mt-0.5">106 restantes</div>
               </div>
               <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2">
                 <div class="text-[9px] font-bold text-purple-400 uppercase">🌿 Subcategorias no Depto</div>
                 <div id="roboDetalheSubcategorias" class="text-xs sm:text-sm font-black text-purple-300 mt-0.5 truncate">--</div>
               </div>
               <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2">
-                <div class="text-[9px] font-bold text-slate-400 uppercase">📄 Posição na Categoria</div>
+                <div class="text-[9px] font-bold text-slate-400 uppercase">📄 Posição / Enxame</div>
                 <div id="roboDetalhePosicao" class="text-xs sm:text-sm font-black text-slate-200 mt-0.5 truncate">Pág 1 (offset 0)</div>
               </div>
+            </div>
+
+            <!-- Status Unificado das Máquinas do Enxame (Caminho 1) -->
+            <div id="boxResumoEnxameAoVivo" class="hidden pt-2 border-t border-slate-800/80">
+              <div class="flex items-center justify-between text-[10px] font-bold text-emerald-400 mb-1.5">
+                <span id="lblTituloEnxameAtivo">⚡ Enxame de Máquinas em Paralelo (IPs Independentes):</span>
+                <span class="text-slate-400 font-normal">Controladas em conjunto como 1 único robô</span>
+              </div>
+              <div id="listaMaquinasEnxameAoVivo" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-28 overflow-y-auto"></div>
             </div>
           </div>
 
@@ -352,19 +361,30 @@
           </div>
         </div>
 
-        <!-- ABA 4: FILA EDITÁVEL (ORDENAR, ADICIONAR, DELETAR E RESETAR) -->
+        <!-- ABA 4: FILA EDITÁVEL (ORDENAR, ADICIONAR, DELETAR E RESETAR + OPÇÕES 2A E 2B) -->
         <div id="viewRobo-fila" class="hidden space-y-2.5">
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2.5">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h4 class="text-xs font-black text-white">📑 Gerenciar Fila de Categorias (<span id="lblTotalRotasFila">121</span> categorias)</h4>
-                <p class="text-[11px] text-slate-400">Altere a ordem (⬆️/⬇️), pule para uma categoria (🎯), delete (🗑️), adicione novas ou resete.</p>
+                <h4 class="text-xs font-black text-white">📑 Gerenciar Fila (<span id="lblTotalRotasFila">106</span> categorias ativas)</h4>
+                <p class="text-[11px] text-slate-400">Escolha o modo anti-duplicação (2A/2B) ou altere a ordem (⬆️/⬇️), pule (🎯), delete (🗑️) ou adicione.</p>
               </div>
               <div class="flex flex-wrap items-center gap-1.5">
                 <button onclick="toggleFormAdicionarFila()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] px-2.5 py-1.5 rounded-lg">➕ Adicionar</button>
                 <button onclick="salvarFilaCustomNoFirebase()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-[11px] px-2.5 py-1.5 rounded-lg">💾 Salvar Fila</button>
-                <button onclick="resetarFilaPadrao()" class="bg-slate-800 hover:bg-red-900/60 text-slate-200 font-bold text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700">↺ Resetar (121)</button>
+                <button onclick="resetarFilaPadrao()" class="bg-slate-800 hover:bg-red-900/60 text-slate-200 font-bold text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700">↺ Resetar</button>
               </div>
+            </div>
+
+            <!-- Seletor Rápido do Caminho 2: Opção 2A (Padrão Ativado) e Opção 2B -->
+            <div class="bg-slate-950 border border-slate-800 rounded-lg p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span class="text-[11px] font-bold text-amber-300">⚡ Caminho 2 (Eliminar Leitura Duplicada):</span>
+              <select id="selModoFilaRapido" onchange="aoMudarModoFilaUI(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-bold">
+                <option value="2A" selected>✅ Opção 2A (Padrão Ativado): Só Subcategorias + Promoções (106 rotas • 2x mais rápido)</option>
+                <option value="2B">⚡ Opção 2B (Modo Turbo): Só os 15 Departamentos + Promoções (16 rotas ultra-rápidas)</option>
+                <option value="COMPLETA">📚 Fila Completa Original (121 rotas: Departamentos + Subcategorias)</option>
+                <option value="CUSTOM">✏️ Fila Personalizada Manual</option>
+              </select>
             </div>
 
             <!-- Formulário para Adicionar Nova Categoria/Link na Fila -->
@@ -407,8 +427,49 @@
           </div>
         </div>
 
-        <!-- ABA 6: CONFIGURAÇÕES EM TEMPO REAL -->
+        <!-- ABA 6: CONFIGURAÇÕES EM TEMPO REAL (CAMINHOS 1, 2, 3 E 4 INTEGRADOS) -->
         <div id="viewRobo-config" class="hidden space-y-3">
+
+          <!-- CAMINHOS 1, 2 e 3: ACELERAÇÃO TURBO (ENXAME + FILA SEM DUPLICAR + LOTE SIZE) -->
+          <div class="bg-slate-900 border border-emerald-800/70 rounded-xl p-3.5 space-y-3">
+            <h4 class="text-xs font-black text-emerald-400 uppercase tracking-wide">🚀 Aceleração Turbo (Caminhos 1, 2 e 3)</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Caminho 1 • Enxame de Máquinas (IPs):</label>
+                <select id="inpConfigTotalMaquinas" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-bold">
+                  <option value="1">1 Máquina (1 IP)</option>
+                  <option value="3">3 Máquinas Simultâneas (3 IPs)</option>
+                  <option value="5" selected>5 Máquinas Simultâneas (5 IPs • Recomendado)</option>
+                  <option value="8">8 Máquinas Simultâneas (8 IPs)</option>
+                  <option value="10">10 Máquinas Simultâneas (10 IPs • Máximo)</option>
+                </select>
+                <span class="text-[10px] text-slate-500">Dividem a fila e salvam juntas como 1 robô</span>
+              </div>
+
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Caminho 2 • Modo da Fila:</label>
+                <select id="inpConfigModoFila" onchange="aoMudarModoFilaUI(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-bold">
+                  <option value="2A" selected>Opção 2A: Só Subcategorias (Padrão Ativado)</option>
+                  <option value="2B">Opção 2B: Só Departamentos (Modo Turbo)</option>
+                  <option value="COMPLETA">Completa (121 Rotas Originais)</option>
+                  <option value="CUSTOM">Personalizada Manual</option>
+                </select>
+                <span class="text-[10px] text-slate-500">2A elimina leitura duplicada (2x mais rápido)</span>
+              </div>
+
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Caminho 3 • Lote por Requisição (size):</label>
+                <select id="inpConfigBatchSize" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-bold">
+                  <option value="12" selected>12 itens por página (Pré-selecionado • Padrão)</option>
+                  <option value="24">24 itens por página (2x mais rápido)</option>
+                  <option value="36">36 itens por página (3x mais rápido)</option>
+                  <option value="48">48 itens por página (4x mais rápido)</option>
+                </select>
+                <span class="text-[10px] text-slate-500">12 pré-selecionado; mude p/ 36 quando quiser</span>
+              </div>
+            </div>
+          </div>
+
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3">
             <h4 class="text-xs font-black text-emerald-400 uppercase tracking-wide">💾 Regra de Salvamento Inteligente (Nunca Para o Robô)</h4>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -447,6 +508,23 @@
                 <label class="block text-[11px] text-slate-300 font-bold mb-1">Iniciar da Categoria Nº:</label>
                 <input id="inpConfigRotaInicial" type="number" min="1" max="300" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
                 <span class="text-[10px] text-slate-500">Para novos disparos na nuvem</span>
+              </div>
+            </div>
+
+            <!-- CAMINHO 4: ROTAÇÃO DE PROXIES / CLOUDFLARE WORKERS (OPCIONAL, DESATIVADO POR PADRÃO) -->
+            <div class="pt-2 border-t border-slate-800 space-y-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <label class="flex items-center gap-2 text-xs font-bold text-amber-300 cursor-pointer">
+                  <input id="chkConfigUsarProxy" type="checkbox" onchange="document.getElementById('boxConfigListaProxies').classList.toggle('hidden', !this.checked)" class="accent-emerald-500 w-4 h-4">
+                  <span>🌐 Caminho 4: Ativar Rotação de Proxies / Cloudflare Workers (Desativado por padrão)</span>
+                </label>
+                <button onclick="copiarCodigoCloudflareWorker()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-slate-700 font-bold">
+                  📋 Copiar Script Worker Grátis
+                </button>
+              </div>
+              <div id="boxConfigListaProxies" class="hidden space-y-1.5">
+                <p class="text-[10px] text-slate-400">Cole 1 URL de Proxy/Worker por linha (ex: <code class="text-amber-300">https://meu-worker.workers.dev/?url=</code>). Se algum oscilar, o robô usa conexão direta automaticamente para nunca parar:</p>
+                <textarea id="inpConfigListaProxies" rows="2" placeholder="https://koch-proxy-1.seu-usuario.workers.dev/?url=&#10;https://koch-proxy-2.seu-usuario.workers.dev/?url=" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-white font-mono"></textarea>
               </div>
             </div>
 
@@ -741,7 +819,33 @@
       { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
     ];
 
-    let filaCategoriasEditavel = ROTAS_PADRAO_121.map(r => ({ ...r }));
+    let modoFilaAtual = '2A'; // Caminho 2: Opção 2A ativada por padrão (Só Subcategorias + Promoções = 106 rotas sem duplicar!)
+    function obterFilaPorModoPadrao(modo) {
+      const m = String(modo || '2A').toUpperCase();
+      if (m === '2A') return ROTAS_PADRAO_121.filter(r => r.tipo === 'sub' || r.tipo === 'promocoes').map(r => ({ ...r }));
+      if (m === '2B') return ROTAS_PADRAO_121.filter(r => r.tipo === 'depto' || r.tipo === 'promocoes').map(r => ({ ...r }));
+      return ROTAS_PADRAO_121.map(r => ({ ...r }));
+    }
+    let filaCategoriasEditavel = obterFilaPorModoPadrao('2A');
+
+    function aoMudarModoFilaUI(novoModo) {
+      if (!exigirSenhaRobo()) {
+        document.getElementById('selModoFilaRapido').value = modoFilaAtual;
+        document.getElementById('inpConfigModoFila').value = modoFilaAtual;
+        return;
+      }
+      modoFilaAtual = novoModo;
+      const sel1 = document.getElementById('selModoFilaRapido');
+      const sel2 = document.getElementById('inpConfigModoFila');
+      if (sel1) sel1.value = novoModo;
+      if (sel2) sel2.value = novoModo;
+
+      if (novoModo !== 'CUSTOM') {
+        filaCategoriasEditavel = obterFilaPorModoPadrao(novoModo);
+        renderizarFilaCategoriasRobo();
+        enviarComandoRobo('ATUALIZAR_FILA', { modoFila: novoModo, rotas: filaCategoriasEditavel });
+      }
+    }
 
     const DEPARTAMENTOS_IFOOD = [
       { id: 'TODOS', nome: 'Todos', icone: '🏪', sub: [] },
@@ -1039,7 +1143,32 @@
       document.getElementById('roboTempoRestante').textContent = t.tempoRestante || '--';
       document.getElementById('roboDetalheFaltam').textContent = faltamCat > 0 ? `Faltam ${faltamCat} de ${tot}` : `Todas concluídas!`;
       document.getElementById('roboDetalheSubcategorias').textContent = `${subPos} de ${subTot} (faltam ${subFaltam})`;
-      document.getElementById('roboDetalhePosicao').textContent = `Pág ${t.paginaAtual || 1}${t.totalPaginasEstimadoRota > 1 ? ` de ~${t.totalPaginasEstimadoRota}` : ''} (off ${t.offsetAtual || 0})`;
+      const maqTotal = t.enxameAtivo?.totalMaquinas || t.configAtiva?.totalMaquinas || 1;
+      const maqAtivas = t.enxameAtivo?.maquinasAtivas || 1;
+      document.getElementById('roboDetalhePosicao').textContent = maqTotal > 1
+        ? `⚡ ${maqAtivas}/${maqTotal} Máquinas • Pág ${t.paginaAtual || 1}`
+        : `Pág ${t.paginaAtual || 1}${t.totalPaginasEstimadoRota > 1 ? ` de ~${t.totalPaginasEstimadoRota}` : ''} (off ${t.offsetAtual || 0})`;
+
+      // Exibe o painel compacto das máquinas do Enxame quando houver mais de 1 máquina
+      const boxEnxame = document.getElementById('boxResumoEnxameAoVivo');
+      const listaMaq = document.getElementById('listaMaquinasEnxameAoVivo');
+      if (boxEnxame && listaMaq) {
+        const resumoMaq = Array.isArray(t.enxameAtivo?.resumoMaquinas) ? t.enxameAtivo.resumoMaquinas : [];
+        if (maqTotal > 1 && resumoMaq.length > 0) {
+          boxEnxame.classList.remove('hidden');
+          document.getElementById('lblTituloEnxameAtivo').textContent = `⚡ Enxame Ativo (${maqAtivas}/${maqTotal} Máquinas com IPs Independentes):`;
+          listaMaq.innerHTML = resumoMaq.map(m => {
+            const corSt = m.status === 'CONCLUIDO' ? 'text-emerald-400 border-emerald-800/60' : (m.status === 'PAUSADO' ? 'text-amber-300 border-amber-800/60' : 'text-sky-300 border-slate-800');
+            return `<div class="bg-slate-950 border ${corSt} rounded px-2 py-1 text-[10px] flex items-center justify-between gap-1">
+              <span class="font-black text-white shrink-0">🖥️ Máq #${m.id}:</span>
+              <span class="truncate text-slate-300 flex-1">${m.rota || ''} (Pág ${m.pag || 1})</span>
+              <span class="font-mono text-[9px] text-emerald-400 shrink-0">${m.lidos || 0} lidos</span>
+            </div>`;
+          }).join('');
+        } else {
+          boxEnxame.classList.add('hidden');
+        }
+      }
 
       // KPIs
       document.getElementById('kpiLidosSessao').textContent = `${Number(t.totalLidosNaSessao || 0).toLocaleString('pt-BR')} lidos`;
@@ -1226,14 +1355,15 @@
         let statusHtml = `<span class="text-[10px] text-slate-500">⏳ Na fila (${rota.pathReal || rota.url || ''})</span>`;
         let borda = "border-slate-800";
 
+        const tagWorker = p?.worker ? `<span class="bg-slate-800 text-sky-300 px-1 py-0.2 rounded text-[9px] font-mono mr-1">Máq #${p.worker}</span>` : '';
         if (p?.st === 'ok') {
-          statusHtml = `<span class="text-[10px] font-bold text-emerald-400">✅ ${p.lidos || 0} lidos (+${p.novos || 0} / 🔄${p.precos || 0})</span>`;
+          statusHtml = `${tagWorker}<span class="text-[10px] font-bold text-emerald-400">✅ ${p.lidos || 0} lidos (+${p.novos || 0} / 🔄${p.precos || 0})</span>`;
           borda = "border-emerald-900/60";
         } else if (ehAtual || p?.st === 'run') {
-          statusHtml = `<span class="text-[10px] font-black text-amber-400">🔄 Rodando Pág ${p?.pags || telemetriaAtualRobo?.paginaAtual || 1}...</span>`;
+          statusHtml = `${tagWorker}<span class="text-[10px] font-black text-amber-400">🔄 Rodando Pág ${p?.pags || telemetriaAtualRobo?.paginaAtual || 1}...</span>`;
           borda = "border-amber-500/70 bg-slate-900";
         } else if (p?.st === 'skip') {
-          statusHtml = `<span class="text-[10px] text-slate-400">⏭ Pulada</span>`;
+          statusHtml = `${tagWorker}<span class="text-[10px] text-slate-400">⏭ Pulada</span>`;
         }
 
         return `
@@ -1329,15 +1459,38 @@
 
     async function resetarFilaPadrao() {
       if (!exigirSenhaRobo()) return;
-      if (!confirm('Restaurar a fila original com todas as 121 categorias padrão?')) return;
-      filaCategoriasEditavel = ROTAS_PADRAO_121.map(r => ({ ...r }));
+      if (!confirm('Restaurar a fila para o padrão recomendado (Opção 2A: 106 subcategorias + ofertas sem duplicação)?')) return;
+      modoFilaAtual = '2A';
+      document.getElementById('selModoFilaRapido').value = '2A';
+      document.getElementById('inpConfigModoFila').value = '2A';
+      filaCategoriasEditavel = obterFilaPorModoPadrao('2A');
       const fbUrl = obterUrlFirebase();
       try {
         await fetch(`${fbUrl}/robo_controle/fila_custom.json`, { method: 'DELETE' });
-        await enviarComandoRobo('RESETAR_FILA');
+        await enviarComandoRobo('RESETAR_FILA', { modoFila: '2A' });
       } catch (e) {}
       renderizarFilaCategoriasRobo();
-      alert('✅ Fila restaurada para as 121 categorias padrão!');
+      alert('✅ Fila restaurada para o padrão recomendado (Opção 2A)!');
+    }
+
+    function copiarCodigoCloudflareWorker() {
+      const codigoWorker = [
+        "export default {",
+        "  async fetch(request) {",
+        "    const url = new URL(request.url);",
+        "    const target = url.searchParams.get('url');",
+        "    if (!target) return new Response('Proxy Robô SuperKoch Ativo', { status: 200 });",
+        "    const headers = new Headers({ 'Accept': 'application/json, text/plain, */*', 'User-Agent': request.headers.get('User-Agent') || 'Mozilla/5.0' });",
+        "    const tk = request.headers.get('x-osuper-identity-token');",
+        "    if (tk) headers.set('x-osuper-identity-token', tk);",
+        "    const resp = await fetch(target, { method: 'GET', headers });",
+        "    const body = await resp.text();",
+        "    return new Response(body, { status: resp.status, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Content-Type': 'application/json' } });",
+        "  }",
+        "};"
+      ].join('\n');
+      try { navigator.clipboard.writeText(codigoWorker); } catch (e) {}
+      alert('📋 Código do Cloudflare Worker copiado! Caso queira usar o Caminho 4 no futuro, basta criar um Worker grátis em dash.cloudflare.com, colar esse código e colocar a URL dele no campo abaixo.');
     }
 
     // =========================================================================
@@ -1388,7 +1541,21 @@
 
     async function salvarConfiguracoesRemotasRobo() {
       if (!exigirSenhaRobo()) return;
+      const usarProxy = Boolean(document.getElementById('chkConfigUsarProxy')?.checked);
+      const listaProxies = String(document.getElementById('inpConfigListaProxies')?.value || '')
+        .split(/[\r\n,]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      const modoFila = document.getElementById('inpConfigModoFila')?.value || '2A';
+      const size = Math.max(12, Number(document.getElementById('inpConfigBatchSize')?.value) || 12);
+      const totalMaquinas = Math.max(1, Math.min(10, Number(document.getElementById('inpConfigTotalMaquinas')?.value) || 5));
+
       const config = {
+        totalMaquinas,
+        modoFila,
+        size,
+        usarProxy,
+        listaProxies,
         salvarAoAdicionar: Math.max(1, Number(document.getElementById('inpConfigSalvarNovos').value) || 1),
         salvarAoAtualizar: Math.max(1, Number(document.getElementById('inpConfigSalvarAtualizados').value) || 50),
         cooldownSaveMs: Math.max(10, Number(document.getElementById('inpConfigCooldownSeg').value) || 25) * 1000,
@@ -1396,7 +1563,7 @@
         delayTrocaRotaMs: Math.max(1500, Number(document.getElementById('inpConfigDelayRota').value) || 3800)
       };
       await enviarComandoRobo('ATUALIZAR_CONFIG', { config });
-      alert('✅ Configurações salvas! O robô já está usando os novos limites e tempos.');
+      alert(`✅ Configurações salvas e enviadas! (Enxame: ${totalMaquinas} máq. | Modo Fila: ${modoFila} | Lote size: ${size} | Proxy: ${usarProxy ? 'Ativo' : 'Desativado'})`);
       mudarAbaCentralRobo('aovivo');
     }
 
@@ -1415,6 +1582,9 @@
     async function acionarRoboNuvemGitHub() {
       if (!exigirSenhaRobo()) return;
       const token = (localStorage.getItem('koch_github_token') || '').trim();
+      const totalMaquinas = String(document.getElementById('inpConfigTotalMaquinas')?.value || '5');
+      const modoFila = String(document.getElementById('inpConfigModoFila')?.value || '2A');
+      const batchSize = String(document.getElementById('inpConfigBatchSize')?.value || '12');
       const rotaInicial = String(document.getElementById('inpConfigRotaInicial')?.value || '1');
       const delayPag = String(document.getElementById('inpConfigDelayPag')?.value || '2200');
       const delayRota = String(document.getElementById('inpConfigDelayRota')?.value || '3800');
@@ -1433,6 +1603,9 @@
             body: JSON.stringify({
               ref: 'main',
               inputs: {
+                total_maquinas: totalMaquinas,
+                modo_fila: modoFila,
+                tamanho_lote_size: batchSize,
                 delay_paginas_ms: delayPag,
                 delay_categorias_ms: delayRota,
                 rota_inicial: rotaInicial,
@@ -1443,7 +1616,7 @@
             })
           });
           if (resp.status === 204 || resp.ok) {
-            alert('🚀 Robô Invisível na Nuvem iniciado com sucesso! Em ~25 segundos o status aqui no painel mudará para 🟢 RODANDO AO VIVO.');
+            alert(`🚀 Enxame com ${totalMaquinas} Máquina(s) simultânea(s) iniciado na nuvem (Modo ${modoFila} • Lote size=${batchSize})! Em ~25 segundos o status mudará para 🟢 RODANDO AO VIVO.`);
             return;
           }
         } catch (e) {}

@@ -1,60 +1,107 @@
-name: "🤖 Robô SuperKoch (Invisível na Nuvem)"
+name: 🤖 Robô SuperKoch (Enxame Multi-Máquinas & Protegido)
 
 on:
-  # Permite rodar manualmente com 1 clique na aba "Actions" do GitHub ou direto pelo Painel do Celular
+  # 1. Permite iniciar manualmente com 1 clique pelo Celular ou PC
   workflow_dispatch:
     inputs:
+      total_maquinas:
+        description: "🚀 Nº de Máquinas / IPs simultâneos no Enxame (1 a 10)"
+        required: false
+        default: "5"
+      modo_fila:
+        description: "⚡ Modo da Fila (2A = Só Subcategorias [Padrão], 2B = Só Departamentos, COMPLETA = 121 rotas)"
+        required: false
+        default: "2A"
+      tamanho_lote_size:
+        description: "📦 Produtos por Requisição - size (12 = Padrão pré-selecionado, 24, 36 ou 48)"
+        required: false
+        default: "12"
       delay_paginas_ms:
-        description: "Tempo base entre páginas em ms (ex: 2200 = 2.2s a 3.4s)"
+        description: "Tempo de espera entre páginas em ms (Recomendado: 2200)"
         required: false
         default: "2200"
       delay_categorias_ms:
-        description: "Tempo base ao trocar de categoria em ms (ex: 3800 = 3.8s a 5.5s)"
+        description: "Tempo de espera ao trocar de categoria em ms (Recomendado: 3800)"
         required: false
         default: "3800"
       rota_inicial:
-        description: "Começar de qual número da fila (1 a 121)"
+        description: "Iniciar a partir de qual número da fila"
         required: false
         default: "1"
       salvar_ao_adicionar:
-        description: "Salvar no Firebase ao adicionar X produtos novos (padrão: 1)"
+        description: "Salvar no Firebase ao adicionar X produtos novos (Padrão: 1)"
         required: false
         default: "1"
       salvar_ao_atualizar:
-        description: "Salvar no Firebase ao atualizar X produtos existentes (padrão: 50)"
+        description: "Salvar no Firebase ao atualizar X preços/estoques (Padrão: 50)"
         required: false
         default: "50"
       modo_teste_sem_gravar:
-        description: "Apenas testar sem gravar no Firebase? (true / false)"
+        description: "Modo Teste (true = NÃO grava no Firebase, false = Grava normalmente)"
         required: false
         default: "false"
 
-  # Roda sozinho todos os dias às 06:00 da manhã (horário de Brasília = 09:00 UTC)
+  # 2. Execução automática diária (06:00 da manhã no horário de Brasília / 09:00 UTC)
   schedule:
     - cron: "0 9 * * *"
 
 jobs:
-  extrair-catalogo-koch:
+  # Etapa 1: Prepara a lista de máquinas do enxame (1 a 10 servidores com IPs independentes)
+  preparar-enxame:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Até 6 horas de folga para rodar devagar e suportar esperas de 5 min em oscilações de rede
+    outputs:
+      workers_json: ${{ steps.calc.outputs.workers_json }}
+      total_workers: ${{ steps.calc.outputs.total_workers }}
+      swarm_id: ${{ steps.calc.outputs.swarm_id }}
+    steps:
+      - name: 🧮 Definir máquinas do Enxame
+        id: calc
+        run: |
+          RAW_N="${{ github.event.inputs.total_maquinas }}"
+          if [ -z "$RAW_N" ]; then RAW_N="5"; fi
+          if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="5"; fi
+          if [ "$RAW_N" -lt 1 ]; then RAW_N=1; fi
+          if [ "$RAW_N" -gt 10 ]; then RAW_N=10; fi
+          JSON_ARR=$(seq -s, 1 "$RAW_N" | sed 's/^/[/;s/$/]/')
+          SWARM_ID="swarm_$(date +%s)"
+          echo "workers_json=$JSON_ARR" >> $GITHUB_OUTPUT
+          echo "total_workers=$RAW_N" >> $GITHUB_OUTPUT
+          echo "swarm_id=$SWARM_ID" >> $GITHUB_OUTPUT
+          echo "Enxame configurado com $RAW_N maquina(s): $JSON_ARR (ID: $SWARM_ID)"
+
+  # Etapa 2: Dispara todas as máquinas em paralelo (cada uma com seu próprio IP e navegador)
+  extrator-seguro:
+    needs: preparar-enxame
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        worker_id: ${{ fromJson(needs.preparar-enxame.outputs.workers_json) }}
 
     steps:
-      - name: "📥 Baixar código do repositório"
+      - name: 📥 Baixar código do projeto
         uses: actions/checkout@v4
 
-      - name: "🟢 Configurar Node.js 20"
+      - name: 🟢 Configurar Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: "📦 Instalar dependências e navegador invisível (Chromium)"
+      - name: 🌐 Instalar navegador invisível (Playwright Chromium)
         run: |
-          npm install
+          npm init -y
+          npm install playwright
           npx playwright install --with-deps chromium
 
-      - name: "🕵️ Executar Robô Sequencial Furtivo (Proteção Firebase + Controle Mobile Ativos)"
+      - name: 🛡️ Executar Máquina #${{ matrix.worker_id }} de ${{ needs.preparar-enxame.outputs.total_workers }} (Com Proteção do Firebase)
         env:
-          FIREBASE_BASE_URL: ${{ secrets.FIREBASE_BASE_URL || 'https://mercaro-e6035-default-rtdb.firebaseio.com/' }}
+          FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          WORKER_ID: ${{ matrix.worker_id }}
+          TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
+          SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
+          MODO_FILA: ${{ github.event.inputs.modo_fila || '2A' }}
+          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '12' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
@@ -62,3 +109,11 @@ jobs:
           SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '50' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
+
+      - name: 📦 Salvar Backup de Segurança do Firebase nos Artefatos do GitHub
+        if: always() && matrix.worker_id == 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-firebase-antes-da-execucao-${{ github.run_number }}
+          path: backup_koch_1408_antes.json
+          retention-days: 14

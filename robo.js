@@ -192,13 +192,16 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
   ];
 
-  // Configurações editáveis em tempo real na interface do robô (Padrão Furtivo / Humano Anti-Bloqueio)
+  // Configurações editáveis em tempo real na interface do robô (Padrão Furtivo + Caminhos 2, 3 e 4)
   const config = {
     delayMs: 2200,            // Tempo base entre páginas (2.2s + variação humana aleatória até 3.4s)
     delayTrocaRotaMs: 3800,   // Tempo ao entrar em uma nova categoria/link (3.8s a 5.2s)
     backoffMs: 12000,         // Espera base se der 429 (12s multiplicado pela tentativa)
     maxRetries: 5,            // Tentativas automáticas antes de pausar no ponto exato
-    size: 12,                 // 12 itens por página (exatamente igual ao site oficial do SuperKoch)
+    size: 12,                 // Caminho 3: 12 itens pré-selecionado por padrão (aceita 12, 24, 36, 48)
+    modoFila: "2A",           // Caminho 2: "2A" (Só Subcategorias + Ofertas - Padrão Ativado), "2B" (Só Departamentos), "COMPLETA" (121 rotas)
+    usarProxy: false,         // Caminho 4: Rotação de Proxies / Cloudflare Workers (Desativado por padrão)
+    listaProxies: [],         // URLs de Cloudflare Workers / Proxies opcionais
     salvarAoAdicionar: 1,     // Salvar no Firebase ao adicionar X produtos novos
     salvarAoAtualizar: 50,    // Salvar no Firebase ao atualizar X produtos existentes
     cooldownSaveMs: 25000,    // Intervalo mínimo de 25s durante paginação para não pesar
@@ -207,6 +210,13 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     pararNoLocalExato: true,  // Parar exatamente na página/offset se bloquear ou pedir token
     autoDescobrirNovas: true, // Adicionar categorias extras do APOLLO_STATE se surgirem no site
     repescagemGlobalFinal: false // Desativado por padrão para evitar excesso de requisições no fim
+  };
+
+  const obterRotasPorModo = (modo, base121 = ROTAS_PADRAO_SEQUENCIAIS) => {
+    const m = String(modo || "2A").toUpperCase();
+    if (m === "2A") return base121.filter(r => r.tipo === "sub" || r.tipo === "promocoes");
+    if (m === "2B") return base121.filter(r => r.tipo === "depto" || r.tipo === "promocoes");
+    return [...base121];
   };
 
   // Estado interno de execução + Checkpoint exato + Trava de Segurança do Firebase
@@ -259,7 +269,8 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
   };
 
   const mapaProdutos = new Map();
-  let rotasAtivas = [...ROTAS_PADRAO_SEQUENCIAIS];
+  let rotasAtivas = obterRotasPorModo(config.modoFila, ROTAS_PADRAO_SEQUENCIAIS);
+  let indiceProxyAtual = 0;
 
   // Dicionário rápido para reconhecer URLs (mesmo com variações de slug)
   const normalizarPathUrl = (uStr) => {
@@ -1681,7 +1692,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     return null;
   };
 
-  // Construtor de URL 100% idêntico ao bundle oficial do SuperKoch (Bs(l) em bundle-B9szzJz7.js)
+  // Construtor de URL 100% idêntico ao bundle oficial do SuperKoch + Rotação de Proxy Opcional (Caminho 4)
   const montarUrlBuscaOSuper = ({ promo = false, size = config.size, from = 0, search = "", categoryId = "", categoryName = "", sortField = "sales_count", sortOrder = "desc" }) => {
     const base = `https://sense.osuper.com.br${estado.storePath}`;
     const q = [];
@@ -1704,7 +1715,18 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     q.push(`sortField=${sortField}`);
     q.push(`sortOrder=${sortOrder}`);
     if (categoryId) q.push(`categoryId=${encodeURIComponent(categoryId)}`);
-    return `${base}?${q.join("&")}`;
+    const urlFinal = `${base}?${q.join("&")}`;
+
+    if (config.usarProxy && Array.isArray(config.listaProxies) && config.listaProxies.length > 0) {
+      const proxyBase = config.listaProxies[indiceProxyAtual % config.listaProxies.length];
+      indiceProxyAtual++;
+      if (proxyBase && proxyBase.startsWith("http")) {
+        return proxyBase.includes("?url=") || proxyBase.includes("&url=")
+          ? `${proxyBase}${encodeURIComponent(urlFinal)}`
+          : `${proxyBase.replace(/\/$/, "")}/?url=${encodeURIComponent(urlFinal)}`;
+      }
+    }
+    return urlFinal;
   };
 
   // =======================================================================

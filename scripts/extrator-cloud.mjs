@@ -1,31 +1,41 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
 
-// =========================================================================
-// ROBÔ EXTRATOR INVISÍVEL NA NUVEM V9 (IMPARÁVEL + FILA EDITÁVEL + LOGS + HISTÓRICO INTELIGENTE)
-// =========================================================================
-
-const FIREBASE_BASE = (process.env.FIREBASE_BASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com/").replace(/\/$/, "");
+const FIREBASE_BASE = (process.env.FIREBASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com").replace(/\/$/, "");
 const FIREBASE_ENDPOINT = `${FIREBASE_BASE}/koch_loja_1408.json`;
 const FIREBASE_TELEMETRIA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/telemetria.json`;
 const FIREBASE_COMANDOS_ENDPOINT = `${FIREBASE_BASE}/robo_controle/comandos.json`;
 const FIREBASE_FILA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
+const FIREBASE_ENXAME_BASE = `${FIREBASE_BASE}/robo_controle/enxame`;
 
+// Identificação desta Máquina no Enxame (Caminho 1: 1 a 10 Máquinas com IPs diferentes)
+const WORKER_ID = Math.max(1, Number(process.env.WORKER_ID) || 1);
+const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS) || 1));
+const SWARM_RUN_ID = process.env.SWARM_RUN_ID || `swarm_${Date.now()}`;
+const SOU_MAESTRO = WORKER_ID === 1;
+
+// Configurações Furtivas + Caminhos 1, 2, 3 e 4
 const CONFIG = {
   delayMs: Math.max(800, Number(process.env.DELAY_MS) || 2200),
   delayTrocaRotaMs: Math.max(1500, Number(process.env.DELAY_ROTA_MS) || 3800),
-  esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos (300.000 ms) de espera em caso de queda de rede/bloqueio persistente
+  esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos (300.000 ms) de espera em caso de erro de rede/bloqueio persistente
   backoffCurtoMs: 15000,
-  size: 12, // Padrão exato do site oficial SuperKoch (var rx = 12)
+  // Caminho 3: Lote por requisição (size=12 pré-selecionado por padrão, aceita 12, 24, 36, 48)
+  size: Math.max(12, Math.min(60, Number(process.env.BATCH_SIZE) || 12)),
+  // Caminho 2: Modo da Fila ("2A" = Só Subcategorias + Promoções [Padrão Ativado], "2B" = Só Departamentos + Promoções, "COMPLETA" = 121 rotas, "CUSTOM" = Fila editada)
+  modoFila: String(process.env.MODO_FILA || "2A").toUpperCase(),
+  // Caminho 4: Rotação de Proxies / Cloudflare Workers (Desativado por padrão)
+  usarProxy: false,
+  listaProxies: [],
   salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 1),   // Salva ao adicionar 1 produto novo
   salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 50),  // Salva ao atualizar 50 produtos existentes
-  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000), // Respiro mínimo de 25s entre saves de catálogo durante paginação
+  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000), // Respiro mínimo de 25s entre saves
   autoSaveEveryDepto: true,
   startIndex: Math.max(0, (Number(process.env.START_INDEX) || 1) - 1),
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
 };
 
-// Lista sequencial padrão (121 rotas na ordem original)
+// Lista sequencial padrão completa (121 rotas na ordem original)
 const ROTAS_PADRAO_SEQUENCIAIS = [
   { url: "https://www.superkoch.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "Página Inicial (Home)" },
   { url: "https://www.superkoch.com.br/categorias", pathReal: "/categorias", tipo: "categorias_index", id: null, depto: "Categorias", nome: "Índice Geral de Categorias" },
@@ -204,27 +214,42 @@ const ROTAS_PADRAO_SEQUENCIAIS = [
   { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
 ];
 
-let ROTAS_ATIVAS = [...ROTAS_PADRAO_SEQUENCIAIS];
+// =========================================================================
+// CAMINHO 2: ELIMINAÇÃO DE LEITURA DUPLICADA (OPÇÃO 2A PADRÃO ATIVADA + OPÇÃO 2B)
+// =========================================================================
+function obterRotasFiltradasPorModo(modo, filaCustom = null) {
+  const m = String(modo || "2A").toUpperCase();
+  if (m === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
+    return filaCustom;
+  }
+  if (m === "2A") {
+    // Opção 2A (Padrão Ativado): Apenas Subcategorias + Promoções (106 rotas, zero leitura duplicada de departamento cheio!)
+    return ROTAS_PADRAO_SEQUENCIAIS.filter((r) => r.tipo === "sub" || r.tipo === "promocoes");
+  }
+  if (m === "2B") {
+    // Opção 2B (Modo Turbo): Apenas os 15 Departamentos Principais + Promoções (16 rotas rápidas)
+    return ROTAS_PADRAO_SEQUENCIAIS.filter((r) => r.tipo === "depto" || r.tipo === "promocoes");
+  }
+  // Modo COMPLETA (todas as 121 rotas originais)
+  return [...ROTAS_PADRAO_SEQUENCIAIS];
+}
+
+let ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const dormirHumano = (baseMs) => {
-  const jitter = Math.floor(Math.random() * Math.max(600, Math.round(baseMs * 0.45)));
+  const jitter = Math.floor(Math.random() * Math.max(500, Math.round(baseMs * 0.4)));
   return dormir(baseMs + jitter);
 };
 const horaAtualBR = () => new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour12: false });
 
 const mapaProdutos = new Map();
+const mapaDeltaWorker = new Map(); // Produtos novos/alterados por este worker (para sincronização limpa no enxame)
 const dataHojeISO = new Date().toISOString().slice(0, 10);
 
-// =========================================================================
-// LÓGICA DE HISTÓRICO DE PREÇOS INTELIGENTE (SEM DUPLICATAS CONSECUTIVAS)
-// - Se tiver 2 preços no mesmo dia: mantém apenas o mais novo.
-// - Se o preço novo for igual ao último preço salvo: NÃO salva preço repetido!
-// - Se for 10.50 -> 10.20 -> 10.50: salva os 3! Mas se for 10.50 -> 10.50: salva só 1!
-// =========================================================================
 function atualizarHistoricoSemDuplicarConsecutivos(historicoExistente, dataHoje, precoNovo) {
   const bruto = { ...(historicoExistente || {}) };
-  if (precoNovo > 0) {
+  if (precoNovo > 0 && dataHoje) {
     bruto[dataHoje] = Number(precoNovo.toFixed(2));
   }
   const datasOrdenadas = Object.keys(bruto).sort((a, b) => a.localeCompare(b));
@@ -243,14 +268,19 @@ function atualizarHistoricoSemDuplicarConsecutivos(historicoExistente, dataHoje,
   return limpo;
 }
 
-// Contadores, logs e telemetria ao vivo para acompanhar pelo celular
 const sessao = {
-  idExecucao: `cloud_${Date.now()}`,
-  origem: "GitHub Actions (Nuvem Invisível V9)",
+  idExecucao: SWARM_RUN_ID,
+  workerId: WORKER_ID,
+  totalWorkers: TOTAL_WORKERS,
+  origem: TOTAL_WORKERS > 1
+    ? `Enxame GitHub (${TOTAL_WORKERS} Máquinas Paralelas • Modo ${CONFIG.modoFila})`
+    : `GitHub Actions (Nuvem V10 • Modo ${CONFIG.modoFila})`,
   iniciadoEm: new Date().toISOString(),
   tempoInicioMs: Date.now(),
-  status: "INICIANDO", // INICIANDO | RODANDO | PAUSADO | BLOQUEIO_ESPERA | CANCELADO_SALVO | CONCLUIDO | ERRO
+  status: "INICIANDO",
   mensagem: "Carregando e protegendo banco de dados inicial...",
+  meuIndiceInicio: 0,
+  meuIndiceFim: ROTAS_ATIVAS.length - 1,
   rotaIndiceAtual: CONFIG.startIndex,
   rotaTotal: ROTAS_ATIVAS.length,
   rotaNomeAtual: ROTAS_ATIVAS[CONFIG.startIndex]?.nome || "Início",
@@ -273,27 +303,37 @@ const sessao = {
   ultimoSaveMotivo: "Nenhum ainda",
   ultimoSaveMs: Date.now(),
   requisicoesFeitas: 0,
-  ultimosNovos: [],             // Até 50 novos produtos adicionados
-  ultimosPrecosAlterados: [],   // Até 60 produtos que mudaram de preço (Antigo -> Novo)
-  ultimosEstoquesAlterados: [], // Até 40 produtos que mudaram estoque/promoção
-  ultimosLidos: [],             // Últimos 8 produtos processados
-  ultimosLogs: [],              // Até 80 eventos e erros detalhados para a aba Logs do site
-  contagemLogs: { ERRO: 0, AVISO: 0, OK: 0 },
-  progressoRotas: {},           // { [idx]: { st: 'ok'|'run'|'skip', lidos: 0, novos: 0, precos: 0, pags: 0 } }
+  ultimosNovos: [],
+  ultimosPrecosAlterados: [],
+  ultimosEstoquesAlterados: [],
+  ultimosLidos: [],
+  ultimosLogs: [],
+  contagemLogs: { ERRO: 0, AVISO: 0, OK: 0, INESPERADO: 0, ESPERADO: 0 },
+  progressoRotas: {},
   pausadoRemoto: false,
   canceladoRemoto: false,
   pularRotaAtual: false,
   irParaRotaIndice: null,
-  ultimoComandoIdProcessado: 0
+  ultimoComandoIdProcessado: 0,
+  indiceProxyAtual: 0
 };
 
 function registrarLog(tipo, contexto, mensagem, detalhe = "") {
   const hora = horaAtualBR();
-  sessao.ultimosLogs.unshift({ hora, tipo, contexto, mensagem, detalhe });
+  const tipoNorm = tipo === "ERRO" ? "INESPERADO" : (tipo === "AVISO" ? "ESPERADO" : tipo);
+  const tagMaq = TOTAL_WORKERS > 1 ? `[Máq #${WORKER_ID}] ` : "";
+  sessao.ultimosLogs.unshift({
+    hora,
+    tipo: tipoNorm,
+    etapa: `${tagMaq}${contexto}`,
+    contexto: `${tagMaq}${contexto}`,
+    mensagem,
+    detalhe
+  });
   if (sessao.ultimosLogs.length > 80) sessao.ultimosLogs.pop();
-  if (sessao.contagemLogs[tipo] !== undefined) sessao.contagemLogs[tipo]++;
-  const prefixo = tipo === "ERRO" ? "❌" : (tipo === "AVISO" ? "⚠️" : "ℹ️");
-  console.log(`${prefixo} [${hora}] [${contexto}] ${mensagem}${detalhe ? ` (${detalhe})` : ""}`);
+  if (sessao.contagemLogs[tipoNorm] !== undefined) sessao.contagemLogs[tipoNorm]++;
+  const prefixo = tipoNorm === "INESPERADO" ? "❌" : (tipoNorm === "ESPERADO" ? "⚠️" : "ℹ️");
+  console.log(`${prefixo} [${hora}] ${tagMaq}[${contexto}] ${mensagem}${detalhe ? ` (${detalhe})` : ""}`);
 }
 
 function formatarDuracaoSeg(segTotal) {
@@ -306,12 +346,11 @@ function formatarDuracaoSeg(segTotal) {
   return `${seg}s`;
 }
 
-function calcularMetricasTempoEProgresso() {
+function calcularMetricasTempoEProgresso(progressoCombinado = sessao.progressoRotas, maquinasAtivas = 1) {
   const agora = Date.now();
   const decorridoSeg = Math.max(1, Math.round((agora - sessao.tempoInicioMs) / 1000));
   const tempoDecorridoStr = formatarDuracaoSeg(decorridoSeg);
 
-  // Tempo estimado para acabar a categoria atual
   const pagsRestantesCat = Math.max(0, (sessao.totalPaginasEstimadoRota || 1) - (sessao.paginaAtual || 1));
   const segPorPag = (CONFIG.delayMs * 1.25 + 650) / 1000;
   const estCatSeg = Math.round(pagsRestantesCat * segPorPag);
@@ -319,7 +358,6 @@ function calcularMetricasTempoEProgresso() {
     ? "Finalizando categoria..."
     : `~${formatarDuracaoSeg(estCatSeg)} (faltam ${pagsRestantesCat} págs)`;
 
-  // Subcategorias do Departamento Atual
   const rotaAtual = ROTAS_ATIVAS[sessao.rotaIndiceAtual] || {};
   const deptoNome = rotaAtual.depto || "Geral";
   const indicesMesmoDepto = [];
@@ -330,20 +368,31 @@ function calcularMetricasTempoEProgresso() {
   const posNoDepto = Math.max(1, indicesMesmoDepto.indexOf(sessao.rotaIndiceAtual) + 1);
   const faltamNoDepto = Math.max(0, totalNoDepto - posNoDepto);
 
-  // Tempo estimado para o processo total
-  const rotasConcluidas = Math.max(0, sessao.rotaIndiceAtual - CONFIG.startIndex);
-  const rotasRestantes = Math.max(0, ROTAS_ATIVAS.length - (sessao.rotaIndiceAtual + 1));
-  let estTotalSeg = 0;
-  if (rotasConcluidas >= 2 && decorridoSeg > 20) {
-    const mediaPorRotaSeg = decorridoSeg / rotasConcluidas;
-    estTotalSeg = Math.round(rotasRestantes * mediaPorRotaSeg + estCatSeg);
-  } else {
-    const mediaPadraoRotaSeg = (CONFIG.delayMs * 8 + CONFIG.delayTrocaRotaMs) / 1000;
-    estTotalSeg = Math.round(rotasRestantes * mediaPadraoRotaSeg + estCatSeg);
+  // Quantidade total de categorias já concluídas por todas as máquinas do enxame
+  let rotasConcluidasTotal = 0;
+  for (const k of Object.keys(progressoCombinado || {})) {
+    const st = progressoCombinado[k]?.st;
+    if (st === "ok" || st === "skip") rotasConcluidasTotal++;
   }
-  const tempoRestanteTotalStr = rotasRestantes === 0 && pagsRestantesCat === 0
+  const totalRotasAtivas = Math.max(1, ROTAS_ATIVAS.length - CONFIG.startIndex);
+  const rotasRestantesTotal = Math.max(0, totalRotasAtivas - rotasConcluidasTotal);
+
+  let estTotalSeg = 0;
+  const fatorParalelo = Math.max(1, maquinasAtivas);
+  if (rotasConcluidasTotal >= 2 && decorridoSeg > 15) {
+    const mediaSegPorRotaNoEnxame = decorridoSeg / rotasConcluidasTotal;
+    estTotalSeg = Math.round(rotasRestantesTotal * mediaSegPorRotaNoEnxame);
+  } else {
+    const pagsMediasPorRota = Math.max(2, Math.ceil(96 / CONFIG.size));
+    const mediaPadraoRotaSeg = (CONFIG.delayMs * pagsMediasPorRota + CONFIG.delayTrocaRotaMs) / 1000;
+    estTotalSeg = Math.round(((rotasRestantesTotal * mediaPadraoRotaSeg) / fatorParalelo) + (estCatSeg / fatorParalelo));
+  }
+
+  const tempoRestanteTotalStr = rotasRestantesTotal === 0 && pagsRestantesCat === 0
     ? "Concluído!"
     : `~${formatarDuracaoSeg(estTotalSeg)}`;
+
+  const pctGlobal = Math.min(100, Math.max(1, Math.round((rotasConcluidasTotal / totalRotasAtivas) * 100)));
 
   return {
     decorridoSeg,
@@ -352,7 +401,9 @@ function calcularMetricasTempoEProgresso() {
     tempoEstimadoCategoriaStr,
     estTotalSeg,
     tempoRestanteTotalStr,
-    categoriasFaltando: rotasRestantes,
+    categoriasFaltando: rotasRestantesTotal,
+    rotasConcluidasTotal,
+    pctGlobal,
     deptoAtualNome: deptoNome,
     subcategoriaPosNoDepto: posNoDepto,
     subcategoriasTotalNoDepto: totalNoDepto,
@@ -361,28 +412,225 @@ function calcularMetricasTempoEProgresso() {
 }
 
 // =========================================================================
-// SINCRONIZAÇÃO LEVE COM PAINEL MOBILE (TELEMETRIA + COMANDOS + FILA)
+// CAMINHO 1: COORDENAÇÃO DO ENXAME DE MÁQUINAS (WORKERS <-> MAESTRO)
+// Faz N máquinas parecerem 1 único robô no painel e nunca sobrescreve o Firebase!
 // =========================================================================
 let ultimoEnvioTelemetriaMs = 0;
+const deltasJaContabilizadosMaestro = new Map(); // idProd -> hash preco+estoque já somado pelo Maestro
+
+async function publicarEstadoWorkerNoEnxame() {
+  const agora = Date.now();
+  const payloadWorker = {
+    workerId: WORKER_ID,
+    swarmId: SWARM_RUN_ID,
+    heartbeatMs: agora,
+    status: sessao.status,
+    mensagem: sessao.mensagem,
+    meuIndiceInicio: sessao.meuIndiceInicio,
+    meuIndiceFim: sessao.meuIndiceFim,
+    rotaIndiceAtual: sessao.rotaIndiceAtual,
+    rotaNomeAtual: sessao.rotaNomeAtual,
+    deptoAtualNome: sessao.deptoAtualNome,
+    paginaAtual: sessao.paginaAtual,
+    totalPaginasEstimadoRota: sessao.totalPaginasEstimadoRota,
+    offsetAtual: sessao.offsetAtual,
+    totalLidosNaSessao: sessao.totalLidosNaSessao,
+    novosNaSessao: sessao.novosNaSessao,
+    precosAlteradosNaSessao: sessao.precosAlteradosNaSessao,
+    estoquesAlteradosNaSessao: sessao.estoquesAlteradosNaSessao,
+    requisicoesFeitas: sessao.requisicoesFeitas,
+    progressoRotas: sessao.progressoRotas,
+    ultimosNovos: sessao.ultimosNovos.slice(0, 20),
+    ultimosPrecosAlterados: sessao.ultimosPrecosAlterados.slice(0, 25),
+    ultimosLidos: sessao.ultimosLidos.slice(0, 4),
+    ultimosLogs: sessao.ultimosLogs.slice(0, 25),
+    produtosDelta: Array.from(mapaDeltaWorker.values())
+  };
+
+  try {
+    await fetch(`${FIREBASE_ENXAME_BASE}/worker_${WORKER_ID}.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadWorker)
+    });
+  } catch {}
+}
+
+async function absorverEnxameNoMaestro() {
+  if (!SOU_MAESTRO || TOTAL_WORKERS <= 1) {
+    return {
+      maquinasAtivas: 1,
+      todosConcluidos: sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO",
+      totalLidosGlobal: sessao.totalLidosNaSessao,
+      novosGlobal: sessao.novosNaSessao,
+      precosGlobal: sessao.precosAlteradosNaSessao,
+      estoquesGlobal: sessao.estoquesAlteradosNaSessao,
+      reqsGlobal: sessao.requisicoesFeitas,
+      progressoCombinado: sessao.progressoRotas,
+      novosListaCombinada: sessao.ultimosNovos,
+      precosListaCombinada: sessao.ultimosPrecosAlterados,
+      lidosListaCombinada: sessao.ultimosLidos,
+      logsCombinados: sessao.ultimosLogs,
+      resumoMaquinas: [{ id: 1, status: sessao.status, rota: sessao.rotaNomeAtual, pag: sessao.paginaAtual }]
+    };
+  }
+
+  let enxameDados = {};
+  try {
+    const r = await fetch(`${FIREBASE_ENXAME_BASE}.json?t=${Date.now()}`);
+    if (r.ok) enxameDados = (await r.json()) || {};
+  } catch {}
+
+  let totalLidosGlobal = sessao.totalLidosNaSessao;
+  let novosGlobal = sessao.novosNaSessao;
+  let precosGlobal = sessao.precosAlteradosNaSessao;
+  let estoquesGlobal = sessao.estoquesAlteradosNaSessao;
+  let reqsGlobal = sessao.requisicoesFeitas;
+  const progressoCombinado = { ...sessao.progressoRotas };
+  const novosMap = new Map();
+  const precosMap = new Map();
+  const lidosCombinados = [...sessao.ultimosLidos];
+  const logsCombinados = [...sessao.ultimosLogs];
+  const resumoMaquinas = [{
+    id: 1,
+    status: sessao.status,
+    rota: `#${sessao.rotaIndiceAtual + 1} ${sessao.rotaNomeAtual}`,
+    pag: sessao.paginaAtual,
+    lidos: sessao.totalLidosNaSessao
+  }];
+
+  sessao.ultimosNovos.forEach((n) => novosMap.set(n.id, n));
+  sessao.ultimosPrecosAlterados.forEach((p) => precosMap.set(p.id, p));
+
+  let maquinasAtivas = (sessao.status === "RODANDO" || sessao.status === "BLOQUEIO_ESPERA") ? 1 : 0;
+  let workersFinalizados = (sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO") ? 1 : 0;
+  let workersVistos = 1;
+
+  for (let w = 2; w <= TOTAL_WORKERS; w++) {
+    const wk = enxameDados[`worker_${w}`];
+    if (!wk || wk.swarmId !== SWARM_RUN_ID) continue;
+    workersVistos++;
+
+    const idadeMs = Date.now() - Number(wk.heartbeatMs || 0);
+    const ativo = (wk.status === "RODANDO" || wk.status === "BLOQUEIO_ESPERA" || wk.status === "INICIANDO") && idadeMs < 180000;
+    if (ativo) maquinasAtivas++;
+    if (wk.status === "CONCLUIDO" || wk.status === "CANCELADO_SALVO" || idadeMs >= 240000) {
+      workersFinalizados++;
+    }
+
+    totalLidosGlobal += Number(wk.totalLidosNaSessao || 0);
+    novosGlobal += Number(wk.novosNaSessao || 0);
+    precosGlobal += Number(wk.precosAlteradosNaSessao || 0);
+    estoquesGlobal += Number(wk.estoquesAlteradosNaSessao || 0);
+    reqsGlobal += Number(wk.requisicoesFeitas || 0);
+
+    if (wk.progressoRotas && typeof wk.progressoRotas === "object") {
+      Object.assign(progressoCombinado, wk.progressoRotas);
+    }
+    if (Array.isArray(wk.ultimosNovos)) {
+      wk.ultimosNovos.forEach((n) => { if (n?.id && !novosMap.has(n.id)) novosMap.set(n.id, n); });
+    }
+    if (Array.isArray(wk.ultimosPrecosAlterados)) {
+      wk.ultimosPrecosAlterados.forEach((p) => { if (p?.id && !precosMap.has(p.id)) precosMap.set(p.id, p); });
+    }
+    if (Array.isArray(wk.ultimosLidos)) {
+      wk.ultimosLidos.forEach((txt) => { if (txt && !lidosCombinados.includes(txt)) lidosCombinados.push(txt); });
+    }
+    if (Array.isArray(wk.ultimosLogs)) {
+      wk.ultimosLogs.forEach((lg) => { if (lg) logsCombinados.push(lg); });
+    }
+
+    // Mescla os produtos descobertos/atualizados pelo Worker W no mapa mestre do Maestro!
+    if (Array.isArray(wk.produtosDelta)) {
+      for (const prodW of wk.produtosDelta) {
+        if (!prodW || !prodW.id) continue;
+        const hashW = `${prodW.preco}_${prodW.estoque}_${(prodW.categorias || []).length}`;
+        const jaVistoHash = deltasJaContabilizadosMaestro.get(prodW.id);
+        const existenteMestre = mapaProdutos.get(prodW.id);
+
+        if (!existenteMestre) {
+          mapaProdutos.set(prodW.id, prodW);
+          deltasJaContabilizadosMaestro.set(prodW.id, hashW);
+          sessao.novosDesdeUltimoSave++;
+        } else if (jaVistoHash !== hashW) {
+          const catsUnidas = Array.from(new Set([...(existenteMestre.categorias || []), ...(prodW.categorias || [])]));
+          const histUnido = atualizarHistoricoSemDuplicarConsecutivos(
+            { ...(existenteMestre.historicoPrecos || {}), ...(prodW.historicoPrecos || {}) },
+            dataHojeISO,
+            Number(prodW.preco || existenteMestre.preco || 0)
+          );
+          mapaProdutos.set(prodW.id, {
+            ...existenteMestre,
+            ...prodW,
+            categorias: catsUnidas,
+            historicoPrecos: histUnido
+          });
+          deltasJaContabilizadosMaestro.set(prodW.id, hashW);
+          sessao.atualizadosDesdeUltimoSave++;
+        }
+      }
+    }
+
+    resumoMaquinas.push({
+      id: w,
+      status: wk.status,
+      rota: `#${(wk.rotaIndiceAtual || 0) + 1} ${wk.rotaNomeAtual || ""}`,
+      pag: wk.paginaAtual || 1,
+      lidos: wk.totalLidosNaSessao || 0
+    });
+  }
+
+  sessao.totalAtualNoBanco = mapaProdutos.size;
+  const todosConcluidos = workersVistos >= TOTAL_WORKERS && workersFinalizados >= TOTAL_WORKERS;
+
+  return {
+    maquinasAtivas: Math.max(1, maquinasAtivas),
+    todosConcluidos,
+    totalLidosGlobal,
+    novosGlobal,
+    precosGlobal,
+    estoquesGlobal,
+    reqsGlobal,
+    progressoCombinado,
+    novosListaCombinada: Array.from(novosMap.values()).slice(0, 50),
+    precosListaCombinada: Array.from(precosMap.values()).slice(0, 60),
+    lidosListaCombinada: lidosCombinados.slice(0, 10),
+    logsCombinados: logsCombinados.slice(0, 80),
+    resumoMaquinas
+  };
+}
 
 async function enviarTelemetriaAoVivo(forcar = false) {
   const agora = Date.now();
-  if (!forcar && agora - ultimoEnvioTelemetriaMs < 2500) return;
+  if (!forcar && agora - ultimoEnvioTelemetriaMs < 2800) return;
   ultimoEnvioTelemetriaMs = agora;
 
-  const metricas = calcularMetricasTempoEProgresso();
-  const pct = Math.min(100, Math.max(1, Math.round(((sessao.rotaIndiceAtual + 1) / Math.max(1, ROTAS_ATIVAS.length)) * 100)));
+  // Se for um Worker secundário (2..10), publica seu estado na sua bandeja do enxame
+  if (!SOU_MAESTRO) {
+    await publicarEstadoWorkerNoEnxame();
+    return;
+  }
+
+  // Se for o Maestro (Worker #1), absorve todas as máquinas do enxame e publica a Telemetria Unificada!
+  await publicarEstadoWorkerNoEnxame();
+  const enxame = await absorverEnxameNoMaestro();
+  const metricas = calcularMetricasTempoEProgresso(enxame.progressoCombinado, enxame.maquinasAtivas);
+
+  const msgVivaUnificada = TOTAL_WORKERS > 1 && sessao.status === "RODANDO"
+    ? `⚡ Enxame Ativo (${enxame.maquinasAtivas}/${TOTAL_WORKERS} Máquinas c/ IPs próprios) • ${sessao.mensagem}`
+    : sessao.mensagem;
 
   const payload = {
     idExecucao: sessao.idExecucao,
     origem: sessao.origem,
     iniciadoEm: sessao.iniciadoEm,
+    iniciadoEmMs: sessao.tempoInicioMs,
     tempoInicioMs: sessao.tempoInicioMs,
     atualizadoEm: new Date().toISOString(),
     heartbeatMs: agora,
     status: sessao.status,
-    mensagem: sessao.mensagem,
-    progressoPct: sessao.status === "CONCLUIDO" ? 100 : pct,
+    mensagem: msgVivaUnificada,
+    progressoPct: sessao.status === "CONCLUIDO" ? 100 : metricas.pctGlobal,
     tempoDecorrido: metricas.tempoDecorridoStr,
     tempoEstimadoCategoria: metricas.tempoEstimadoCategoriaStr,
     tempoRestante: sessao.status === "CONCLUIDO" ? "Concluído!" : metricas.tempoRestanteTotalStr,
@@ -400,32 +648,40 @@ async function enviarTelemetriaAoVivo(forcar = false) {
     offsetAtual: sessao.offsetAtual,
     totalInicialFirebase: sessao.totalInicialFirebase,
     totalAtualNoBanco: mapaProdutos.size,
-    totalLidosNaSessao: sessao.totalLidosNaSessao,
-    novosNaSessao: sessao.novosNaSessao,
-    precosAlteradosNaSessao: sessao.precosAlteradosNaSessao,
-    estoquesAlteradosNaSessao: sessao.estoquesAlteradosNaSessao,
-    atualizadosNaSessao: sessao.atualizadosNaSessao,
+    totalLidosNaSessao: enxame.totalLidosGlobal,
+    novosNaSessao: enxame.novosGlobal,
+    precosAlteradosNaSessao: enxame.precosGlobal,
+    estoquesAlteradosNaSessao: enxame.estoquesGlobal,
+    atualizadosNaSessao: enxame.precosGlobal + enxame.estoquesGlobal,
     novosDesdeUltimoSave: sessao.novosDesdeUltimoSave,
     atualizadosDesdeUltimoSave: sessao.atualizadosDesdeUltimoSave,
     savesRealizados: sessao.savesRealizados,
     ultimoSaveEm: sessao.ultimoSaveEm,
     ultimoSaveMotivo: sessao.ultimoSaveMotivo,
-    requisicoesFeitas: sessao.requisicoesFeitas,
+    requisicoesFeitas: enxame.reqsGlobal,
+    enxameAtivo: {
+      totalMaquinas: TOTAL_WORKERS,
+      maquinasAtivas: enxame.maquinasAtivas,
+      resumoMaquinas: enxame.resumoMaquinas
+    },
     configAtiva: {
+      totalMaquinas: TOTAL_WORKERS,
+      modoFila: CONFIG.modoFila,
+      size: CONFIG.size,
+      usarProxy: CONFIG.usarProxy,
       delayMs: CONFIG.delayMs,
       delayTrocaRotaMs: CONFIG.delayTrocaRotaMs,
       salvarAoAdicionar: CONFIG.salvarAoAdicionar,
       salvarAoAtualizar: CONFIG.salvarAoAtualizar,
-      cooldownSaveMs: CONFIG.cooldownSaveMs,
-      size: CONFIG.size
+      cooldownSaveMs: CONFIG.cooldownSaveMs
     },
-    ultimosNovos: sessao.ultimosNovos.slice(0, 40),
-    ultimosPrecosAlterados: sessao.ultimosPrecosAlterados.slice(0, 50),
+    ultimosNovos: enxame.novosListaCombinada,
+    ultimosPrecosAlterados: enxame.precosListaCombinada,
     ultimosEstoquesAlterados: sessao.ultimosEstoquesAlterados.slice(0, 30),
-    ultimosLidos: sessao.ultimosLidos.slice(0, 8),
-    ultimosLogs: sessao.ultimosLogs.slice(0, 70),
+    ultimosLidos: enxame.lidosListaCombinada,
+    ultimosLogs: enxame.logsCombinados,
     contagemLogs: sessao.contagemLogs,
-    progressoRotas: sessao.progressoRotas
+    progressoRotas: enxame.progressoCombinado
   };
 
   try {
@@ -455,6 +711,9 @@ async function verificarComandosRemotos(forcar = false) {
       if (Number(cmd.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cmd.config.salvarAoAdicionar);
       if (Number(cmd.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cmd.config.salvarAoAtualizar);
       if (Number(cmd.config.cooldownSaveMs) >= 5000) CONFIG.cooldownSaveMs = Number(cmd.config.cooldownSaveMs);
+      if (Number(cmd.config.size) >= 12) CONFIG.size = Math.min(60, Number(cmd.config.size));
+      if (typeof cmd.config.usarProxy === "boolean") CONFIG.usarProxy = cmd.config.usarProxy;
+      if (Array.isArray(cmd.config.listaProxies)) CONFIG.listaProxies = cmd.config.listaProxies.filter(Boolean);
     }
 
     const cmdId = Number(cmd.id || cmd.timestamp || 0);
@@ -468,7 +727,7 @@ async function verificarComandosRemotos(forcar = false) {
       sessao.pausadoRemoto = true;
       sessao.status = "PAUSADO";
       sessao.mensagem = `⏸ Pausado pelo controle remoto em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Progresso salvo!`;
-      await gravarComSegurancaNoFirebase("Salvo ao Pausar pelo Painel");
+      if (SOU_MAESTRO) await gravarComSegurancaNoFirebase("Salvo ao Pausar pelo Painel");
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "RETOMAR") {
       sessao.pausadoRemoto = false;
@@ -477,8 +736,8 @@ async function verificarComandosRemotos(forcar = false) {
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "SALVAR_AGORA") {
       sessao.mensagem = `💾 Salvamento manual solicitado pelo painel...`;
-      await gravarComSegurancaNoFirebase("Salvo Manualmente pelo Painel");
       await enviarTelemetriaAoVivo(true);
+      if (SOU_MAESTRO) await gravarComSegurancaNoFirebase("Salvo Manualmente pelo Painel");
     } else if (acao === "PULAR_ROTA") {
       sessao.pularRotaAtual = true;
       sessao.pausadoRemoto = false;
@@ -490,26 +749,33 @@ async function verificarComandosRemotos(forcar = false) {
       sessao.pausadoRemoto = false;
       sessao.mensagem = `🎯 Indo para categoria #${cmd.rotaNumero} (${ROTAS_ATIVAS[sessao.irParaRotaIndice]?.nome})...`;
       await enviarTelemetriaAoVivo(true);
-    } else if (acao === "ATUALIZAR_FILA" && Array.isArray(cmd.rotasCustom) && cmd.rotasCustom.length > 0) {
-      ROTAS_ATIVAS = cmd.rotasCustom;
+    } else if (acao === "ATUALIZAR_FILA" && Array.isArray(cmd.rotas) && cmd.rotas.length > 0) {
+      ROTAS_ATIVAS = cmd.rotas;
       sessao.rotaTotal = ROTAS_ATIVAS.length;
+      recalcularFatiaDoWorker();
       registrarLog("OK", "Fila", `Fila atualizada remotamente pelo painel (${ROTAS_ATIVAS.length} categorias).`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "RESETAR_FILA") {
-      ROTAS_ATIVAS = [...ROTAS_PADRAO_SEQUENCIAIS];
+      ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
       sessao.rotaTotal = ROTAS_ATIVAS.length;
-      sessao.irParaRotaIndice = 0;
+      recalcularFatiaDoWorker();
+      sessao.irParaRotaIndice = sessao.meuIndiceInicio;
       sessao.pularRotaAtual = true;
       sessao.progressoRotas = {};
-      registrarLog("OK", "Fila", `Fila restaurada para as 121 categorias padrão e reiniciada do #1.`);
+      registrarLog("OK", "Fila", `Fila restaurada (${ROTAS_ATIVAS.length} categorias no modo ${CONFIG.modoFila}).`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "CANCELAR") {
       sessao.canceladoRemoto = true;
       sessao.pausadoRemoto = false;
       sessao.status = "CANCELADO_SALVO";
       sessao.mensagem = `⏹ Parado pelo usuário em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Salvando tudo no Firebase...`;
-      await gravarComSegurancaNoFirebase(`Parado pelo Painel em ${sessao.rotaNomeAtual}`);
       await enviarTelemetriaAoVivo(true);
+      if (SOU_MAESTRO) {
+        await dormir(2500);
+        await absorverEnxameNoMaestro();
+        await gravarComSegurancaNoFirebase(`Parado pelo Painel em ${sessao.rotaNomeAtual}`);
+        await enviarTelemetriaAoVivo(true);
+      }
       process.exit(0);
     }
   } catch {}
@@ -525,38 +791,40 @@ async function aguardarSePausadoRemoto() {
   }
 }
 
+function recalcularFatiaDoWorker() {
+  const totalRotasParaDividir = Math.max(1, ROTAS_ATIVAS.length - CONFIG.startIndex);
+  const tamanhoFatia = Math.ceil(totalRotasParaDividir / TOTAL_WORKERS);
+  sessao.meuIndiceInicio = CONFIG.startIndex + (WORKER_ID - 1) * tamanhoFatia;
+  sessao.meuIndiceFim = Math.min(ROTAS_ATIVAS.length - 1, sessao.meuIndiceInicio + tamanhoFatia - 1);
+  sessao.rotaIndiceAtual = Math.min(sessao.meuIndiceInicio, ROTAS_ATIVAS.length - 1);
+}
+
 // =========================================================================
 // CAMADA 1 DE PROTEÇÃO DO FIREBASE: LEITURA E BACKUP ANTES DE QUALQUER AÇÃO
 // =========================================================================
 async function carregarProtegerFirebaseInicial() {
+  if (SOU_MAESTRO) {
+    // Limpa bandeja de enxame anterior para iniciar limpo
+    try {
+      await fetch(`${FIREBASE_ENXAME_BASE}.json`, { method: "DELETE" });
+    } catch {}
+  }
+
   registrarLog("OK", "Proteção Firebase", `Lendo banco atual em: ${FIREBASE_ENDPOINT}`);
 
-  // Tenta ler o Firebase inicial (se houver falha de rede inicial, espera 5 minutos e tenta novamente, nunca desiste!)
   let resp = null;
   while (!resp || !resp.ok) {
     try {
       resp = await fetch(FIREBASE_ENDPOINT);
       if (resp.ok) break;
-      registrarLog("ERRO", "Firebase Inicial", `HTTP ${resp.status} ao ler banco inicial. Aguardando 30s para tentar novamente...`);
+      registrarLog("ERRO", "Firebase Inicial", `HTTP ${resp.status} ao ler banco inicial. Aguardando 30s...`);
     } catch (err) {
       registrarLog("ERRO", "Firebase Inicial", `Erro de conexão ao ler banco inicial: ${err.message}. Aguardando 30s...`);
     }
     await dormir(30000);
   }
 
-  // Verifica se o usuário salvou uma fila personalizada no Firebase
-  try {
-    const rFila = await fetch(FIREBASE_FILA_ENDPOINT);
-    if (rFila.ok) {
-      const filaSalva = await rFila.json();
-      if (Array.isArray(filaSalva) && filaSalva.length > 0) {
-        ROTAS_ATIVAS = filaSalva;
-        sessao.rotaTotal = ROTAS_ATIVAS.length;
-        registrarLog("OK", "Fila Customizada", `Fila personalizada carregada do painel (${ROTAS_ATIVAS.length} categorias).`);
-      }
-    }
-  } catch {}
-
+  // Verifica se há configurações salvas no comando remoto antes de montar a fila
   try {
     const rCmd = await fetch(FIREBASE_COMANDOS_ENDPOINT);
     if (rCmd.ok) {
@@ -567,17 +835,45 @@ async function carregarProtegerFirebaseInicial() {
       if (cAntigo?.config) {
         if (Number(cAntigo.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cAntigo.config.salvarAoAdicionar);
         if (Number(cAntigo.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cAntigo.config.salvarAoAtualizar);
+        if (Number(cAntigo.config.size) >= 12) CONFIG.size = Math.min(60, Number(cAntigo.config.size));
+        if (cAntigo.config.modoFila && !process.env.MODO_FILA) CONFIG.modoFila = String(cAntigo.config.modoFila).toUpperCase();
+        if (typeof cAntigo.config.usarProxy === "boolean") CONFIG.usarProxy = cAntigo.config.usarProxy;
+        if (Array.isArray(cAntigo.config.listaProxies)) CONFIG.listaProxies = cAntigo.config.listaProxies.filter(Boolean);
       }
     }
   } catch {}
 
+  // Verifica fila customizada salva no Firebase
+  let filaCustomSalva = null;
+  try {
+    const rFila = await fetch(FIREBASE_FILA_ENDPOINT);
+    if (rFila.ok) {
+      const dFila = await rFila.json();
+      const arr = Array.isArray(dFila) ? dFila : (Array.isArray(dFila?.rotas) ? dFila.rotas : null);
+      if (arr && arr.length > 0) {
+        filaCustomSalva = arr;
+      }
+    }
+  } catch {}
+
+  ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila, filaCustomSalva);
+  sessao.rotaTotal = ROTAS_ATIVAS.length;
+  recalcularFatiaDoWorker();
+
+  registrarLog(
+    "OK",
+    "Divisão do Enxame",
+    `Modo Fila: ${CONFIG.modoFila} (${ROTAS_ATIVAS.length} rotas totais | Lote size=${CONFIG.size}). Máquina #${WORKER_ID}/${TOTAL_WORKERS} cuidará das rotas #${sessao.meuIndiceInicio + 1} até #${sessao.meuIndiceFim + 1}.`
+  );
+
   const dados = await resp.json();
   if (dados && Array.isArray(dados.produtos)) {
-    fs.writeFileSync("backup_koch_1408_antes.json", JSON.stringify(dados), "utf-8");
+    if (SOU_MAESTRO) {
+      fs.writeFileSync("backup_koch_1408_antes.json", JSON.stringify(dados), "utf-8");
+    }
 
     for (const p of dados.produtos) {
       if (p && p.id) {
-        // Já higieniza históricos antigos que tinham preços iguais repetidos consecutivos!
         if (p.historicoPrecos && typeof p.historicoPrecos === "object") {
           p.historicoPrecos = atualizarHistoricoSemDuplicarConsecutivos(p.historicoPrecos, "", 0);
         }
@@ -587,8 +883,6 @@ async function carregarProtegerFirebaseInicial() {
     sessao.totalInicialFirebase = mapaProdutos.size;
     sessao.totalAtualNoBanco = mapaProdutos.size;
     registrarLog("OK", "Proteção Firebase", `${sessao.totalInicialFirebase} produtos carregados e protegidos na memória.`);
-  } else {
-    registrarLog("AVISO", "Proteção Firebase", `Banco inicial vazio ou novo (0 produtos).`);
   }
 }
 
@@ -646,13 +940,14 @@ function processarHits(hits, rotaContexto = null) {
     const nomeLimpo = String(item.name || existente?.nome || "Produto sem nome").trim();
     const estoqueNovo = item.quantity?.inStock ?? existente?.estoque ?? 0;
 
-    // Histórico inteligente: nunca salva 2 preços iguais consecutivos, e no mesmo dia mantém o mais novo
     const historico = atualizarHistoricoSemDuplicarConsecutivos(existente?.historicoPrecos, dataHojeISO, precoSeguro);
-
     const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0));
     const descPct = item.pricing?.discount || (precoOrigSeguro > precoSeguro && precoOrigSeguro > 0 ? Math.round(((precoOrigSeguro - precoSeguro) / precoOrigSeguro) * 100) : 0);
 
+    let foiAlteradoOuNovo = false;
+
     if (!existente) {
+      foiAlteradoOuNovo = true;
       novosLote++;
       sessao.novosNaSessao++;
       sessao.novosDesdeUltimoSave++;
@@ -678,6 +973,7 @@ function processarHits(hits, rotaContexto = null) {
       const mudouEstoque = estoqueAntigo !== Number(estoqueNovo);
 
       if (mudouPreco) {
+        foiAlteradoOuNovo = true;
         precosLote++;
         sessao.precosAlteradosNaSessao++;
         sessao.atualizadosNaSessao++;
@@ -699,6 +995,7 @@ function processarHits(hits, rotaContexto = null) {
         });
         if (sessao.ultimosPrecosAlterados.length > 60) sessao.ultimosPrecosAlterados.pop();
       } else if (mudouEstoque || mudouPrecoOrig) {
+        foiAlteradoOuNovo = true;
         estoquesLote++;
         sessao.estoquesAlteradosNaSessao++;
         sessao.atualizadosNaSessao++;
@@ -717,7 +1014,7 @@ function processarHits(hits, rotaContexto = null) {
       }
     }
 
-    mapaProdutos.set(item.id, {
+    const objProduto = {
       id: item.id,
       nome: nomeLimpo,
       marca: marcaStr,
@@ -731,7 +1028,12 @@ function processarHits(hits, rotaContexto = null) {
       categorias: Array.from(setCats),
       slug: item.slug || existente?.slug || "",
       historicoPrecos: historico
-    });
+    };
+
+    mapaProdutos.set(item.id, objProduto);
+    if (foiAlteradoOuNovo) {
+      mapaDeltaWorker.set(item.id, objProduto);
+    }
 
     sessao.ultimosLidos.unshift(`${nomeLimpo} • R$ ${precoSeguro.toFixed(2).replace(".", ",")}`);
     if (sessao.ultimosLidos.length > 8) sessao.ultimosLidos.pop();
@@ -742,23 +1044,30 @@ function processarHits(hits, rotaContexto = null) {
 }
 
 // =========================================================================
-// GRAVAÇÃO INTELIGENTE (NUNCA PARA O ROBÔ SE HOUVER OSCILAÇÃO)
+// GRAVAÇÃO CENTRALIZADA E BLINDADA NO FIREBASE (NUNCA PARA O ROBÔ)
 // =========================================================================
 async function gravarComSegurancaNoFirebase(motivo = "") {
+  // Se este for um worker secundário (2..10), ele apenas envia seu delta para o Maestro!
+  if (!SOU_MAESTRO) {
+    await publicarEstadoWorkerNoEnxame();
+    sessao.novosDesdeUltimoSave = 0;
+    sessao.atualizadosDesdeUltimoSave = 0;
+    sessao.ultimoSaveMs = Date.now();
+    return true;
+  }
+
   try {
+    // Maestro absorve todas as descobertas dos workers 2..10 antes de salvar!
+    const enxame = await absorverEnxameNoMaestro();
     const listaFinal = Array.from(mapaProdutos.values());
-    if (listaFinal.length === 0) {
-      registrarLog("AVISO", "Proteção Firebase", `Lista vazia — gravação ignorada.`);
-      return false;
-    }
+    if (listaFinal.length === 0) return false;
 
     if (sessao.totalInicialFirebase > 0 && listaFinal.length < sessao.totalInicialFirebase) {
-      registrarLog("ERRO", "Proteção Firebase", `TRAVA ACIONADA! Tentativa de gravar ${listaFinal.length} itens, mas o banco tinha ${sessao.totalInicialFirebase}. Operação bloqueada!`);
+      registrarLog("ERRO", "Proteção Firebase", `TRAVA ACIONADA! Lista (${listaFinal.length}) menor que o banco inicial (${sessao.totalInicialFirebase}).`);
       return false;
     }
 
     if (CONFIG.dryRun) {
-      registrarLog("OK", "Modo Teste", `Simulação (${motivo}): ${listaFinal.length} produtos prontos.`);
       sessao.novosDesdeUltimoSave = 0;
       sessao.atualizadosDesdeUltimoSave = 0;
       sessao.ultimoSaveMs = Date.now();
@@ -772,9 +1081,11 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
         atualizadoEm: new Date().toISOString(),
         totalItens: listaFinal.length,
         resumoUltimaSessao: {
-          novosAdicionados: sessao.novosNaSessao,
-          precosAtualizados: sessao.precosAlteradosNaSessao,
-          estoquesAtualizados: sessao.estoquesAlteradosNaSessao,
+          novosAdicionados: enxame.novosGlobal,
+          precosAtualizados: enxame.precosGlobal,
+          estoquesAtualizados: enxame.estoquesGlobal,
+          maquinasEnxame: TOTAL_WORKERS,
+          modoFila: CONFIG.modoFila,
           motivoUltimoSave: motivo
         },
         produtos: listaFinal
@@ -782,7 +1093,7 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     });
 
     if (!resp.ok) {
-      registrarLog("ERRO", "Firebase Save", `Erro HTTP ${resp.status} ao salvar (${motivo}). O robô continuará rodando e salvará no próximo ciclo.`);
+      registrarLog("ERRO", "Firebase Save", `HTTP ${resp.status} ao salvar (${motivo}). Continuando execução sem parar!`);
       return false;
     }
 
@@ -800,31 +1111,41 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     await enviarTelemetriaAoVivo(true);
     return true;
   } catch (err) {
-    registrarLog("ERRO", "Firebase Save", `Falha de rede ao salvar no Firebase (${motivo}): ${err.message}. Continuando execução sem parar!`);
+    registrarLog("ERRO", "Firebase Save", `Oscilação ao salvar (${motivo}): ${err.message}. Continuando sem parar!`);
     return false;
   }
 }
 
 async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
+  if (!SOU_MAESTRO) {
+    if (fimDeRota || sessao.novosDesdeUltimoSave >= 1 || sessao.atualizadosDesdeUltimoSave >= 20) {
+      await publicarEstadoWorkerNoEnxame();
+      sessao.novosDesdeUltimoSave = 0;
+      sessao.atualizadosDesdeUltimoSave = 0;
+    }
+    return;
+  }
+
+  if (TOTAL_WORKERS > 1) {
+    await absorverEnxameNoMaestro();
+  }
+
   const atingiuMetaNovos = sessao.novosDesdeUltimoSave >= CONFIG.salvarAoAdicionar;
   const atingiuMetaAtualizados = sessao.atualizadosDesdeUltimoSave >= CONFIG.salvarAoAtualizar;
 
   if (!atingiuMetaNovos && !atingiuMetaAtualizados) return;
 
   const tempoDesdeUltimoSave = Date.now() - sessao.ultimoSaveMs;
-  if (!fimDeRota && tempoDesdeUltimoSave < CONFIG.cooldownSaveMs) {
-    return;
-  }
+  if (!fimDeRota && tempoDesdeUltimoSave < CONFIG.cooldownSaveMs) return;
 
   const motivoDetalhe = atingiuMetaNovos
-    ? `+${sessao.novosDesdeUltimoSave} novo(s) em ${contextoCurto}`
-    : `${sessao.atualizadosDesdeUltimoSave} atualizados em ${contextoCurto}`;
+    ? `+${sessao.novosDesdeUltimoSave} novo(s) (${contextoCurto})`
+    : `${sessao.atualizadosDesdeUltimoSave} atualizados (${contextoCurto})`;
 
-  // Salva e segue rodando sem parar!
   await gravarComSegurancaNoFirebase(motivoDetalhe);
 }
 
-function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, size = 12, from = 0, categoryId = "", categoryName = "" }) {
+function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, size = CONFIG.size, from = 0, categoryId = "", categoryName = "" }) {
   const base = `https://sense.osuper.com.br${storePath}`;
   const q = [];
   if (promo) q.push("promotion=true");
@@ -842,17 +1163,42 @@ function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, si
   q.push("sortField=sales_count");
   q.push("sortOrder=desc");
   if (categoryId) q.push(`categoryId=${encodeURIComponent(categoryId)}`);
-  return `${base}?${q.join("&")}`;
+  const urlFinal = `${base}?${q.join("&")}`;
+
+  // Caminho 4: Rotação de Proxies / Cloudflare Workers (se ativado pelo usuário)
+  if (CONFIG.usarProxy && Array.isArray(CONFIG.listaProxies) && CONFIG.listaProxies.length > 0) {
+    const proxyBase = CONFIG.listaProxies[sessao.indiceProxyAtual % CONFIG.listaProxies.length];
+    sessao.indiceProxyAtual++;
+    if (proxyBase && proxyBase.startsWith("http")) {
+      return proxyBase.includes("?url=") || proxyBase.includes("&url=")
+        ? `${proxyBase}${encodeURIComponent(urlFinal)}`
+        : `${proxyBase.replace(/\/$/, "")}/?url=${encodeURIComponent(urlFinal)}`;
+    }
+  }
+  return urlFinal;
 }
 
 // =========================================================================
-// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL (IMPARÁVEL: REDE 5 MIN + AUTO TOKEN)
+// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL (ENXAME + REDE 5 MIN + AUTO TOKEN)
 // =========================================================================
 async function executarRoboCloud() {
+  // Pequeno escalonamento de partida entre máquinas do enxame (1.2s por worker) para não baterem no mesmo milissegundo
+  if (WORKER_ID > 1) {
+    await dormir((WORKER_ID - 1) * 1200);
+  }
+
   await carregarProtegerFirebaseInicial();
   await enviarTelemetriaAoVivo(true);
 
-  registrarLog("OK", "Navegador", `Iniciando navegador invisível (Headless Stealth)...`);
+  // Se o índice inicial desta máquina já passou do total de rotas (ex: mais máquinas que rotas), encerra limpa
+  if (sessao.meuIndiceInicio >= ROTAS_ATIVAS.length || sessao.meuIndiceInicio > sessao.meuIndiceFim) {
+    sessao.status = "CONCLUIDO";
+    sessao.mensagem = `Máquina #${WORKER_ID} sem rotas pendentes nesta divisão.`;
+    await enviarTelemetriaAoVivo(true);
+    return;
+  }
+
+  registrarLog("OK", "Navegador", `Iniciando navegador invisível da Máquina #${WORKER_ID}/${TOTAL_WORKERS}...`);
   const browser = await chromium.launch({
     headless: true,
     args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -861,7 +1207,7 @@ async function executarRoboCloud() {
   const context = await browser.newContext({
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${129 + (WORKER_ID % 3)}.0.0.0 Safari/537.36`,
     viewport: { width: 1366, height: 768 }
   });
 
@@ -880,7 +1226,7 @@ async function executarRoboCloud() {
     const tk = req.headers()["x-osuper-identity-token"];
     if (tk && tk !== tokenCapturado) {
       tokenCapturado = tk;
-      registrarLog("OK", "Token", `Token de sessão capturado automaticamente.`);
+      registrarLog("OK", "Token", `Token de sessão exclusivo capturado.`);
     }
   });
 
@@ -891,7 +1237,6 @@ async function executarRoboCloud() {
       await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
       await dormirHumano(3500);
 
-      // Tenta também via GraphQL interno da página caso ainda não tenha vindo no header
       if (!tokenCapturado) {
         const tkGql = await page.evaluate(async () => {
           try {
@@ -920,7 +1265,6 @@ async function executarRoboCloud() {
         }
       }
 
-      // Simula um scroll na home para disparar requisições naturais se necessário
       await page.evaluate(() => window.scrollBy(0, 500)).catch(() => {});
       await dormirHumano(2000);
     } catch (e) {
@@ -929,16 +1273,15 @@ async function executarRoboCloud() {
   }
 
   sessao.status = "RODANDO";
-  sessao.mensagem = "Abrindo página inicial do SuperKoch para estabelecer sessão legítima...";
+  sessao.mensagem = `Máquina #${WORKER_ID}/${TOTAL_WORKERS} conectando ao SuperKoch...`;
   await enviarTelemetriaAoVivo(true);
 
   await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-  await dormirHumano(3500);
+  await dormirHumano(3200);
 
-  // Espera de 5 minutos com telemetria viva a cada 10s (para nunca travar o controle remoto)
   async function aguardarCincoMinutosComTelemetria(rotulo, pag, from, motivoErro) {
-    const totalSeg = Math.round(CONFIG.esperaErroRedeMs / 1000); // 300 segundos (5 minutos)
-    registrarLog("AVISO", rotulo, `${motivoErro} na Pág ${pag} (off ${from}). Aguardando 5 minutos para tentar novamente do mesmo ponto sem parar!`);
+    const totalSeg = Math.round(CONFIG.esperaErroRedeMs / 1000);
+    registrarLog("AVISO", rotulo, `${motivoErro} na Pág ${pag} (off ${from}). Aguardando 5 minutos para tentar novamente sem parar!`);
     for (let s = totalSeg; s > 0; s -= 5) {
       await aguardarSePausadoRemoto();
       if (sessao.pularRotaAtual || sessao.canceladoRemoto) return;
@@ -950,7 +1293,6 @@ async function executarRoboCloud() {
     sessao.status = "RODANDO";
   }
 
-  // Motor de consulta IMPARÁVEL: nunca desiste em erro de rede ou token!
   async function consultarAPINoPontoExato(url, rotulo, pag, from) {
     let tentativa = 0;
     while (!sessao.pularRotaAtual && !sessao.canceladoRemoto) {
@@ -983,7 +1325,16 @@ async function executarRoboCloud() {
         return resultado.data;
       }
 
-      // 1. Erro de Token (401 / 403): Coleta novo token automaticamente e continua!
+      // Se o proxy falhou e estava ativo, tenta direto sem proxy antes de esperar 5 minutos
+      if (CONFIG.usarProxy && tentativa === 1 && url.includes("?url=")) {
+        try {
+          const urlDireta = decodeURIComponent(url.split("url=")[1]);
+          url = urlDireta;
+          registrarLog("AVISO", rotulo, `Proxy oscilou na Pág ${pag}. Tentando conexão direta automaticamente...`);
+          continue;
+        } catch {}
+      }
+
       if (resultado.status === 401 || resultado.status === 403) {
         await renovarSessaoETokenAutomatico(`HTTP ${resultado.status} em ${rotulo} (Pág ${pag})`);
         if (tentativa >= 3) {
@@ -994,8 +1345,6 @@ async function executarRoboCloud() {
         continue;
       }
 
-      // 2. Erro de Rede (status 0), Rate Limit (429) ou Servidor (500+):
-      // Na 1ª tentativa faz um respiro curto (15s); se persistir, espera 5 minutos e tenta novamente sem parar!
       if (resultado.status === 0 || resultado.status === 429 || resultado.status >= 500) {
         const descErro = resultado.status === 0
           ? `Erro de Rede (${resultado.error || "Falha de conexão"})`
@@ -1011,7 +1360,6 @@ async function executarRoboCloud() {
         continue;
       }
 
-      // 400 ou 404 (categoria inexistente na API): registra aviso e passa adiante
       registrarLog("AVISO", rotulo, `Status HTTP ${resultado.status} ignorado na Pág ${pag}.`);
       return null;
     }
@@ -1019,11 +1367,14 @@ async function executarRoboCloud() {
   }
 
   try {
-    for (let i = CONFIG.startIndex; i < ROTAS_ATIVAS.length; i++) {
+    for (let i = sessao.meuIndiceInicio; i <= sessao.meuIndiceFim && i < ROTAS_ATIVAS.length; i++) {
       await aguardarSePausadoRemoto();
 
       if (sessao.irParaRotaIndice !== null) {
-        i = sessao.irParaRotaIndice;
+        // Se o usuário mandou ir para uma rota específica dentro da fatia desta máquina (ou se há só 1 máquina)
+        if (TOTAL_WORKERS === 1 || (sessao.irParaRotaIndice >= sessao.meuIndiceInicio && sessao.irParaRotaIndice <= sessao.meuIndiceFim)) {
+          i = sessao.irParaRotaIndice;
+        }
         sessao.irParaRotaIndice = null;
         sessao.pularRotaAtual = false;
       }
@@ -1042,11 +1393,10 @@ async function executarRoboCloud() {
       sessao.pularRotaAtual = false;
 
       const rotulo = `[#${i + 1}/${ROTAS_ATIVAS.length}] ${rota.nome}`;
-      sessao.progressoRotas[i] = { st: "run", lidos: 0, novos: 0, precos: 0, pags: 0 };
+      sessao.progressoRotas[i] = { st: "run", lidos: 0, novos: 0, precos: 0, pags: 0, worker: WORKER_ID };
 
       if (rota.tipo === "categorias_index") {
-        sessao.progressoRotas[i] = { st: "ok", lidos: 0, novos: 0, precos: 0, pags: 1 };
-        registrarLog("OK", rotulo, `Índice de categorias verificado.`);
+        sessao.progressoRotas[i] = { st: "ok", lidos: 0, novos: 0, precos: 0, pags: 1, worker: WORKER_ID };
         await enviarTelemetriaAoVivo(false);
         continue;
       }
@@ -1058,8 +1408,7 @@ async function executarRoboCloud() {
         const dadosHome = await consultarAPINoPontoExato(urlHome, rotulo, 1, 0);
         if (dadosHome?.hits) {
           const { novosLote, precosLote } = processarHits(dadosHome.hits, rota);
-          sessao.progressoRotas[i] = { st: "ok", lidos: dadosHome.hits.length, novos: novosLote, precos: precosLote, pags: 1 };
-          registrarLog("OK", rotulo, `${dadosHome.hits.length} itens lidos (+${novosLote} novos, ${precosLote} preços alterados).`);
+          sessao.progressoRotas[i] = { st: "ok", lidos: dadosHome.hits.length, novos: novosLote, precos: precosLote, pags: 1, worker: WORKER_ID };
           await verificarAutoSaveInteligente(rota.nome, true);
         }
         await enviarTelemetriaAoVivo(true);
@@ -1113,9 +1462,8 @@ async function executarRoboCloud() {
         novosRota += novosLote;
         precosRota += precosLote;
 
-        sessao.progressoRotas[i] = { st: "run", lidos: totalLidosRota, novos: novosRota, precos: precosRota, pags: pag };
+        sessao.progressoRotas[i] = { st: "run", lidos: totalLidosRota, novos: novosRota, precos: precosRota, pags: pag, worker: WORKER_ID };
 
-        // Salva automaticamente se atingiu +1 novo ou 50 atualizados (respeitando cooldown e SEM parar o robô!)
         await verificarAutoSaveInteligente(rota.nome, false);
         await enviarTelemetriaAoVivo(false);
 
@@ -1134,9 +1482,10 @@ async function executarRoboCloud() {
         await dormirHumano(CONFIG.delayMs);
       }
 
-      // Verifica se houve comando de ir para rota específica durante a saída do while
       if (sessao.irParaRotaIndice !== null) {
-        i = sessao.irParaRotaIndice - 1; // O for fará i++
+        if (TOTAL_WORKERS === 1 || (sessao.irParaRotaIndice >= sessao.meuIndiceInicio && sessao.irParaRotaIndice <= sessao.meuIndiceFim)) {
+          i = sessao.irParaRotaIndice - 1;
+        }
         sessao.irParaRotaIndice = null;
         sessao.pularRotaAtual = false;
         continue;
@@ -1147,32 +1496,52 @@ async function executarRoboCloud() {
         lidos: totalLidosRota,
         novos: novosRota,
         precos: precosRota,
-        pags: pag
+        pags: pag,
+        worker: WORKER_ID
       };
 
-      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços | Total Banco: ${mapaProdutos.size}).`);
+      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços).`);
 
       await verificarAutoSaveInteligente(rota.nome, true);
 
-      if (CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes") && (sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0)) {
-        await gravarComSegurancaNoFirebase(`Fim do Depto ${rota.nome}`);
+      if (SOU_MAESTRO && CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes") && (sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0)) {
+        await gravarComSegurancaNoFirebase(`Fim de ${rota.nome}`);
       }
 
       await enviarTelemetriaAoVivo(true);
+      await dormirHumano(CONFIG.delayTrocaRotaMs);
+    }
 
-      if ((i + 1) % 12 === 0 && i + 1 < ROTAS_ATIVAS.length) {
-        sessao.mensagem = `☕ Pausa furtiva de respiro (~12s) após ${i + 1} categorias...`;
-        registrarLog("OK", "Respiro Furtivo", sessao.mensagem);
+    // Se este é um Worker secundário (2..10), publica seu estado final CONCLUIDO para o Maestro recolher
+    if (!SOU_MAESTRO) {
+      sessao.status = "CONCLUIDO";
+      sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu sua fatia (#${sessao.meuIndiceInicio + 1} a #${sessao.meuIndiceFim + 1})!`;
+      registrarLog("OK", "Fatia Concluída", sessao.mensagem);
+      await publicarEstadoWorkerNoEnxame();
+      return;
+    }
+
+    // Se este é o Maestro (Worker #1) e há outras máquinas no enxame ainda rodando, coordena até todas terminarem!
+    if (SOU_MAESTRO && TOTAL_WORKERS > 1) {
+      registrarLog("OK", "Maestro do Enxame", `Máquina #1 concluiu sua fatia. Coordenando e salvando dados das demais máquinas do enxame...`);
+      for (let esperaCiclo = 0; esperaCiclo < 720 && !sessao.canceladoRemoto; esperaCiclo++) {
+        await aguardarSePausadoRemoto();
+        const enxame = await absorverEnxameNoMaestro();
+        await verificarAutoSaveInteligente("Sincronização do Enxame", false);
+        sessao.mensagem = `⚡ Maestro sincronizando enxame (${enxame.maquinasAtivas} máquina(s) finalizando suas categorias)...`;
         await enviarTelemetriaAoVivo(true);
-        await dormirHumano(11000);
-      } else {
-        await dormirHumano(CONFIG.delayTrocaRotaMs);
+        if (enxame.todosConcluidos) {
+          registrarLog("OK", "Maestro do Enxame", `Todas as ${TOTAL_WORKERS} máquinas do enxame concluíram suas fatias!`);
+          break;
+        }
+        await dormir(5000);
       }
     }
 
-    await gravarComSegurancaNoFirebase("Extração 100% Concluída");
+    await gravarComSegurancaNoFirebase("Extração 100% Concluída pelo Enxame");
+    const enxameFinal = await absorverEnxameNoMaestro();
     sessao.status = "CONCLUIDO";
-    sessao.mensagem = `🎉 Concluído! ${mapaProdutos.size} produtos no banco (+${sessao.novosNaSessao} novos, 🔄 ${sessao.precosAlteradosNaSessao} preços atualizados).`;
+    sessao.mensagem = `🎉 Concluído (${TOTAL_WORKERS} máq. | Modo ${CONFIG.modoFila})! ${mapaProdutos.size} produtos no banco (+${enxameFinal.novosGlobal} novos, 🔄 ${enxameFinal.precosGlobal} preços).`;
     registrarLog("OK", "Finalizado", sessao.mensagem);
     await enviarTelemetriaAoVivo(true);
   } finally {
@@ -1188,8 +1557,11 @@ const tratarCancelamento = async (sinal) => {
   try {
     sessao.status = "CANCELADO_SALVO";
     sessao.mensagem = `⏹ Encerrado (${sinal}) em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Tudo salvo com segurança!`;
-    await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
     await enviarTelemetriaAoVivo(true);
+    if (SOU_MAESTRO) {
+      await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
+      await enviarTelemetriaAoVivo(true);
+    }
   } catch (e) {}
   process.exit(0);
 };
