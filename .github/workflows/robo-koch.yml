@@ -50,5 +50,5 @@ jobs:
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
-          DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'true' }}
+          DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
