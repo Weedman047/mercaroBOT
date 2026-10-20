@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuscaPreço - Comparador de Mercados</title>
+  <link rel="icon" type="image/png" href="icone.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { overflow-y: scroll; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col selection:bg-red-600 selection:text-white">
+
+  <!-- HEADER FIXO -->
+  <header class="bg-red-600 text-white shadow sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col lg:flex-row items-center justify-between gap-2.5">
+      
+      <!-- Logo + Status -->
+      <div class="flex items-center justify-between w-full lg:w-auto gap-2">
+        <div class="flex items-center gap-2.5 cursor-pointer select-none" onclick="resetarTodosFiltros()">
+          <div class="bg-white p-1 rounded-xl shadow-sm flex items-center justify-center w-11 h-11 overflow-hidden border border-red-200">
+            <span class="text-2xl">🛒</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-base sm:text-lg font-black tracking-tight leading-none">BuscaPreço</h1>
+            </div>
+            <p class="text-[11px] text-red-100 mt-0.5 truncate max-w-[210px] sm:max-w-xs" id="statusNuvem">Conectando ao banco de dados...</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 lg:hidden">
+          <button onclick="copiarRoboExtrator()" class="bg-gray-900 text-green-400 font-extrabold px-2.5 py-1.5 rounded-lg text-[11px]">⚡ Robô</button>
+          <button onclick="carregarDoFirebase()" class="bg-white text-red-600 font-extrabold px-2.5 py-1.5 rounded-lg text-[11px]">🔄</button>
+          <button onclick="toggleSacola()" class="bg-yellow-400 text-red-950 font-black px-2.5 py-1.5 rounded-lg text-[11px]">🛍️ <span id="badgeSacolaMobile">0</span></button>
+          <button onclick="abrirModalDados()" class="bg-red-700 text-white px-2 py-1.5 rounded-lg text-[11px]">💾</button>
+        </div>
+      </div>
+
+      <!-- Barra de Pesquisa -->
+      <div class="flex items-center w-full lg:flex-1 max-w-2xl">
+        <div class="relative w-full">
+          <span class="absolute left-3.5 top-2.5 text-gray-400 text-xs pointer-events-none">🔍</span>
+          <input id="inputBusca" type="text" autocomplete="off" spellcheck="false" placeholder="Buscar produto, marca ou medida (ex: Sprite, Leite, Picanha, 2L)..." class="w-full pl-9 pr-16 py-2 rounded-xl text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 text-xs sm:text-sm font-medium shadow-inner" oninput="aoDigitarBusca()">
+          <button onclick="limparBusca()" id="btnLimparBusca" class="hidden absolute right-2 top-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg px-2 py-1 text-[11px] font-bold">Limpar</button>
+        </div>
+      </div>
+
+      <!-- Ações Desktop -->
+      <div class="hidden lg:flex items-center gap-2">
+        <button onclick="copiarRoboExtrator()" class="bg-gray-900 text-green-400 font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5">⚡ Robô Extrator</button>
+        <button onclick="carregarDoFirebase()" class="bg-white text-red-600 font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1">🔄 Atualizar</button>
+        <button onclick="toggleSacola()" class="bg-yellow-400 text-red-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5">🛍️ Lista (<span id="badgeSacolaDesktop">0</span>) • <span id="valorSacolaHeader">R$ 0,00</span></button>
+        <button onclick="abrirModalDados()" class="bg-red-700 text-white font-bold p-2 rounded-xl text-xs">💾</button>
+      </div>
+    </div>
+
+    <!-- CARROSSEL DE DEPARTAMENTOS ATUALIZADOS -->
+    <div class="bg-white text-gray-800 border-t border-gray-200">
+      <div id="containerDepartamentos" class="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar items-center"></div>
+      <div id="containerSubcategorias" class="hidden bg-gray-50 border-t border-gray-200 px-3 sm:px-4 py-1.5">
+        <div id="listaSubcategorias" class="max-w-7xl mx-auto flex gap-1.5 overflow-x-auto no-scrollbar items-center"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- AVISO BUSCA GLOBAL -->
+  <div id="avisoDestravamentoCategoria" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-900 text-xs font-bold px-4 py-2 text-center"></div>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 flex-1 w-full flex flex-col gap-4">
+
+    <!-- FILTROS AVANÇADOS -->
+    <section class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 id="tituloSecao" class="font-black text-gray-900 text-base">🏪 Todos os Produtos</h2>
+            <span id="contadorProdutos" class="text-xs font-extrabold bg-red-50 text-red-600 px-2.5 py-0.5 rounded-lg border border-red-200">0 itens</span>
+          </div>
+          <p id="subtituloSecao" class="text-[11px] text-gray-500 mt-0.5">Carregando dados...</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+          <select id="selectOrdenacao" onchange="reiniciarPaginacaoEFiltrar()" class="bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+            <option value="relevancia">🎯 Relevância / Pontuação</option>
+            <option value="menor_preco">💲 Menor Preço</option>
+            <option value="maior_preco">💰 Maior Preço</option>
+            <option value="menor_unitario">⚖️ Menor Preço por Kg/L</option>
+            <option value="maior_desconto">🔥 Maior Desconto (%)</option>
+            <option value="az">🔤 Nome (A - Z)</option>
+          </select>
+          <select id="selectMarca" onchange="reiniciarPaginacaoEFiltrar()" class="bg-gray-50 border border-gray-300 text-gray-800 text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer max-w-[155px]">
+            <option value="TODAS">🏷️ Todas as Marcas</option>
+          </select>
+          <label class="flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-lg cursor-pointer">
+            <input type="checkbox" id="checkPromocao" onchange="reiniciarPaginacaoEFiltrar()" class="accent-red-600"> 🔥 Ofertas
+          </label>
+          <button onclick="resetarTodosFiltros()" id="btnLimparFiltros" class="hidden text-xs font-extrabold text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg">✕ Resetar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- GRID PRODUTOS -->
+    <section>
+      <div id="gridProdutos" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div class="col-span-full py-12 text-center bg-white rounded-xl border border-gray-200"><p class="text-sm font-bold text-gray-700">Carregando catálogo...</p></div>
+      </div>
+      <div id="containerCarregarMais" class="hidden py-6 text-center">
+        <button onclick="carregarMaisProdutos()" class="bg-red-600 hover:bg-red-700 text-white font-black text-xs sm:text-sm px-8 py-3 rounded-xl shadow">
+          ➕ Mostrar mais produtos (<span id="restantesCount">0</span> restantes)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL HISTÓRICO DE PREÇOS -->
+  <div id="modalHistorico" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden" onclick="if(event.target === this) fecharHistorico()">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-200 flex flex-col gap-3 relative">
+      <button onclick="fecharHistorico()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-xl">&times;</button>
+      <div class="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <span class="text-lg">📈</span><h3 class="font-black text-gray-900 text-sm">Histórico de Preços</h3>
+      </div>
+      <div id="modalHistoricoConteudo" class="flex flex-col gap-3"></div>
+    </div>
+  </div>
+
+  <!-- SACOLA LATERAL E DADOS (Mantidos do original, mas integrados via JS) -->
+  <div id="drawerSacola" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-end" onclick="if(event.target === this) toggleSacola()">
+    <div class="bg-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between">
+      <div class="p-4 bg-red-600 text-white flex justify-between items-center">
+        <div class="flex items-center gap-2"><span class="text-xl">🛍️</span><div><h3 class="font-black text-base leading-none">Minha Lista</h3></div></div>
+        <button onclick="toggleSacola()" class="text-white font-bold text-lg">&times;</button>
+      </div>
+      <div id="listaItensSacola" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+      <div class="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
+        <div class="flex justify-between text-base font-black text-gray-900"><span>Total:</span><span id="valorTotalSacola" class="text-red-600">R$ 0,00</span></div>
+        <div class="grid grid-cols-2 gap-2"><button onclick="limparSacola()" class="px-3 py-2.5 bg-gray-200 text-gray-800 rounded-lg text-xs font-bold">🗑️ Esvaziar</button><button onclick="copiarListaWhatsApp()" class="px-3 py-2.5 bg-green-600 text-white rounded-lg text-xs font-black">📲 WhatsApp</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalDados" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden" onclick="if(event.target === this) fecharModalDados()">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl flex flex-col gap-4">
+      <div class="flex justify-between items-center border-b border-gray-200 pb-3"><h3 class="font-black text-sm">Gerenciar Dados</h3><button onclick="fecharModalDados()" class="text-gray-400 font-bold text-xl">&times;</button></div>
+      <details class="text-xs text-gray-500">
+        <summary class="cursor-pointer font-bold hover:text-gray-800">Alterar Banco (Firebase URL)</summary>
+        <div class="mt-2 flex gap-2"><input id="inputFirebaseUrl" type="text" class="w-full px-2.5 py-1.5 border rounded-lg text-xs font-mono"><button onclick="salvarUrlFirebaseManual()" class="bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg">Salvar</button></div>
+      </details>
+    </div>
+  </div>
+
+  <script src="robo.js"></script>
+  <script>
+    // Configurações
+    const FIREBASE_URL_FIXA = "https://mercaro-e6035-default-rtdb.firebaseio.com/"; 
+    function obterUrlFirebase() {
+      const salvo = localStorage.getItem('koch_firebase_url') || '';
+      const url = (FIREBASE_URL_FIXA || salvo).trim().replace(/\/$/, '').replace(/\/koch_loja_1408\.json$/, '');
+      if (url && !salvo) localStorage.setItem('koch_firebase_url', url);
+      return url;
+    }
+
+    let catalogoGlobal = []; let listaFiltradaAtual = []; let sacolaCompras = [];
+    let departamentoSelecionado = 'TODOS'; let subcategoriaSelecionada = ''; let limiteExibicao = 60;
+    try { sacolaCompras = JSON.parse(localStorage.getItem('koch_sacola_1408')) || []; } catch(e) { sacolaCompras = []; }
+    const FALLBACK_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f3f4f6%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ESem%20Foto%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+    // CATEGORIAS REFINADAS EXATAMENTE COMO PEDIDO
+    const DEPARTAMENTOS_IFOOD = [
+      { id: 'TODOS', nome: 'Todos', icone: '🏪', sub: [] },
+      { id: 'OFERTAS', nome: 'Ofertas', icone: '🔥', sub: ['Maiores Descontos', 'Até R$ 5', 'Até R$ 10', 'Até R$ 20'] },
+      { id: 'ELETRO', nome: 'Eletro', icone: '🔌', termosCat: ['eletro', 'smart tv', 'ar condicionado', 'informatica', 'eletronicos'], regexNome: /\b(tv|televisao|ar condicionado|ventilador|liquidificador|cafeteira|air fryer|ferro de passar)\b/i, sub: ['Eletroportáteis', 'TV & Áudio', 'Climatização'] },
+      { id: 'HORTIFRUTI', nome: 'Hortifruti', icone: '🥬', termosCat: ['hortifruti', 'fruta', 'verdura', 'legume', 'ovos', 'organicos'], regexNome: /\b(banana|maca|laranja|limao|uva|mamao|melancia|melao|abacaxi|morango|tomate|cebola|batata|alho|cenoura|alface|ovos|ovo)\b/i, sub: ['Frutas', 'Verduras & Folhas', 'Legumes', 'Ovos'] },
+      { id: 'ACOUGUE', nome: 'Açougue', icone: '🥩', termosCat: ['acougue', 'carne', 'aves', 'peixaria', 'pescado'], regexNome: /\b(bovino|bovina|picanha|alcatra|maminha|contra file|costela|coxao|patinho|acem|carne moida|frango|suino|linguica|salsicha|bacon|peixe|tilapia|salmao)\b/i, sub: ['Bovinos', 'Frango', 'Suínos', 'Linguiça & Salsicha', 'Peixes'] },
+      { id: 'FRIOS_LATICINIOS', nome: 'Frios & Laticínios', icone: '🧀', termosCat: ['frios', 'laticinio', 'queijo', 'leite', 'iogurte', 'embutidos'], regexNome: /\b(leite|queijo|mussarela|prato|parmesao|presunto|mortadela|salame|copa|iogurte|requeijao|manteiga|margarina|creme de leite)\b/i, sub: ['Leite', 'Queijos', 'Presunto & Embutidos', 'Iogurte & Laticínios', 'Manteiga & Margarina'] },
+      { id: 'CONGELADOS', nome: 'Congelados', icone: '🍕', termosCat: ['congelado', 'sorvete', 'sobremesa'], regexNome: /\b(pizza|lasanha|hamburguer|nuggets|batata pre-frita|pao de queijo|sorvete|picole)\b/i, sub: ['Pizza & Pratos Prontos', 'Hambúrguer & Empanados', 'Batata Congelada', 'Sorvete'] },
+      { id: 'MERCEARIA', nome: 'Mercearia', icone: '🍝', termosCat: ['mercearia', 'alimento', 'graos', 'matinal', 'biscoito', 'chocolate', 'doces', 'basicos'], regexNome: /\b(arroz|feijao|macarrao|massa|oleo|azeite|vinagre|sal|acucar|cafe|farinha|aveia|biscoito|bolacha|chocolate|molho|ketchup|maionese|milho|ervilha|atum|sardinha)\b/i, sub: ['Arroz & Feijão', 'Macarrão & Molhos', 'Óleo & Azeite', 'Café & Matinais', 'Biscoitos & Doces', 'Enlatados'] },
+      { id: 'LIMPEZA', nome: 'Limpeza', icone: '🧹', termosCat: ['limpeza', 'lava roupas', 'amaciante', 'desinfetante'], regexNome: /\b(sabao|lava roupas|omo|amaciante|downy|detergente|ype|agua sanitaria|alvejante|desinfetante|veja|multiuso|esponja|saco para lixo)\b/i, sub: ['Lava Roupas', 'Amaciante', 'Detergente & Esponja', 'Desinfetante & Multiuso'] },
+      { id: 'HIGIENE', nome: 'Higiene & Beleza', icone: '🧴', termosCat: ['higiene', 'beleza', 'cuidado pessoal', 'corpo', 'cabelo', 'bucal'], regexNome: /\b(papel higienico|sabonete|shampoo|condicionador|desodorante|creme dental|escova dental|enxaguante|absorvente)\b/i, sub: ['Papel Higiênico', 'Sabonete & Banho', 'Cabelo', 'Higiene Bucal', 'Desodorante'] },
+      { id: 'BEBIDAS', nome: 'Bebidas', icone: '🥤', termosCat: ['bebida'], excluirCat: ['alcoolica', 'cerveja', 'vinho', 'destilado'], regexNome: /\b(refrigerante|sprite|coca-cola|coca cola|pepsi|guarana|suco|agua mineral|agua com gas|energetico|red bull|monster|cha gelado)\b/i, sub: ['Refrigerante', 'Suco & Néctar', 'Água', 'Energético & Isotônico'] },
+      { id: 'ALCOOLICAS', nome: 'Bebidas Alcoólicas', icone: '🍺', termosCat: ['alcoolica', 'cerveja', 'vinho', 'destilado', 'champagne', 'licores'], regexNome: /\b(cerveja|heineken|amstel|brahma|skol|spaten|corona|vinho|espumante|whisky|vodka|gin|tequila|cachaca)\b/i, sub: ['Cerveja', 'Vinho & Espumante', 'Whisky & Vodka', 'Destilados & Gin'] },
+      { id: 'CASA_UTILIDADES', nome: 'Casa & Utilidades', icone: '🏠', termosCat: ['casa', 'utilidade', 'bazar', 'churrasco', 'descartaveis', 'textil'], regexNome: /\b(carvao|papel toalha|papel aluminio|copo descartavel|lampada|pilha)\b/i, sub: ['Churrasco & Carvão', 'Descartáveis', 'Papel Toalha & Alumínio', 'Lâmpadas & Pilhas'] },
+      { id: 'PADARIA', nome: 'Padaria & Confeitaria', icone: '🥖', termosCat: ['padaria', 'confeitaria', 'paes', 'bolo'], regexNome: /\b(pao|paes|bisnaguinha|torrada|bolo|torta|panetone)\b/i, sub: ['Pão de Forma', 'Pães Variados', 'Bolos & Tortas', 'Torradas'] },
+      { id: 'BEBE', nome: 'Bebê', icone: '👶', termosCat: ['bebe', 'infantil', 'fraldas'], regexNome: /\b(fralda|pampers|huggies|lenco umedecido|composto lacteo|aptamil|chupeta)\b/i, sub: ['Fraldas', 'Lenço Umedecido', 'Alimentação Infantil'] },
+      { id: 'PET', nome: 'Pet', icone: '🐾', termosCat: ['pet', 'caes', 'gatos', 'racao'], regexNome: /\b(racao|petisco|pedigree|whiskas|areia sanitaria|tapete higienico)\b/i, sub: ['Ração para Cães', 'Ração para Gatos', 'Higiene Pet'] }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => { atualizarInterfaceSacola(); renderizarCarrosselDepartamentos(); carregarDoFirebase(); });
+
+    function normalizarTexto(str) { return String(str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s.,/-]/g,' ').replace(/\s+/g,' ').trim(); }
+    function removerPluralSimples(palavra) { if(!palavra || palavra.length <= 3) return palavra; if(palavra.endsWith('s') && !palavra.endsWith('ss') && !palavra.endsWith('is')) return palavra.slice(0,-1); return palavra; }
+
+    function calcularPrecoUnitarioBase(p) {
+      const nome = normalizarTexto(p.nome); const preco = Number(p.preco || 0); if(!preco) return null;
+      if (p.unidade === 'KG' || /\bkg\b$/.test(nome)) return { valor: preco, rotulo: '/kg' };
+      const mMedida = nome.match(/\b(\d+(?:[.,]\d+)?)\s*(ml|l|lt|litros|g|gr|kg)\b/i);
+      if (mMedida) {
+        const qtd = parseFloat(mMedida[1].replace(',','.')); const un = mMedida[2].toLowerCase();
+        if (qtd > 0) {
+          if(un === 'ml' && qtd >= 50) return { valor: (preco / (qtd / 1000)), rotulo: '/L' };
+          if(un.startsWith('l') && qtd <= 25) return { valor: (preco / qtd), rotulo: '/L' };
+          if(un.startsWith('g') && qtd >= 20) return { valor: (preco / (qtd / 1000)), rotulo: '/kg' };
+          if(un === 'kg' && qtd <= 50) return { valor: (preco / qtd), rotulo: '/kg' };
+        }
+      } return null;
+    }
+
+    function prepararProduto(p) {
+      const nomeLimpo = String(p.nome).trim(); const preco = Math.max(0, Number(p.preco || 0));
+      const _nomeNorm = normalizarTexto(nomeLimpo); const _catNorm = normalizarTexto((p.categorias||[]).join(' '));
+      const infoUnit = calcularPrecoUnitarioBase({ nome: nomeLimpo, preco, unidade: p.unidade });
+      
+      const _deptos = new Set(['TODOS']);
+      if (p.desconto > 0 || p.emPromocao) _deptos.add('OFERTAS');
+      DEPARTAMENTOS_IFOOD.forEach(d => {
+        if(d.id==='TODOS' || d.id==='OFERTAS') return;
+        if(d.excluirCat && d.excluirCat.some(ex => _catNorm.includes(ex))) return;
+        if((d.termosCat && d.termosCat.some(t => _catNorm.includes(t))) || (d.regexNome && d.regexNome.test(_nomeNorm))) _deptos.add(d.id);
+      });
+
+      return {
+        id: p.id, idOriginal: p.idOriginal || p.id, mercadoOrigem: p.mercadoOrigem || 'KOCH 1408',
+        nome: nomeLimpo, marca: String(p.marca||'').trim().toUpperCase(), preco, precoOriginal: Number(p.precoOriginal||preco),
+        desconto: Number(p.desconto||0), estoque: Number(p.estoque||0), unidade: String(p.unidade||'UN').toUpperCase(),
+        imagem: p.imagem || FALLBACK_IMG, categorias: p.categorias || [], slug: p.slug || '',
+        historicoPrecos: p.historicoPrecos || {}, 
+        precoUnitarioBase: infoUnit ? infoUnit.valor : 999999,
+        rotuloUnitario: infoUnit ? `≈ R$ ${infoUnit.valor.toFixed(2).replace('.',',')}${infoUnit.rotulo}` : '',
+        _nomeNorm, _marcaNorm: normalizarTexto(p.marca), _palavras: _nomeNorm.split(/[\s,/.-]+/).filter(Boolean), _deptos
+      };
+    }
+
+    // CONEXÃO QUE LÊ TODOS OS MERCADOS DE UMA VEZ
+    async function carregarDoFirebase() {
+      const fbUrl = obterUrlFirebase();
+      const elStatus = document.getElementById('statusNuvem');
+      if (!fbUrl) { elStatus.textContent = 'Banco não vinculado'; return; }
+      try {
+        elStatus.textContent = 'Sincronizando...';
+        const resposta = await fetch(`${fbUrl}/.json?t=${Date.now()}`); // Puxa todos os mercados
+        const bancoCompleto = await resposta.json();
+        
+        let mercadosParaLer = {};
+        if (bancoCompleto && bancoCompleto.produtos) mercadosParaLer['koch_loja_1408'] = bancoCompleto;
+        else mercadosParaLer = bancoCompleto || {};
+
+        const mapaUnico = new Map();
+        for (const chave in mercadosParaLer) {
+          const m = mercadosParaLer[chave];
+          if (m && Array.isArray(m.produtos)) {
+            m.produtos.forEach(item => {
+              if (item && item.id) {
+                const p = prepararProduto(item);
+                p.mercadoOrigem = chave.replace('_loja_', ' ').replace('_', ' ').toUpperCase();
+                p.idOriginal = item.id; p.id = `${chave}_${item.id}`; // Evita ID duplicado entre mercados
+                mapaUnico.set(p.id, p);
+              }
+            });
+          }
+        }
+        catalogoGlobal = Array.from(mapaUnico.values());
+        elStatus.textContent = `${catalogoGlobal.length} produtos sincronizados`;
+        renderizarCarrosselDepartamentos(); popularSelectMarcas(); reiniciarPaginacaoEFiltrar();
+      } catch (e) { elStatus.textContent = `Erro: ${e.message}`; }
+    }
+
+    // Modal de Histórico de Preços
+    function abrirHistorico(idProduto) {
+      const p = catalogoGlobal.find(x => String(x.id) === String(idProduto));
+      if(!p || !p.historicoPrecos) return;
+      
+      const datas = Object.keys(p.historicoPrecos).sort((a,b) => new Date(b) - new Date(a));
+      let html = datas.map((d, index) => {
+        const dataFormatada = d.split('-').reverse().join('/');
+        const preco = Number(p.historicoPrecos[d]).toFixed(2).replace('.', ',');
+        const tag = index === 0 ? '<span class="bg-green-100 text-green-800 text-[9px] font-bold px-1.5 py-0.5 rounded ml-2">Atual</span>' : '';
+        return `<div class="flex justify-between items-center py-2 border-b border-gray-100 text-xs last:border-0"><span class="text-gray-600 font-medium">${dataFormatada}</span><span class="font-black text-gray-900">R$ ${preco} ${tag}</span></div>`;
+      }).join('');
+
+      document.getElementById('modalHistoricoConteudo').innerHTML = `
+        <div class="flex gap-3 mb-2 items-center">
+          <img src="${p.imagem}" class="w-12 h-12 object-contain rounded-lg border border-gray-200 p-1">
+          <div class="flex-1"><h4 class="font-bold text-xs text-gray-900 leading-tight line-clamp-2">${p.nome}</h4><p class="text-[10px] text-gray-500 mt-1 uppercase">${p.marca} • ${p.unidade}</p></div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3 max-h-64 overflow-y-auto border border-gray-200">${html}</div>
+      `;
+      document.getElementById('modalHistorico').classList.remove('hidden');
+    }
+    function fecharHistorico() { document.getElementById('modalHistorico').classList.add('hidden'); }
+
+    // Demais funções de Filtragem e Interface (Renderização Ultrarrápida)
+    function renderizarCarrosselDepartamentos() {
+      const container = document.getElementById('containerDepartamentos');
+      container.innerHTML = DEPARTAMENTOS_IFOOD.map(d => `<button onclick="selecionarDepartamento('${d.id}')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap font-bold text-xs border ${departamentoSelecionado === d.id ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-50 text-gray-800'}"><span>${d.icone}</span><span>${d.nome}</span></button>`).join('');
+      renderizarSubcategorias();
+    }
+    function renderizarSubcategorias() {
+      const depto = DEPARTAMENTOS_IFOOD.find(d => d.id === departamentoSelecionado);
+      if (!depto || !depto.sub || depto.sub.length === 0) return document.getElementById('containerSubcategorias').classList.add('hidden');
+      document.getElementById('containerSubcategorias').classList.remove('hidden');
+      document.getElementById('listaSubcategorias').innerHTML = `<button onclick="selecionarSubcategoria('')" class="px-2.5 py-1 rounded-lg text-xs font-bold ${subcategoriaSelecionada === '' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border'}">Tudo</button>` + depto.sub.map(s => `<button onclick="selecionarSubcategoria('${s.replace(/'/g,"\\'")}')" class="px-2.5 py-1 rounded-lg text-xs font-bold ${subcategoriaSelecionada === s ? 'bg-red-600 text-white' : 'bg-white text-gray-700 border'}">${s}</button>`).join('');
+    }
+    function selecionarDepartamento(id) { departamentoSelecionado = id; subcategoriaSelecionada = ''; reiniciarPaginacaoEFiltrar(); renderizarCarrosselDepartamentos(); popularSelectMarcas(); }
+    function selecionarSubcategoria(sub) { subcategoriaSelecionada = sub; reiniciarPaginacaoEFiltrar(); renderizarSubcategorias(); }
+    function popularSelectMarcas() {
+      const select = document.getElementById('selectMarca'); const atuais = {};
+      catalogoGlobal.forEach(p => { if(p._deptos.has(departamentoSelecionado)) atuais[p.marca] = (atuais[p.marca]||0)+1; });
+      select.innerHTML = `<option value="TODAS">🏷️ Todas as Marcas</option>` + Object.keys(atuais).sort().map(m => `<option value="${m}">${m} (${atuais[m]})</option>`).join('');
+    }
+    function reiniciarPaginacaoEFiltrar() { limiteExibicao = 60; aplicarFiltrosEBusca(); }
+    function carregarMaisProdutos() { limiteExibicao += 60; renderizarProdutos(listaFiltradaAtual); }
+    function aoDigitarBusca() { reiniciarPaginacaoEFiltrar(); }
+    function limparBusca() { document.getElementById('inputBusca').value = ''; reiniciarPaginacaoEFiltrar(); }
+
+    function aplicarFiltrosEBusca() {
+      const query = normalizarTexto(document.getElementById('inputBusca').value);
+      const termos = query.split(/\s+/).filter(Boolean);
+      const promocao = document.getElementById('checkPromocao').checked;
+      const marca = document.getElementById('selectMarca').value;
+      const ordenacao = document.getElementById('selectOrdenacao').value;
+
+      listaFiltradaAtual = catalogoGlobal.filter(p => {
+        if(!p._deptos.has(departamentoSelecionado)) return false;
+        if(subcategoriaSelecionada && !['Maiores Descontos','Até R$ 5','Até R$ 10','Até R$ 20'].includes(subcategoriaSelecionada)) {
+          const tSub = normalizarTexto(subcategoriaSelecionada).split(' ');
+          if(!tSub.some(ts => p._nomeNorm.includes(ts) || p._marcaNorm.includes(ts))) return false;
+        }
+        if(promocao && p.desconto <= 0) return false;
+        if(marca !== 'TODAS' && p.marca !== marca) return false;
+        if(query && !termos.every(t => p._nomeNorm.includes(t) || p._marcaNorm.includes(t))) return false;
+        return true;
+      });
+
+      if(ordenacao === 'menor_preco') listaFiltradaAtual.sort((a,b) => a.preco - b.preco);
+      else if(ordenacao === 'maior_preco') listaFiltradaAtual.sort((a,b) => b.preco - a.preco);
+      else if(ordenacao === 'menor_unitario') listaFiltradaAtual.sort((a,b) => a.precoUnitarioBase - b.precoUnitarioBase);
+      else if(ordenacao === 'maior_desconto') listaFiltradaAtual.sort((a,b) => b.desconto - a.desconto);
+      else if(ordenacao === 'az') listaFiltradaAtual.sort((a,b) => a.nome.localeCompare(b.nome));
+
+      renderizarProdutos(listaFiltradaAtual);
+    }
+
+    function renderizarProdutos(lista) {
+      document.getElementById('contadorProdutos').textContent = `${lista.length} itens`;
+      const grid = document.getElementById('gridProdutos');
+      const btnMais = document.getElementById('containerCarregarMais');
+      if (lista.length === 0) { grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-500 font-bold">Nenhum produto encontrado.</div>`; btnMais.classList.add('hidden'); return; }
+
+      const fatia = lista.slice(0, limiteExibicao);
+      btnMais.classList.toggle('hidden', lista.length <= limiteExibicao);
+      document.getElementById('restantesCount').textContent = lista.length - limiteExibicao;
+
+      grid.innerHTML = fatia.map(p => {
+        const link = p.slug ? `https://www.superkoch.com.br/produtos/${p.idOriginal}/${p.slug}` : `https://www.superkoch.com.br/busca/${encodeURIComponent(p.nome)}`;
+        const histBtn = (p.historicoPrecos && Object.keys(p.historicoPrecos).length > 1) ? `<button onclick="abrirHistorico('${p.id}')" class="text-[10px] text-blue-600 font-bold flex items-center bg-blue-50 px-1.5 py-0.5 rounded">📈 Histórico</button>` : '';
+        
+        // NOVO: Calcula a economia em Reais
+        const economia = p.precoOriginal > p.preco ? (p.precoOriginal - p.preco) : 0;
+        
+        return `
+          <div class="bg-white rounded-xl p-3 border border-gray-200 hover:border-red-500 flex flex-col justify-between relative">
+            <div>
+              <div class="relative w-full h-36 bg-white rounded-lg mb-2 flex justify-center">
+                <a href="${link}" target="_blank" class="w-full h-full flex justify-center"><img src="${p.imagem}" class="object-contain h-full w-full" onerror="this.src='${FALLBACK_IMG}';"></a>
+                ${p.desconto > 0 ? `<span class="absolute top-1 left-1 bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded">-${p.desconto}%</span>` : ''}
+              </div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <div class="flex items-center gap-1.5 truncate"><span class="text-[10px] font-bold text-gray-400 uppercase truncate">${p.marca}</span><span class="text-[8px] font-black bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded uppercase">${p.mercadoOrigem}</span></div>
+                ${p.rotuloUnitario ? `<span class="text-[9px] font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded whitespace-nowrap">${p.rotuloUnitario}</span>` : ''}
+              </div>
+              <a href="${link}" target="_blank" class="font-bold text-xs text-gray-800 hover:text-red-600 line-clamp-2 h-8 leading-4">${p.nome}</a>
+            </div>
+            
+            <div class="pt-2 border-t border-gray-100 mt-2">
+              <!-- NOVO: Mostra preço riscado e etiqueta verde de economia apenas se houver desconto -->
+              ${(p.desconto > 0 || economia > 0) ? `
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] text-gray-400 line-through">R$ ${p.precoOriginal.toFixed(2).replace('.', ',')}</span>
+                  <span class="text-[9px] font-bold text-green-700 bg-green-50 px-1 rounded">-R$ ${economia.toFixed(2).replace('.', ',')}</span>
+                </div>
+              ` : '<div class="h-4"></div>'}
+              
+              <div class="flex items-baseline gap-1 mb-1 mt-0.5">
+                <span class="text-xs text-red-600 font-bold">R$</span><span class="text-lg font-black text-gray-900 leading-none">${p.preco.toFixed(2).replace('.',',')}</span><span class="text-[10px] text-gray-500">/${p.unidade}</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="${p.estoque > 0 ? 'text-green-700' : 'text-red-500'} font-bold">${p.estoque > 0 ? `● ${p.estoque} un` : '● Esgotado'}</span>
+                ${histBtn}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function copiarRoboExtrator() {
+      const fbUrl = obterUrlFirebase();
+      if (!fbUrl) return alert('Informe a URL do seu Firebase primeiro.');
+      const script = `(${roboExtratorInfiltradoV6.toString()})(${JSON.stringify(fbUrl)});`;
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(script).catch(()=>{}); const t=document.createElement('textarea'); t.value=script; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); } catch(e){}
+      window.open('https://www.superkoch.com.br/', '_blank');
+    }
+
+    // Modal e Sacola
+    function abrirModalDados() { document.getElementById('modalDados').classList.remove('hidden'); document.getElementById('inputFirebaseUrl').value = obterUrlFirebase(); }
+    function fecharModalDados() { document.getElementById('modalDados').classList.add('hidden'); }
+    function salvarUrlFirebaseManual() { const v = document.getElementById('inputFirebaseUrl').value.trim(); if(v) localStorage.setItem('koch_firebase_url', v); fecharModalDados(); carregarDoFirebase(); }
+    function toggleSacola() { document.getElementById('drawerSacola').classList.toggle('hidden'); }
+    function limparSacola() { sacolaCompras = []; localStorage.removeItem('koch_sacola_1408'); atualizarInterfaceSacola(); }
+    function atualizarInterfaceSacola() { document.getElementById('badgeSacolaMobile').textContent = '0'; document.getElementById('badgeSacolaDesktop').textContent = '0'; }
+  </script>
+</body>
+</html>
