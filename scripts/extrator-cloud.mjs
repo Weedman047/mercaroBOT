@@ -522,8 +522,8 @@ async function executarRoboCloud() {
 
       console.log(`✅ ${rotulo}: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | Total Banco: ${mapaProdutos.size}).`);
 
-      // Salva no Firebase a cada Departamento principal concluído
-      if (CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes")) {
+      // Salva no Firebase a cada Departamento concluído ou a cada 100 novos produtos
+      if ((CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes")) || novosNaSessao >= 100) {
         await gravarComSegurancaNoFirebase(`Checkpoint após ${rota.nome}`);
       }
 
@@ -542,6 +542,24 @@ async function executarRoboCloud() {
     await browser.close();
   }
 }
+
+// CAPTURA DE SINAIS DE CANCELAMENTO (Se você cancelar no GitHub Actions ou Ctrl+C)
+let salvandoCancelamento = false;
+const tratarCancelamento = async (sinal) => {
+  if (salvandoCancelamento) return;
+  salvandoCancelamento = true;
+  console.log(`\n🛑 Cancelamento detectado (${sinal}). Salvando imediatamente tudo o que foi coletado até o momento no Firebase...`);
+  try {
+    await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
+    console.log(`✅ Salvo com sucesso antes de encerrar!`);
+  } catch (e) {
+    console.error(`Erro ao salvar no cancelamento:`, e.message);
+  }
+  process.exit(0);
+};
+
+process.on("SIGINT", () => tratarCancelamento("SIGINT"));
+process.on("SIGTERM", () => tratarCancelamento("SIGTERM"));
 
 executarRoboCloud().catch(async (err) => {
   console.error(`❌ Erro durante a execução:`, err.message);
