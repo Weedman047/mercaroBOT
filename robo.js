@@ -2,7 +2,10 @@
 // 4. ROBÔ EXTRATOR V7 (SEQUENCIAL POR LINKS/CATEGORIAS + ROLAGEM + CHECKPOINT EXATO)
 // =========================================================================
 async function roboExtratorInfiltradoV6(fbBaseUrl) {
-  const FIREBASE_ENDPOINT = fbBaseUrl.replace(/\/$/, '') + "/koch_loja_1408.json";
+  const baseLimpa = fbBaseUrl.replace(/\/$/, '').replace(/\/koch_loja_1408\.json$/, '');
+  const FIREBASE_ENDPOINT = baseLimpa + "/koch_loja_1408.json";
+  const FIREBASE_TELEMETRIA_ENDPOINT = baseLimpa + "/robo_controle/telemetria.json";
+  const FIREBASE_COMANDOS_ENDPOINT = baseLimpa + "/robo_controle/comandos.json";
   const CHECKPOINT_STORAGE_KEY = "koch_robo_checkpoint_v7";
 
   // =======================================================================
@@ -196,7 +199,10 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     backoffMs: 12000,         // Espera base se der 429 (12s multiplicado pela tentativa)
     maxRetries: 5,            // Tentativas automáticas antes de pausar no ponto exato
     size: 12,                 // 12 itens por página (exatamente igual ao site oficial do SuperKoch)
-    autoSaveBatch: 150,       // Salvar no Firebase a cada X novos produtos
+    salvarAoAdicionar: 1,     // Salvar no Firebase ao adicionar X produtos novos
+    salvarAoAtualizar: 50,    // Salvar no Firebase ao atualizar X produtos existentes
+    cooldownSaveMs: 25000,    // Intervalo mínimo de 25s durante paginação para não pesar
+    autoSaveBatch: 50,        // Compatibilidade
     navegarVisualSPA: false,  // Desativado por padrão para NÃO duplicar requisições do React com as do robô
     pararNoLocalExato: true,  // Parar exatamente na página/offset se bloquear ou pedir token
     autoDescobrirNovas: true, // Adicionar categorias extras do APOLLO_STATE se surgirem no site
@@ -205,12 +211,15 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
   // Estado interno de execução + Checkpoint exato + Trava de Segurança do Firebase
   const estado = {
+    idExecucao: `browser_${Date.now()}`,
+    tempoInicioMs: Date.now(),
     rodando: false,
     pausado: false,
     aguardandoToken: false,
     bloqueioAtivo: false,
     cancelado: false,
     salvarAgora: false,
+    pularRotaAtual: false,
     minimizado: false,
     abaAtual: "fila", // 'fila' | 'live' | 'config' | 'logs'
     filtroLog: "TODOS",
@@ -221,17 +230,32 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     isEmployee: "",
     hidePersonas: "690",
     requisicoesFeitas: 0,
+    totalLidosNaSessao: 0,
     novosNaSessao: 0,
+    precosAlteradosNaSessao: 0,
+    estoquesAlteradosNaSessao: 0,
+    atualizadosNaSessao: 0,
+    novosDesdeUltimoSave: 0,
+    atualizadosDesdeUltimoSave: 0,
+    savesRealizados: 0,
+    ultimoSaveEm: null,
+    ultimoSaveMotivo: "Nenhum ainda",
+    ultimoSaveMs: Date.now(),
     totalInicialFirebase: 0,
     leituraFirebaseConcluida: false,
     ultimosNomes: [],
+    ultimosNovos: [],
+    ultimosPrecosAlterados: [],
+    ultimosEstoquesAlterados: [],
     logs: [],
     contagemLogs: { ESPERADO: 0, INESPERADO: 0, OK: 0 },
     // Checkpoint de posição exata para nunca perder nada
     indiceRotaAtual: 0,
     offsetFromAtual: 0,
     paginaAtualNaRota: 1,
-    progressoPorRota: {} // { [idx]: { status: 'pendente'|'rodando'|'concluido'|'pausado', lidos: 0, pags: 0 } }
+    totalPaginasEstimadoRota: 1,
+    ultimoComandoIdProcessado: 0,
+    progressoPorRota: {} // { [idx]: { status: 'pendente'|'rodando'|'concluido'|'pausado', lidos: 0, pags: 0, novos: 0, precos: 0 } }
   };
 
   const mapaProdutos = new Map();
@@ -472,18 +496,22 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
               <input type="number" id="cfg-delayTrocaRotaMs" value="3800" min="1000" max="30000" step="200">
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-top:6px;">
             <div>
               <div class="koch-lbl">Espera 429 (ms)</div>
               <input type="number" id="cfg-backoffMs" value="12000" min="3000" max="90000" step="1000">
             </div>
             <div>
-              <div class="koch-lbl">Tentativas Erro</div>
+              <div class="koch-lbl">Tentativas</div>
               <input type="number" id="cfg-maxRetries" value="5" min="1" max="15">
             </div>
             <div>
-              <div class="koch-lbl">Auto-Save Lote</div>
-              <input type="number" id="cfg-autoSaveBatch" value="150" min="50" max="2000" step="50">
+              <div class="koch-lbl">Salvar +Novos</div>
+              <input type="number" id="cfg-salvarAoAdicionar" value="1" min="1" max="500" step="1">
+            </div>
+            <div>
+              <div class="koch-lbl">Salvar Atualiz.</div>
+              <input type="number" id="cfg-salvarAoAtualizar" value="50" min="1" max="1000" step="10">
             </div>
           </div>
           <div class="koch-row" style="margin-top:6px;">
@@ -817,16 +845,17 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
   // Lê configurações da UI em tempo real
   const lerConfigDaUI = () => {
-    config.delayMs = Math.max(500, Number(document.getElementById("cfg-delayMs").value) || 2200);
-    config.delayTrocaRotaMs = Math.max(1000, Number(document.getElementById("cfg-delayTrocaRotaMs").value) || 3800);
-    config.backoffMs = Math.max(3000, Number(document.getElementById("cfg-backoffMs").value) || 12000);
-    config.maxRetries = Math.max(1, Number(document.getElementById("cfg-maxRetries").value) || 5);
-    config.autoSaveBatch = Math.max(50, Number(document.getElementById("cfg-autoSaveBatch").value) || 150);
-    config.size = Number(document.getElementById("cfg-size").value) || 12;
-    config.navegarVisualSPA = document.getElementById("cfg-navegarVisualSPA").checked;
-    config.pararNoLocalExato = document.getElementById("cfg-pararNoLocalExato").checked;
-    config.autoDescobrirNovas = document.getElementById("cfg-autoDescobrirNovas").checked;
-    config.repescagemGlobalFinal = document.getElementById("cfg-repescagemGlobalFinal").checked;
+    config.delayMs = Math.max(500, Number(document.getElementById("cfg-delayMs")?.value) || 2200);
+    config.delayTrocaRotaMs = Math.max(1000, Number(document.getElementById("cfg-delayTrocaRotaMs")?.value) || 3800);
+    config.backoffMs = Math.max(3000, Number(document.getElementById("cfg-backoffMs")?.value) || 12000);
+    config.maxRetries = Math.max(1, Number(document.getElementById("cfg-maxRetries")?.value) || 5);
+    config.salvarAoAdicionar = Math.max(1, Number(document.getElementById("cfg-salvarAoAdicionar")?.value) || 1);
+    config.salvarAoAtualizar = Math.max(1, Number(document.getElementById("cfg-salvarAoAtualizar")?.value) || 50);
+    config.size = Number(document.getElementById("cfg-size")?.value) || 12;
+    config.navegarVisualSPA = Boolean(document.getElementById("cfg-navegarVisualSPA")?.checked);
+    config.pararNoLocalExato = Boolean(document.getElementById("cfg-pararNoLocalExato")?.checked);
+    config.autoDescobrirNovas = Boolean(document.getElementById("cfg-autoDescobrirNovas")?.checked);
+    config.repescagemGlobalFinal = Boolean(document.getElementById("cfg-repescagemGlobalFinal")?.checked);
   };
 
   balao.querySelectorAll("input, select").forEach(inp => {
@@ -885,29 +914,32 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     }
   };
 
-  // Processador de produtos retornados pela API OSuper (Preserva histórico de preços + Categorias exatas)
+  // Processador de produtos retornados pela API OSuper (Preserva histórico de preços + Categorias exatas + Detecta atualizações)
   let novosSemSalvar = 0;
   const dataHojeISO = new Date().toISOString().slice(0, 10);
 
   const processarHits = (hits, rotaContexto = null) => {
-    if (!Array.isArray(hits) || hits.length === 0) return { ultimoTexto: "", novosNesteLote: 0 };
+    if (!Array.isArray(hits) || hits.length === 0) return { ultimoTexto: "", novosNesteLote: 0, precosNesteLote: 0 };
     let ultimoTexto = "";
     let novosNesteLote = 0;
+    let precosNesteLote = 0;
+    const catRotaNome = rotaContexto?.nome || "Geral";
+    const horaStr = new Date().toLocaleTimeString("pt-BR", { hour12: false });
 
     for (let i = 0; i < hits.length; i++) {
       const item = hits[i];
       if (!item || !item.id) continue;
+      estado.totalLidosNaSessao++;
 
       const existente = mapaProdutos.get(item.id);
-      if (!existente) {
-        novosSemSalvar++;
-        estado.novosNaSessao++;
-        novosNesteLote++;
-      }
 
       const precoNormal = Number(item.pricing?.price || item.pricing?.normalPrice || 0);
       const precoPromo = Number(item.pricing?.promotionalPrice || item.activePrice || precoNormal);
       const precoFinal = precoPromo > 0 && precoPromo < precoNormal ? precoPromo : (precoNormal || precoPromo);
+
+      // Proteção contra preço zerado acidental da API: preserva preço anterior do Firebase se existir
+      const precoSeguro = precoFinal > 0 ? precoFinal : Number(existente?.preco || 0);
+      const precoOrigSeguro = precoNormal > precoSeguro ? precoNormal : Number(existente?.precoOriginal || precoSeguro);
 
       // Reúne categorias da API + categorias da rota atual + categorias anteriores do produto
       const setCats = new Set();
@@ -937,27 +969,95 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
         ? item.image
         : (item.image?.thumborized || item.image?.url || existente?.imagem || "");
 
-      // Marca segura
+      // Marca e nome seguros
       const marcaStr = String(item.brandName || item.brand?.name || existente?.marca || "GENÉRICO").trim();
+      const nomeLimpo = String(item.name || existente?.nome || "Produto sem nome").trim();
+      const estoqueNovo = item.quantity?.inStock ?? existente?.estoque ?? 0;
 
       // Histórico de preços acumulado por dia
       const historico = { ...(existente?.historicoPrecos || {}) };
-      if (precoFinal > 0) {
-        historico[dataHojeISO] = precoFinal;
+      if (precoSeguro > 0) {
+        historico[dataHojeISO] = precoSeguro;
       }
 
-      const emPromo = Boolean(item.pricing?.promotion || (precoNormal > precoFinal && precoFinal > 0));
-      const descPct = item.pricing?.discount || (precoNormal > precoFinal && precoNormal > 0 ? Math.round(((precoNormal - precoFinal) / precoNormal) * 100) : 0);
+      const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0));
+      const descPct = item.pricing?.discount || (precoOrigSeguro > precoSeguro && precoOrigSeguro > 0 ? Math.round(((precoOrigSeguro - precoSeguro) / precoOrigSeguro) * 100) : 0);
+
+      // Distingue produto NOVO de produto ATUALIZADO (mudança de preço ou estoque)
+      if (!existente) {
+        novosSemSalvar++;
+        estado.novosNaSessao++;
+        estado.novosDesdeUltimoSave++;
+        novosNesteLote++;
+        estado.ultimosNovos.unshift({
+          id: item.id,
+          nome: nomeLimpo,
+          marca: marcaStr,
+          preco: precoSeguro,
+          precoOriginal: precoOrigSeguro,
+          desconto: descPct,
+          estoque: estoqueNovo,
+          imagem: imgStr,
+          categoria: catRotaNome,
+          hora: horaStr
+        });
+        if (estado.ultimosNovos.length > 50) estado.ultimosNovos.pop();
+      } else {
+        const precoAntigo = Number(existente.preco || 0);
+        const precoOrigAntigo = Number(existente.precoOriginal || precoAntigo);
+        const estoqueAntigo = Number(existente.estoque ?? 0);
+        const mudouPreco = precoSeguro > 0 && Math.abs(precoAntigo - precoSeguro) >= 0.01;
+        const mudouPrecoOrig = Math.abs(precoOrigAntigo - precoOrigSeguro) >= 0.01;
+        const mudouEstoque = estoqueAntigo !== Number(estoqueNovo);
+
+        if (mudouPreco) {
+          precosNesteLote++;
+          estado.precosAlteradosNaSessao++;
+          estado.atualizadosNaSessao++;
+          estado.atualizadosDesdeUltimoSave++;
+          const diferenca = Number((precoSeguro - precoAntigo).toFixed(2));
+          const pctMudanca = precoAntigo > 0 ? Math.round(((precoSeguro - precoAntigo) / precoAntigo) * 100) : 0;
+          estado.ultimosPrecosAlterados.unshift({
+            id: item.id,
+            nome: nomeLimpo,
+            marca: marcaStr,
+            precoAntigo,
+            precoNovo: precoSeguro,
+            diferenca,
+            pctMudanca,
+            estoque: estoqueNovo,
+            imagem: imgStr,
+            categoria: catRotaNome,
+            hora: horaStr
+          });
+          if (estado.ultimosPrecosAlterados.length > 60) estado.ultimosPrecosAlterados.pop();
+        } else if (mudouEstoque || mudouPrecoOrig) {
+          estado.estoquesAlteradosNaSessao++;
+          estado.atualizadosNaSessao++;
+          estado.atualizadosDesdeUltimoSave++;
+          estado.ultimosEstoquesAlterados.unshift({
+            id: item.id,
+            nome: nomeLimpo,
+            marca: marcaStr,
+            estoqueAntigo,
+            estoqueNovo,
+            preco: precoSeguro,
+            categoria: catRotaNome,
+            hora: horaStr
+          });
+          if (estado.ultimosEstoquesAlterados.length > 40) estado.ultimosEstoquesAlterados.pop();
+        }
+      }
 
       const prodObj = {
         id: item.id,
-        nome: String(item.name || existente?.nome || "Produto sem nome").trim(),
+        nome: nomeLimpo,
         marca: marcaStr,
-        preco: precoFinal,
-        precoOriginal: precoNormal > precoFinal ? precoNormal : precoFinal,
+        preco: precoSeguro,
+        precoOriginal: precoOrigSeguro,
         emPromocao: emPromo,
         desconto: descPct,
-        estoque: item.quantity?.inStock ?? existente?.estoque ?? 0,
+        estoque: estoqueNovo,
         unidade: item.saleUnit || existente?.unidade || "UN",
         imagem: imgStr,
         categorias: Array.from(setCats),
@@ -968,7 +1068,8 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       mapaProdutos.set(item.id, prodObj);
       ultimoTexto = `${prodObj.nome} (R$ ${Number(prodObj.preco).toFixed(2).replace('.', ',')})`;
     }
-    return { ultimoTexto, novosNesteLote };
+    elNew.innerText = `+${estado.novosNaSessao} • 🔄${estado.precosAlteradosNaSessao}`;
+    return { ultimoTexto, novosNesteLote, precosNesteLote };
   };
 
   // =======================================================================
@@ -1181,8 +1282,75 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     }
   })();
 
+  // Sincronização leve com Painel Mobile / Central do Robô (~2 KB)
+  let ultimoEnvioTelemetriaMs = 0;
+  const enviarTelemetriaAoVivo = async (forcar = false, statusOverride = null, msgOverride = null) => {
+    const agora = Date.now();
+    if (!forcar && agora - ultimoEnvioTelemetriaMs < 2500) return;
+    ultimoEnvioTelemetriaMs = agora;
+
+    const rotaAtualObj = rotasAtivas[estado.indiceRotaAtual] || {};
+    const rotasRestantes = Math.max(0, rotasAtivas.length - (estado.indiceRotaAtual + 1));
+    const pct = Math.min(100, Math.max(1, Math.round(((estado.indiceRotaAtual + 1) / rotasAtivas.length) * 100)));
+    const statusEnvio = statusOverride || (estado.cancelado ? "CANCELADO_SALVO" : (estado.pausado ? "PAUSADO" : (estado.bloqueioAtivo ? "BLOQUEIO_ESPERA" : (estado.rodando ? "RODANDO" : "PRONTO"))));
+    const estMin = Math.max(1, Math.round((rotasRestantes * (config.delayMs * 8 + config.delayTrocaRotaMs)) / 60000));
+
+    const payload = {
+      idExecucao: estado.idExecucao,
+      origem: "Navegador (Robô V7)",
+      iniciadoEm: new Date(estado.tempoInicioMs).toISOString(),
+      atualizadoEm: new Date().toISOString(),
+      heartbeatMs: agora,
+      status: statusEnvio,
+      mensagem: msgOverride || elStatus?.innerText || "Ativo",
+      progressoPct: statusEnvio === "CONCLUIDO" ? 100 : pct,
+      tempoRestante: statusEnvio === "CONCLUIDO" ? "Concluído!" : `~${estMin} min (${rotasRestantes} categorias restantes)`,
+      rotaIndiceAtual: estado.indiceRotaAtual + 1,
+      rotaTotal: rotasAtivas.length,
+      categoriasFaltando: rotasRestantes,
+      rotaNomeAtual: rotaAtualObj.nome || "Início",
+      rotaUrlAtual: rotaAtualObj.url || "",
+      paginaAtual: estado.paginaAtualNaRota,
+      totalPaginasEstimadoRota: estado.totalPaginasEstimadoRota || 1,
+      offsetAtual: estado.offsetFromAtual,
+      totalInicialFirebase: estado.totalInicialFirebase,
+      totalAtualNoBanco: mapaProdutos.size,
+      totalLidosNaSessao: estado.totalLidosNaSessao,
+      novosNaSessao: estado.novosNaSessao,
+      precosAlteradosNaSessao: estado.precosAlteradosNaSessao,
+      estoquesAlteradosNaSessao: estado.estoquesAlteradosNaSessao,
+      atualizadosNaSessao: estado.atualizadosNaSessao,
+      novosDesdeUltimoSave: estado.novosDesdeUltimoSave,
+      atualizadosDesdeUltimoSave: estado.atualizadosDesdeUltimoSave,
+      savesRealizados: estado.savesRealizados,
+      ultimoSaveEm: estado.ultimoSaveEm,
+      ultimoSaveMotivo: estado.ultimoSaveMotivo,
+      requisicoesFeitas: estado.requisicoesFeitas,
+      configAtiva: {
+        delayMs: config.delayMs,
+        delayTrocaRotaMs: config.delayTrocaRotaMs,
+        salvarAoAdicionar: config.salvarAoAdicionar,
+        salvarAoAtualizar: config.salvarAoAtualizar,
+        cooldownSaveMs: config.cooldownSaveMs,
+        size: config.size
+      },
+      ultimosNovos: estado.ultimosNovos.slice(0, 40),
+      ultimosPrecosAlterados: estado.ultimosPrecosAlterados.slice(0, 50),
+      ultimosEstoquesAlterados: estado.ultimosEstoquesAlterados.slice(0, 30),
+      ultimosLidos: estado.ultimosNomes.slice(0, 8)
+    };
+
+    try {
+      await fetch(FIREBASE_TELEMETRIA_ENDPOINT, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {}
+  };
+
   // Gravação no Firebase com TRAVA RÍGIDA ANTI-CORRUPÇÃO / ANTI-ENCOLHIMENTO
-  const gravarNoFirebase = async (silencioso = false) => {
+  const gravarNoFirebase = async (silencioso = false, motivo = "Auto-Save") => {
     try {
       // Se a leitura inicial do Firebase ainda não tinha concluído, mescla primeiro para NUNCA sobrescrever o banco!
       if (!estado.leituraFirebaseConcluida) {
@@ -1210,6 +1378,12 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
         body: JSON.stringify({
           atualizadoEm: new Date().toISOString(),
           totalItens: listaSegura.length,
+          resumoUltimaSessao: {
+            novosAdicionados: estado.novosNaSessao,
+            precosAtualizados: estado.precosAlteradosNaSessao,
+            estoquesAtualizados: estado.estoquesAlteradosNaSessao,
+            motivoUltimoSave: motivo
+          },
           produtos: listaSegura
         })
       });
@@ -1217,11 +1391,36 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
         registrarLog("INESPERADO", "Firebase", `Erro HTTP ${r.status} ao gravar no banco.`);
       } else {
         estado.totalInicialFirebase = Math.max(estado.totalInicialFirebase, listaSegura.length);
-        registrarLog("OK", "Firebase", `Progresso salvo com segurança no Firebase: ${listaSegura.length} produtos únicos.`);
+        estado.savesRealizados++;
+        estado.ultimoSaveEm = new Date().toISOString();
+        estado.ultimoSaveMotivo = motivo;
+        estado.ultimoSaveMs = Date.now();
+        const nSalvos = estado.novosDesdeUltimoSave;
+        const aSalvos = estado.atualizadosDesdeUltimoSave;
+        estado.novosDesdeUltimoSave = 0;
+        estado.atualizadosDesdeUltimoSave = 0;
+        novosSemSalvar = 0;
+        registrarLog("OK", "Firebase", `Salvo #${estado.savesRealizados} (${motivo}): ${listaSegura.length} produtos (+${nSalvos} novos, ${aSalvos} atualizados).`);
+        await enviarTelemetriaAoVivo(true);
       }
     } catch (e) {
       registrarLog("INESPERADO", "Firebase", "Exceção ao salvar dados no Firebase.", e.message);
     }
+  };
+
+  // Auto-save inteligente: Salva ao adicionar >= 1 novo OU atualizar >= 50 existentes (com respiro para nunca pesar)
+  const verificarAutoSaveInteligente = async (contextoCurto, fimDeRota = false) => {
+    const atingiuNovos = estado.novosDesdeUltimoSave >= config.salvarAoAdicionar;
+    const atingiuAtualizados = estado.atualizadosDesdeUltimoSave >= config.salvarAoAtualizar;
+    if (!atingiuNovos && !atingiuAtualizados) return;
+
+    const tempoDesdeSave = Date.now() - estado.ultimoSaveMs;
+    if (!fimDeRota && tempoDesdeSave < config.cooldownSaveMs) return;
+
+    const motivo = atingiuNovos
+      ? `+${estado.novosDesdeUltimoSave} novo(s) em ${contextoCurto}`
+      : `${estado.atualizadosDesdeUltimoSave} atualizados em ${contextoCurto}`;
+    await gravarNoFirebase(true, motivo);
   };
 
   const dormir = (ms) => new Promise(r => setTimeout(r, ms));
@@ -1551,7 +1750,11 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       });
 
       totalLidosNaRota += hits.length;
-      const { ultimoTexto, novosNesteLote } = processarHits(hits, rota);
+      const { ultimoTexto, novosNesteLote, precosNesteLote } = processarHits(hits, rota);
+
+      if (typeof dados.total === "number" && dados.total > 0) {
+        estado.totalPaginasEstimadoRota = Math.max(1, Math.ceil(dados.total / config.size));
+      }
 
       estado.progressoPorRota[idxRota].lidos = totalLidosNaRota;
       estado.progressoPorRota[idxRota].pags = pag;
@@ -1559,18 +1762,16 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       const totalApiInfo = dados.total ? ` de ${dados.total}` : "";
       atualizarUI(
         `📂 ${rotulo}`,
-        `Pág ${pag} (${totalLidosNaRota}${totalApiInfo} itens lidos • +${novosNesteLote} novos)`,
+        `Pág ${pag} (${totalLidosNaRota}${totalApiInfo} itens • +${novosNesteLote} novos • 🔄${precosNesteLote} preços)`,
         pctBase,
         ultimoTexto,
         rota.url
       );
       if (estado.abaAtual === "fila") renderizarListaRotas();
 
-      // Auto-save periódico no Firebase com trava de proteção
-      if (novosSemSalvar >= config.autoSaveBatch) {
-        novosSemSalvar = 0;
-        await gravarNoFirebase(true);
-      }
+      // Auto-save inteligente: Salva ao adicionar >= 1 novo OU atualizar >= 50 existentes (com respiro de 25s durante páginas)
+      await verificarAutoSaveInteligente(rota.nome, false);
+      await enviarTelemetriaAoVivo(false);
 
       // Verifica se acabou todos os itens desta categoria
       const temProxima = Boolean(
@@ -1624,6 +1825,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
     mudarAba("live");
     registrarLog("OK", "Sistema", `Iniciando varredura furtiva a partir do link #${estado.indiceRotaAtual + 1} de ${rotasAtivas.length} (size=${config.size}, delay=${config.delayMs}ms).`);
+    await enviarTelemetriaAoVivo(true, "RODANDO", "Iniciando fila sequencial...");
 
     try {
       // Tenta capturar token passivamente (sem travar caso seja visitante)
@@ -1641,16 +1843,19 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
 
         await varrerRotaAteAcabar(rota, i, pct);
 
-        // Salva no Firebase ao concluir cada Departamento principal ou Promoções
-        if ((rota.tipo === "depto" || rota.tipo === "promocoes") && novosSemSalvar > 0) {
-          novosSemSalvar = 0;
-          await gravarNoFirebase(true);
+        // Verifica imediatamente ao concluir a categoria se bateu >= 1 novo ou >= 50 atualizados
+        await verificarAutoSaveInteligente(rota.nome, true);
+
+        // Salva no Firebase ao concluir cada Departamento principal ou Promoções se restar qualquer pendência
+        if ((rota.tipo === "depto" || rota.tipo === "promocoes") && (estado.novosDesdeUltimoSave > 0 || estado.atualizadosDesdeUltimoSave > 0)) {
+          await gravarNoFirebase(true, `Fim do Depto ${rota.nome}`);
         }
 
         if (!estado.cancelado && !estado.salvarAgora) {
           // A cada 12 categorias concluídas, faz uma pausa extra de respiro (10s a 14s) para nunca acionar firewall
           if ((i + 1) % 12 === 0) {
             atualizarUI("☕ Pausa Furtiva de Respiro...", "Aguardando ~10s a cada 12 categorias para simular navegação humana...", pct);
+            await enviarTelemetriaAoVivo(true, "RODANDO", "☕ Pausa furtiva de respiro (~10s)...");
             await dormirHumano(9500);
           } else {
             await dormirHumano(config.delayTrocaRotaMs);
@@ -1687,29 +1892,28 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
             const { ultimoTexto, novosNesteLote } = processarHits(dadosG.hits, null);
             atualizarUI(`🌐 Repescagem Final: ${ord.nome}`, `Pág ${pagG} • +${novosNesteLote} novos encontrados`, 94 + (o * 2), ultimoTexto, "https://www.superkoch.com.br/");
 
-            if (novosSemSalvar >= config.autoSaveBatch) {
-              novosSemSalvar = 0;
-              await gravarNoFirebase(true);
-            }
+            await verificarAutoSaveInteligente(ord.nome, false);
 
             if (!dadosG.hasNext && dadosG.nextFrom == null && dadosG.hits.length < config.size) break;
             fromGlobal = (typeof dadosG.nextFrom === "number" && dadosG.nextFrom > fromGlobal) ? dadosG.nextFrom : (fromGlobal + config.size);
-            await dormir(config.delayMs);
+            await dormirHumano(config.delayMs);
           }
         }
       }
 
       // Gravação Final no Firebase
-      await gravarNoFirebase(false);
+      await gravarNoFirebase(false, estado.cancelado ? "Parada Manual" : "Extração 100% Concluída");
 
       if (!estado.cancelado) {
         limparCheckpointLocal();
         elDot.style.background = "#22c55e";
-        atualizarUI("✅ Extração 100% Concluída!", `Total salvo no Firebase: ${mapaProdutos.size} produtos (+${estado.novosNaSessao} novos).`, 100, null, "Concluído!");
+        atualizarUI("✅ Extração 100% Concluída!", `Total salvo no Firebase: ${mapaProdutos.size} produtos (+${estado.novosNaSessao} novos • 🔄${estado.precosAlteradosNaSessao} preços).`, 100, null, "Concluído!");
         registrarLog("OK", "Concluído", `Todas as ${rotasAtivas.length} rotas finalizadas! ${mapaProdutos.size} produtos únicos salvos.`);
+        await enviarTelemetriaAoVivo(true, "CONCLUIDO", `🎉 Concluído! ${mapaProdutos.size} produtos (+${estado.novosNaSessao} novos, 🔄${estado.precosAlteradosNaSessao} preços).`);
       } else {
         salvarCheckpointLocal();
         atualizarUI("⏸ Parado no Checkpoint Exato", `Salvo em #${estado.indiceRotaAtual + 1} (${rotasAtivas[estado.indiceRotaAtual]?.nome}), pág ${estado.paginaAtualNaRota}.`);
+        await enviarTelemetriaAoVivo(true, "CANCELADO_SALVO", `⏹ Parado e salvo em #${estado.indiceRotaAtual + 1} (pág ${estado.paginaAtualNaRota}).`);
       }
 
     } catch (erroFatal) {
@@ -1717,6 +1921,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
       elDot.style.background = "#ef4444";
       registrarLog("INESPERADO", "Fatal", "Erro não tratado no fluxo principal. Checkpoint salvo.", erroFatal.message);
       atualizarUI("❌ Erro (Checkpoint Salvo)", erroFatal.message);
+      await enviarTelemetriaAoVivo(true, "ERRO", erroFatal.message);
     } finally {
       estado.rodando = false;
       btnStart.disabled = false;
@@ -1746,8 +1951,12 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     const rotaAt = rotasAtivas[estado.indiceRotaAtual];
     atualizarUI(
       estado.pausado ? `⏸ Pausado em #${estado.indiceRotaAtual + 1}: ${rotaAt?.nome}` : "▶ Retomando do ponto exato...",
-      estado.pausado ? `Parado na Pág ${estado.paginaAtualNaRota} (offset ${estado.offsetFromAtual}). Nada foi perdido.` : null
+      estado.pausado ? `Parado na Pág ${estado.paginaAtualNaRota} (offset ${estado.offsetFromAtual}). Salvando progresso...` : null
     );
+    if (estado.pausado && (estado.novosDesdeUltimoSave > 0 || estado.atualizadosDesdeUltimoSave > 0)) {
+      await gravarNoFirebase(true, `Salvo ao Pausar em ${rotaAt?.nome}`);
+    }
+    await enviarTelemetriaAoVivo(true, estado.pausado ? "PAUSADO" : "RODANDO");
     registrarLog("OK", "Controle", estado.pausado
       ? `Extração pausada exatamente em #${estado.indiceRotaAtual + 1} (${rotaAt?.nome}), pág ${estado.paginaAtualNaRota}.`
       : "Extração retomada do ponto exato.");
@@ -1757,7 +1966,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl) {
     const txtOrig = btnSave.innerText;
     btnSave.innerText = "⏳...";
     salvarCheckpointLocal();
-    await gravarNoFirebase(false);
+    await gravarNoFirebase(false, "Save Manual");
     btnSave.innerText = "✅ Salvo";
     setTimeout(() => { btnSave.innerText = txtOrig; }, 1500);
   };
