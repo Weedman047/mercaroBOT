@@ -1,218 +1,58 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
+import { ROTAS_PADRAO_KOCH, ROTAS_PADRAO_FORT } from "./rotas-mercados.mjs";
+
+// =========================================================================
+// CONFIGURAÇÃO MULTI-MERCADO: SUPERKOCH (LOJA 1408) & FORT ATACADISTA (LOJA 1644)
+// =========================================================================
+const MERCADO_ALVO = (process.env.MERCADO || (process.argv.includes("--fort") ? "fort" : "koch")).toLowerCase();
+const EH_FORT = MERCADO_ALVO === "fort";
+const MERCADO_NOME = EH_FORT ? "Fort Atacadista (Porto Belo 1644)" : "SuperKoch (Itapema 1408)";
+const CONTA_ID = EH_FORT ? "334" : "295";
+const LOJA_ID = EH_FORT ? "1644" : "1408";
+const SITE_URL = EH_FORT ? "https://www.fortatacadista.com.br" : "https://www.superkoch.com.br";
+const COOKIE_LOJA_NOME = `st_${CONTA_ID}`;
+const COOKIE_LOJA_VALOR = `%7B%22id%22%3A%22${LOJA_ID}%22%2C%22userSelected%22%3Atrue%7D`;
+const COOKIE_LOJA_DOMINIO = EH_FORT ? ".fortatacadista.com.br" : ".superkoch.com.br";
+const DEFAULT_STORE_PATH = EH_FORT ? "/334/1644/v2/search" : "/295/1408/v2/search";
+const HEADER_TOKEN_NAME = EH_FORT ? "x-osuper-search-token" : "x-osuper-identity-token";
 
 const FIREBASE_BASE = (process.env.FIREBASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com").replace(/\/$/, "");
-const FIREBASE_ENDPOINT = `${FIREBASE_BASE}/koch_loja_1408.json`;
-const FIREBASE_TELEMETRIA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/telemetria.json`;
-const FIREBASE_COMANDOS_ENDPOINT = `${FIREBASE_BASE}/robo_controle/comandos.json`;
-const FIREBASE_FILA_ENDPOINT = `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
-const FIREBASE_ENXAME_BASE = `${FIREBASE_BASE}/robo_controle/enxame`;
+const FIREBASE_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/fort_loja_1644.json` : `${FIREBASE_BASE}/koch_loja_1408.json`;
+const FIREBASE_TELEMETRIA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/telemetria_fort.json` : `${FIREBASE_BASE}/robo_controle/telemetria_koch.json`;
+const FIREBASE_COMANDOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/comandos_fort.json` : `${FIREBASE_BASE}/robo_controle/comandos.json`;
+const FIREBASE_FILA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/fila_custom_fort.json` : `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
+const FIREBASE_ENXAME_BASE = EH_FORT ? `${FIREBASE_BASE}/robo_controle/enxame_fort` : `${FIREBASE_BASE}/robo_controle/enxame_koch`;
+const FIREBASE_VINCULOS_ENDPOINT = `${FIREBASE_BASE}/vinculos_produtos.json`;
 
-// Identificação desta Máquina no Enxame (Caminho 1: 1 a 10 Máquinas com IPs diferentes)
+// Identificação desta Máquina no Enxame (1 a 10 Máquinas com IPs diferentes)
 const WORKER_ID = Math.max(1, Number(process.env.WORKER_ID) || 1);
 const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS) || 1));
 const SWARM_RUN_ID = process.env.SWARM_RUN_ID || `swarm_${Date.now()}`;
 const SOU_MAESTRO = WORKER_ID === 1;
 
-// Configurações Furtivas + Caminhos 1, 2, 3 e 4
+// Configurações Furtivas e Otimizações de Rede
+const BATCH_SIZE_RAW = Number(process.env.BATCH_SIZE) || 12;
+// Fort Atacadista OSuper tem limite rígido de size <= 20 ("size must not exceed 20")
+const MAX_ALLOWED_SIZE = EH_FORT ? 20 : 60;
 const CONFIG = {
   delayMs: Math.max(800, Number(process.env.DELAY_MS) || 2200),
   delayTrocaRotaMs: Math.max(1500, Number(process.env.DELAY_ROTA_MS) || 3800),
-  esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos (300.000 ms) de espera em caso de erro de rede/bloqueio persistente
+  esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos de espera em caso de bloqueio ou queda de rede
   backoffCurtoMs: 15000,
-  // Caminho 3: Lote por requisição (size=12 pré-selecionado por padrão, aceita 12, 24, 36, 48)
-  size: Math.max(12, Math.min(60, Number(process.env.BATCH_SIZE) || 12)),
-  // Caminho 2: Modo da Fila ("2A" = Só Subcategorias + Promoções [Padrão Ativado], "2B" = Só Departamentos + Promoções, "COMPLETA" = 121 rotas, "CUSTOM" = Fila editada)
+  size: Math.max(12, Math.min(MAX_ALLOWED_SIZE, BATCH_SIZE_RAW)),
   modoFila: String(process.env.MODO_FILA || "2A").toUpperCase(),
-  // Caminho 4: Rotação de Proxies / Cloudflare Workers (Desativado por padrão)
   usarProxy: false,
   listaProxies: [],
-  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 1),   // Salva ao adicionar 1 produto novo
-  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 50),  // Salva ao atualizar 50 produtos existentes
-  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000), // Respiro mínimo de 25s entre saves
+  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 1),
+  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 50),
+  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000),
   autoSaveEveryDepto: true,
   startIndex: Math.max(0, (Number(process.env.START_INDEX) || 1) - 1),
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
 };
 
-// Lista sequencial padrão completa (121 rotas na ordem original)
-const ROTAS_PADRAO_SEQUENCIAIS = [
-  { url: "https://www.superkoch.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "Página Inicial (Home)" },
-  { url: "https://www.superkoch.com.br/categorias", pathReal: "/categorias", tipo: "categorias_index", id: null, depto: "Categorias", nome: "Índice Geral de Categorias" },
-
-  // Eletro
-  { url: "https://www.superkoch.com.br/categorias/eletro", pathReal: "/categorias/eletro", tipo: "depto", id: "3660261", depto: "Eletro", nome: "Eletro (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/smart-tv", pathReal: "/categorias/eletro/smart-tv", tipo: "sub", id: "3660262", depto: "Eletro", nome: "Eletro > Smart Tv" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/ar-condicionado", pathReal: "/categorias/eletro/ar-condicionado", tipo: "sub", id: "3660264", depto: "Eletro", nome: "Eletro > Ar Condicionado" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/eletroportateis", pathReal: "/categorias/eletro/eletroportateis", tipo: "sub", id: "3660265", depto: "Eletro", nome: "Eletro > Eletroportáteis" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/forno-e-micro-ondas", pathReal: "/categorias/eletro/forno-e-microondas", tipo: "sub", id: "3660289", depto: "Eletro", nome: "Eletro > Forno e Micro-ondas" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/informatica-e-eletronicos", pathReal: "/categorias/eletro/informatica-e-eletronicos", tipo: "sub", id: "3660291", depto: "Eletro", nome: "Eletro > Informática e Eletrônicos" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/beleza-e-cuidado-pessoais", pathReal: "/categorias/eletro/beleza-e-cuidado-pessoais", tipo: "sub", id: "3660293", depto: "Eletro", nome: "Eletro > Beleza e Cuidado Pessoais" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/cooktop", pathReal: "/categorias/eletro/cooktop", tipo: "sub", id: "3660294", depto: "Eletro", nome: "Eletro > Cooktop" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/adega", pathReal: "/categorias/eletro/adega", tipo: "sub", id: "3660295", depto: "Eletro", nome: "Eletro > Adega" },
-  { url: "https://www.superkoch.com.br/categorias/eletro/centrifuga-e-secadora", pathReal: "/categorias/eletro/centrifuga-e-secadora", tipo: "sub", id: "3660296", depto: "Eletro", nome: "Eletro > Centrifuga e Secadora" },
-
-  // Hortifruti
-  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3659965", depto: "Hortifruti", nome: "Hortifruti (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas", pathReal: "/categorias/hortifruti/frutas", tipo: "sub", id: "3659966", depto: "Hortifruti", nome: "Hortifruti > Frutas" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/legumes", pathReal: "/categorias/hortifruti/legumes", tipo: "sub", id: "3660005", depto: "Hortifruti", nome: "Hortifruti > Legumes" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/ovos", pathReal: "/categorias/hortifruti/ovos", tipo: "sub", id: "3660040", depto: "Hortifruti", nome: "Hortifruti > Ovos" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/verduras", pathReal: "/categorias/hortifruti/verduras", tipo: "sub", id: "3660045", depto: "Hortifruti", nome: "Hortifruti > Verduras" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/flores-plantas-e-sementes", pathReal: "/categorias/hortifruti/flores-plantas-e-sementes", tipo: "sub", id: "3660081", depto: "Hortifruti", nome: "Hortifruti > Flores, Plantas e Sementes" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/organicos", pathReal: "/categorias/hortifruti/organicos", tipo: "sub", id: "3660086", depto: "Hortifruti", nome: "Hortifruti > Orgânicos" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas-secas", pathReal: "/categorias/hortifruti/frutas-secas", tipo: "sub", id: "3660121", depto: "Hortifruti", nome: "Hortifruti > Frutas Secas" },
-
-  // Açougue
-  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886562", depto: "Açougue", nome: "Açougue (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/carnes-bovinas", pathReal: "/categorias/acougue/carnes-bovinas", tipo: "sub", id: "3886563", depto: "Açougue", nome: "Açougue > Carnes Bovinas" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/frango", pathReal: "/categorias/acougue/frango", tipo: "sub", id: "3886569", depto: "Açougue", nome: "Açougue > Frango" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/carne-suina", pathReal: "/categorias/acougue/carne-suina", tipo: "sub", id: "3886577", depto: "Açougue", nome: "Açougue > Carne Suína" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/linguica", pathReal: "/categorias/acougue/linguica", tipo: "sub", id: "3886580", depto: "Açougue", nome: "Açougue > Linguiça" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/pao-de-alho", pathReal: "/categorias/acougue/pao-de-alho", tipo: "sub", id: "3886592", depto: "Açougue", nome: "Açougue > Pão de Alho" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/peixes-e-frutos-do-mar", pathReal: "/categorias/acougue/peixes-e-frutos-do-mar", tipo: "sub", id: "3886583", depto: "Açougue", nome: "Açougue > Peixes e Frutos do Mar" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/queijo-coalho", pathReal: "/categorias/acougue/queijo-coalho", tipo: "sub", id: "3886586", depto: "Açougue", nome: "Açougue > Queijo Coalho" },
-  { url: "https://www.superkoch.com.br/categorias/acougue/carnes-especiais-e-aves", pathReal: "/categorias/acougue/carnes-especiais-aves-comemo", tipo: "sub", id: "3886588", depto: "Açougue", nome: "Açougue > Carnes Especiais & Aves" },
-
-  // Frios e Laticínios
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3659907", depto: "Frios & Laticínios", nome: "Frios & Laticínios (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/leite", pathReal: "/categorias/frios-laticinios/leite", tipo: "sub", id: "3659921", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Leite" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/queijos", pathReal: "/categorias/frios-laticinios/queijos", tipo: "sub", id: "3659908", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Queijos" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/iogurte", pathReal: "/categorias/frios-laticinios/iogurte", tipo: "sub", id: "3659928", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Iogurte" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/embutidos", pathReal: "/categorias/frios-laticinios/embutidos", tipo: "sub", id: "3659941", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Embutidos" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/requeijao-e-queijo-cremoso", pathReal: "/categorias/frios-laticinios/requeijao-queijo-cremoso", tipo: "sub", id: "3659952", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Requeijão & Queijo Cremoso" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/defumados", pathReal: "/categorias/frios-laticinios/defumados", tipo: "sub", id: "3659953", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Defumados" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/manteiga-e-nata", pathReal: "/categorias/frios-laticinios/manteiga-nata", tipo: "sub", id: "3659954", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Manteiga & Nata" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/margarina", pathReal: "/categorias/frios-laticinios/margarina", tipo: "sub", id: "3659955", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Margarina" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/achocolatados", pathReal: "/categorias/frios-laticinios/achocolatados", tipo: "sub", id: "3659956", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Achocolatados" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/bebidas-proteicas", pathReal: "/categorias/frios-laticinios/bebidas-proteicas", tipo: "sub", id: "3659957", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Bebidas Proteicas" },
-  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/massas-frescas", pathReal: "/categorias/frios-laticinios/massas-frescas", tipo: "sub", id: "3659959", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Massas Frescas" },
-
-  // Congelados
-  { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3660359", depto: "Congelados", nome: "Congelados (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/pizza", pathReal: "/categorias/congelados/pizza", tipo: "sub", id: "3660362", depto: "Congelados", nome: "Congelados > Pizza" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/pratos-prontos", pathReal: "/categorias/congelados/pratos-prontos", tipo: "sub", id: "3660363", depto: "Congelados", nome: "Congelados > Pratos Prontos" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/empanados", pathReal: "/categorias/congelados/empanados", tipo: "sub", id: "3660364", depto: "Congelados", nome: "Congelados > Empanados" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/batatas-congeladas", pathReal: "/categorias/congelados/batatas-congeladas", tipo: "sub", id: "3660366", depto: "Congelados", nome: "Congelados > Batatas Congeladas" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/pao-de-queijo", pathReal: "/categorias/congelados/pao-de-queijo", tipo: "sub", id: "3660368", depto: "Congelados", nome: "Congelados > Pão de Queijo" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/legumes-congelados", pathReal: "/categorias/congelados/legumes-congelados", tipo: "sub", id: "3660369", depto: "Congelados", nome: "Congelados > Legumes Congelados" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/hamburguer", pathReal: "/categorias/congelados/hamburguer", tipo: "sub", id: "3660361", depto: "Congelados", nome: "Congelados > Hamburguer" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/waffle", pathReal: "/categorias/congelados/waffle", tipo: "sub", id: "3660370", depto: "Congelados", nome: "Congelados > Waffle" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/salgados", pathReal: "/categorias/congelados/salgados", tipo: "sub", id: "3660371", depto: "Congelados", nome: "Congelados > Salgados" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/paes", pathReal: "/categorias/congelados/paes", tipo: "sub", id: "3660372", depto: "Congelados", nome: "Congelados > Pães" },
-  { url: "https://www.superkoch.com.br/categorias/congelados/outros", pathReal: "/categorias/congelados/outros", tipo: "sub", id: "3660360", depto: "Congelados", nome: "Congelados > Outros" },
-
-  // Mercearia
-  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3659759", depto: "Mercearia", nome: "Mercearia (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/cafes", pathReal: "/categorias/mercearia/cafes", tipo: "sub", id: "3659760", depto: "Mercearia", nome: "Mercearia > Cafés" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/alimentos-basicos", pathReal: "/categorias/mercearia/alimentos-basicos", tipo: "sub", id: "3659766", depto: "Mercearia", nome: "Mercearia > Alimentos Básicos" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/azeite-oleo-e-vinagre", pathReal: "/categorias/mercearia/azeite-oleo-e-vinagre", tipo: "sub", id: "3659773", depto: "Mercearia", nome: "Mercearia > Azeite, Óleo e Vinagre" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/confeitaria", pathReal: "/categorias/mercearia/confeitaria", tipo: "sub", id: "3659778", depto: "Mercearia", nome: "Mercearia > Confeitaria" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/chocolates-e-doces", pathReal: "/categorias/mercearia/chocolates-e-doces", tipo: "sub", id: "3659796", depto: "Mercearia", nome: "Mercearia > Chocolates e Doces" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/biscoitos-e-torradas", pathReal: "/categorias/mercearia/biscoitos-e-torradas", tipo: "sub", id: "3659801", depto: "Mercearia", nome: "Mercearia > Biscoitos e Torradas" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/matinais-chas-e-achocolatados", pathReal: "/categorias/mercearia/matinais-chas-e-achocolatados", tipo: "sub", id: "3659809", depto: "Mercearia", nome: "Mercearia > Matinais, Chás e Achocolatados" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/molhos-e-condimentos", pathReal: "/categorias/mercearia/molhos-e-condimentos", tipo: "sub", id: "3659820", depto: "Mercearia", nome: "Mercearia > Molhos e Condimentos" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/salgadinhos-e-snacks", pathReal: "/categorias/mercearia/salgadinhos-e-snacks", tipo: "sub", id: "3659828", depto: "Mercearia", nome: "Mercearia > Salgadinhos e Snacks" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/massas", pathReal: "/categorias/mercearia/massas", tipo: "sub", id: "3659834", depto: "Mercearia", nome: "Mercearia > Massas" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/conservas-e-enlatados", pathReal: "/categorias/mercearia/conservas-e-enlatados", tipo: "sub", id: "3659843", depto: "Mercearia", nome: "Mercearia > Conservas e Enlatados" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/acucar-e-adocante", pathReal: "/categorias/mercearia/acucar-e-adocante", tipo: "sub", id: "3659852", depto: "Mercearia", nome: "Mercearia > Açúcar e Adoçante" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/maioneses-ketchups-e-mostarda", pathReal: "/categorias/mercearia/maioneses-ketchups-e-mostarda", tipo: "sub", id: "3659855", depto: "Mercearia", nome: "Mercearia > Maioneses, Ketchups e Mostarda" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/doces-e-geleias", pathReal: "/categorias/mercearia/doces-e-geleias", tipo: "sub", id: "3659859", depto: "Mercearia", nome: "Mercearia > Doces e Geleias" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/natal", pathReal: "/categorias/mercearia/natal", tipo: "sub", id: "3659869", depto: "Mercearia", nome: "Mercearia > Natal" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/pratos-prontos", pathReal: "/categorias/mercearia/pratos-prontos", tipo: "sub", id: "3659872", depto: "Mercearia", nome: "Mercearia > Pratos Prontos" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/mel-e-melado", pathReal: "/categorias/mercearia/mel-e-melado", tipo: "sub", id: "3659875", depto: "Mercearia", nome: "Mercearia > Mel e Melado" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia/zero-acucar", pathReal: "/categorias/mercearia/zero-acucar", tipo: "sub", id: "3659877", depto: "Mercearia", nome: "Mercearia > Zero Açúcar" },
-
-  // Limpeza
-  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3660140", depto: "Limpeza", nome: "Limpeza (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-roupas", pathReal: "/categorias/limpeza/limpeza-de-roupas", tipo: "sub", id: "3660141", depto: "Limpeza", nome: "Limpeza > Limpeza de Roupas" },
-  { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-casa", pathReal: "/categorias/limpeza/limpeza-da-casa", tipo: "sub", id: "3660150", depto: "Limpeza", nome: "Limpeza > Limpeza da Casa" },
-  { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-cozinha", pathReal: "/categorias/limpeza/limpeza-da-cozinha", tipo: "sub", id: "3660161", depto: "Limpeza", nome: "Limpeza > Limpeza da Cozinha" },
-  { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-banheiro", pathReal: "/categorias/limpeza/limpeza-de-banheiro", tipo: "sub", id: "3660165", depto: "Limpeza", nome: "Limpeza > Limpeza de Banheiro" },
-
-  // Higiene e Beleza
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3660190", depto: "Higiene & Beleza", nome: "Higiene & Beleza (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/papel-higienico", pathReal: "/categorias/higiene-beleza/papel-higienico", tipo: "sub", id: "3660191", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Papel Higiênico" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/corpo", pathReal: "/categorias/higiene-beleza/corpo", tipo: "sub", id: "3660193", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Corpo" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cabelo", pathReal: "/categorias/higiene-beleza/cabelo", tipo: "sub", id: "3660200", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cabelo" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/higiene-bucal", pathReal: "/categorias/higiene-beleza/higiene-bucal", tipo: "sub", id: "3660211", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Higiene Bucal" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/intimo", pathReal: "/categorias/higiene-beleza/intimo", tipo: "sub", id: "3660216", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Íntimo" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/barba", pathReal: "/categorias/higiene-beleza/barba", tipo: "sub", id: "3660219", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Barba" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/beleza", pathReal: "/categorias/higiene-beleza/beleza", tipo: "sub", id: "3660222", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Beleza" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/farmacia", pathReal: "/categorias/higiene-beleza/farmacia", tipo: "sub", id: "3660225", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Farmácia" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cuidados-solares", pathReal: "/categorias/higiene-beleza/cuidados-solares", tipo: "sub", id: "3660227", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Solares" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cuidados-geriatricos", pathReal: "/categorias/higiene-beleza/cuidados-geriatricos", tipo: "sub", id: "3660228", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Geriátricos" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/infantil", pathReal: "/categorias/higiene-beleza/infantil", tipo: "sub", id: "3660229", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Infantil" },
-
-  // Bebidas
-  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3660169", depto: "Bebidas", nome: "Bebidas (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/refrigerantes", pathReal: "/categorias/bebidas/refrigerantes", tipo: "sub", id: "3660170", depto: "Bebidas", nome: "Bebidas > Refrigerantes" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/agua", pathReal: "/categorias/bebidas/agua", tipo: "sub", id: "3660173", depto: "Bebidas", nome: "Bebidas > Água" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/sucos-e-refrescos", pathReal: "/categorias/bebidas/sucos-e-refrescos", tipo: "sub", id: "3660176", depto: "Bebidas", nome: "Bebidas > Sucos e Refrescos" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/energetico", pathReal: "/categorias/bebidas/energetico", tipo: "sub", id: "3660183", depto: "Bebidas", nome: "Bebidas > Energético" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/agua-de-coco", pathReal: "/categorias/bebidas/agua-de-coco", tipo: "sub", id: "3660186", depto: "Bebidas", nome: "Bebidas > Água de Coco" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/isotonicos", pathReal: "/categorias/bebidas/isotonicos", tipo: "sub", id: "3660187", depto: "Bebidas", nome: "Bebidas > Isotônicos" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/cha-pronto", pathReal: "/categorias/bebidas/cha-pronto", tipo: "sub", id: "3660188", depto: "Bebidas", nome: "Bebidas > Chá Pronto" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas/bebida-vegetal", pathReal: "/categorias/bebidas/bebida-vegetal", tipo: "sub", id: "3660189", depto: "Bebidas", nome: "Bebidas > Bebida Vegetal" },
-
-  // Bebidas Alcoólicas
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3660231", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/cervejas", pathReal: "/categorias/bebidas-alcoolicas/cervejas", tipo: "sub", id: "3660232", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Cervejas" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/vinhos", pathReal: "/categorias/bebidas-alcoolicas/vinhos", tipo: "sub", id: "3660237", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Vinhos" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/destilados", pathReal: "/categorias/bebidas-alcoolicas/destilados", tipo: "sub", id: "3660241", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Destilados" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/champagne-e-espumantes", pathReal: "/categorias/bebidas-alcoolicas/champagne-espumantes", tipo: "sub", id: "3660256", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Champagne & Espumantes" },
-
-  // Casa e Utilidades
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3995066", depto: "Casa & Utilidades", nome: "Casa & Utilidades (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/textil", pathReal: "/categorias/casa-utilidades/textil", tipo: "sub", id: "3995128", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Têxtil" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/protecao-contra-chuva", pathReal: "/categorias/casa-utilidades/protecao-contra-chuva", tipo: "sub", id: "3995069", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Proteção Contra Chuva" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/acessorios-de-limpeza", pathReal: "/categorias/casa-utilidades/acessorios-de-limpeza", tipo: "sub", id: "3995071", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Acessórios de Limpeza" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/cozinha", pathReal: "/categorias/casa-utilidades/cozinha", tipo: "sub", id: "3995087", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Cozinha" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/chimarrao-e-cafe", pathReal: "/categorias/casa-utilidades/chimarrao-e-cafe", tipo: "sub", id: "3995096", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Chimarrão e Café" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/praia-piscina-e-camping", pathReal: "/categorias/casa-utilidades/praia-piscina-e-camping", tipo: "sub", id: "3995097", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Praia, Piscina e Camping" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/churrasco", pathReal: "/categorias/casa-utilidades/churrasco", tipo: "sub", id: "3995067", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Churrasco" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/eletricos-e-acessorios", pathReal: "/categorias/casa-utilidades/eletricos-e-acessorios", tipo: "sub", id: "3995102", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Elétricos e Acessórios" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/floricultura-e-jardim", pathReal: "/categorias/casa-utilidades/floricultura-e-jardim", tipo: "sub", id: "3995106", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Floricultura e Jardim" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/calcados", pathReal: "/categorias/casa-utilidades/calcados", tipo: "sub", id: "3995112", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Calçados" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/papelaria", pathReal: "/categorias/casa-utilidades/papelaria", tipo: "sub", id: "3995114", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Papelaria" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/duchas-e-torneiras-eletricas", pathReal: "/categorias/casa-utilidades/duchas-e-torneiras-eletricas", tipo: "sub", id: "3995118", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Duchas e Torneiras Elétricas" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/festa", pathReal: "/categorias/casa-utilidades/festa", tipo: "sub", id: "3995119", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Festa" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/decoracao", pathReal: "/categorias/casa-utilidades/decoracao", tipo: "sub", id: "3995121", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Decoração" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/automotivo", pathReal: "/categorias/casa-utilidades/automotivo", tipo: "sub", id: "3995122", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Automotivo" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/brinquedos", pathReal: "/categorias/casa-utilidades/brinquedos", tipo: "sub", id: "3995124", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Brinquedos" },
-  { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/organizadores", pathReal: "/categorias/casa-utilidades/organizadores", tipo: "sub", id: "3995126", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Organizadores" },
-
-  // Padaria e Confeitaria
-  { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3660373", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria/padaria", pathReal: "/categorias/padaria-confeitaria/padaria", tipo: "sub", id: "3660374", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Padaria" },
-  { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria/confeitaria", pathReal: "/categorias/padaria-confeitaria/confeitaria", tipo: "sub", id: "3660381", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Confeitaria" },
-
-  // Mundo Bebê
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3660386", depto: "Mundo Bebê", nome: "Mundo Bebê (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", pathReal: "/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", tipo: "sub", id: "3660387", depto: "Mundo Bebê", nome: "Mundo Bebê > Fraldas e Lenços Umedecidos" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe/banho", pathReal: "/categorias/mundo-bebe/banho", tipo: "sub", id: "3660391", depto: "Mundo Bebê", nome: "Mundo Bebê > Banho" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe/higiene-oral", pathReal: "/categorias/mundo-bebe/higiene-oral", tipo: "sub", id: "3660396", depto: "Mundo Bebê", nome: "Mundo Bebê > Higiene Oral" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe/alimentacao-infantil", pathReal: "/categorias/mundo-bebe/alimentacao-infantil", tipo: "sub", id: "3660397", depto: "Mundo Bebê", nome: "Mundo Bebê > Alimentação Infantil" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe/chupetas-e-bicos", pathReal: "/categorias/mundo-bebe/chupetas-bicos", tipo: "sub", id: "3660402", depto: "Mundo Bebê", nome: "Mundo Bebê > Chupetas / Bicos" },
-
-  // Pet Care
-  { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3660403", depto: "Pet Care", nome: "Pet Care (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/pet-care/caes", pathReal: "/categorias/pet-care/caes", tipo: "sub", id: "3660404", depto: "Pet Care", nome: "Pet Care > Cães" },
-  { url: "https://www.superkoch.com.br/categorias/pet-care/gatos", pathReal: "/categorias/pet-care/gatos", tipo: "sub", id: "3660408", depto: "Pet Care", nome: "Pet Care > Gatos" },
-
-  // Alimentação Especial
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3886594", depto: "Alimentação Especial", nome: "Alimentação Especial (Departamento)" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/suplementos", pathReal: "/categorias/alimentacao-especial/suplementos", tipo: "sub", id: "3886630", depto: "Alimentação Especial", nome: "Alimentação Especial > Suplementos" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/aveia-granola-graos-e-sementes", pathReal: "/categorias/alimentacao-especial/aveia-granola-graos-e-sement", tipo: "sub", id: "3886601", depto: "Alimentação Especial", nome: "Alimentação Especial > Aveia, Granola, Grãos e Sementes" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/fit", pathReal: "/categorias/alimentacao-especial/fit", tipo: "sub", id: "3886595", depto: "Alimentação Especial", nome: "Alimentação Especial > Fit" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/sem-gluten", pathReal: "/categorias/alimentacao-especial/sem-gluten", tipo: "sub", id: "3886605", depto: "Alimentação Especial", nome: "Alimentação Especial > Sem Glúten" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-acucar", pathReal: "/categorias/alimentacao-especial/zero-acucar", tipo: "sub", id: "3886611", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Açúcar" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-lactose", pathReal: "/categorias/alimentacao-especial/zero-lactose", tipo: "sub", id: "3886615", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Lactose" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/doces-e-geleias", pathReal: "/categorias/alimentacao-especial/doces-e-geleias", tipo: "sub", id: "3886621", depto: "Alimentação Especial", nome: "Alimentação Especial > Doces e Geleias" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/integral", pathReal: "/categorias/alimentacao-especial/integral", tipo: "sub", id: "3886623", depto: "Alimentação Especial", nome: "Alimentação Especial > Integral" },
-
-  // Promoções
-  { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
-];
+const ROTAS_PADRAO_SEQUENCIAIS = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
 
 // =========================================================================
 // CAMINHO 2: ELIMINAÇÃO DE LEITURA DUPLICADA (OPÇÃO 2A PADRÃO ATIVADA + OPÇÃO 2B)
@@ -222,16 +62,17 @@ function obterRotasFiltradasPorModo(modo, filaCustom = null) {
   if (m === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
     return filaCustom;
   }
+  const listaBase = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
   if (m === "2A") {
-    // Opção 2A (Padrão Ativado): Apenas Subcategorias + Promoções (106 rotas, zero leitura duplicada de departamento cheio!)
-    return ROTAS_PADRAO_SEQUENCIAIS.filter((r) => r.tipo === "sub" || r.tipo === "promocoes");
+    // Opção 2A (Padrão Ativado): Apenas Subcategorias + Promoções (zero duplicação de depto cheio!)
+    return listaBase.filter((r) => r.tipo === "sub" || r.tipo === "promocoes" || r.tipo === "promocao");
   }
   if (m === "2B") {
-    // Opção 2B (Modo Turbo): Apenas os 15 Departamentos Principais + Promoções (16 rotas rápidas)
-    return ROTAS_PADRAO_SEQUENCIAIS.filter((r) => r.tipo === "depto" || r.tipo === "promocoes");
+    // Opção 2B: Apenas Departamentos Principais + Promoções
+    return listaBase.filter((r) => r.tipo === "depto" || r.tipo === "promocoes" || r.tipo === "promocao");
   }
-  // Modo COMPLETA (todas as 121 rotas originais)
-  return [...ROTAS_PADRAO_SEQUENCIAIS];
+  // Modo COMPLETA
+  return [...listaBase];
 }
 
 let ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
@@ -244,7 +85,7 @@ const dormirHumano = (baseMs) => {
 const horaAtualBR = () => new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour12: false });
 
 const mapaProdutos = new Map();
-const mapaDeltaWorker = new Map(); // Produtos novos/alterados por este worker (para sincronização limpa no enxame)
+const mapaDeltaWorker = new Map();
 const dataHojeISO = new Date().toISOString().slice(0, 10);
 
 function atualizarHistoricoSemDuplicarConsecutivos(historicoExistente, dataHoje, precoNovo) {
@@ -273,12 +114,12 @@ const sessao = {
   workerId: WORKER_ID,
   totalWorkers: TOTAL_WORKERS,
   origem: TOTAL_WORKERS > 1
-    ? `Enxame GitHub (${TOTAL_WORKERS} Máquinas Paralelas • Modo ${CONFIG.modoFila})`
-    : `GitHub Actions (Nuvem V10 • Modo ${CONFIG.modoFila})`,
+    ? `Enxame ${MERCADO_NOME} (${TOTAL_WORKERS} Máquinas Paralelas • Modo ${CONFIG.modoFila})`
+    : `${MERCADO_NOME} (Nuvem V10 • Modo ${CONFIG.modoFila})`,
   iniciadoEm: new Date().toISOString(),
   tempoInicioMs: Date.now(),
   status: "INICIANDO",
-  mensagem: "Carregando e protegendo banco de dados inicial...",
+  mensagem: `Carregando e protegendo banco inicial de ${MERCADO_NOME}...`,
   meuIndiceInicio: 0,
   meuIndiceFim: ROTAS_ATIVAS.length - 1,
   rotaIndiceAtual: CONFIG.startIndex,
@@ -368,7 +209,6 @@ function calcularMetricasTempoEProgresso(progressoCombinado = sessao.progressoRo
   const posNoDepto = Math.max(1, indicesMesmoDepto.indexOf(sessao.rotaIndiceAtual) + 1);
   const faltamNoDepto = Math.max(0, totalNoDepto - posNoDepto);
 
-  // Quantidade total de categorias já concluídas por todas as máquinas do enxame
   let rotasConcluidasTotal = 0;
   for (const k of Object.keys(progressoCombinado || {})) {
     const st = progressoCombinado[k]?.st;
@@ -412,17 +252,17 @@ function calcularMetricasTempoEProgresso(progressoCombinado = sessao.progressoRo
 }
 
 // =========================================================================
-// CAMINHO 1: COORDENAÇÃO DO ENXAME DE MÁQUINAS (WORKERS <-> MAESTRO)
-// Faz N máquinas parecerem 1 único robô no painel e nunca sobrescreve o Firebase!
+// COORDENAÇÃO DO ENXAME DE MÁQUINAS
 // =========================================================================
 let ultimoEnvioTelemetriaMs = 0;
-const deltasJaContabilizadosMaestro = new Map(); // idProd -> hash preco+estoque já somado pelo Maestro
+const deltasJaContabilizadosMaestro = new Map();
 
 async function publicarEstadoWorkerNoEnxame() {
   const agora = Date.now();
   const payloadWorker = {
     workerId: WORKER_ID,
     swarmId: SWARM_RUN_ID,
+    mercado: MERCADO_ALVO,
     heartbeatMs: agora,
     status: sessao.status,
     mensagem: sessao.mensagem,
@@ -457,7 +297,7 @@ async function publicarEstadoWorkerNoEnxame() {
 }
 
 async function absorverEnxameNoMaestro() {
-  if (!SOU_MAESTRO || TOTAL_WORKERS <= 1) {
+  if (TOTAL_WORKERS <= 1) {
     return {
       maquinasAtivas: 1,
       todosConcluidos: sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO",
@@ -466,18 +306,24 @@ async function absorverEnxameNoMaestro() {
       precosGlobal: sessao.precosAlteradosNaSessao,
       estoquesGlobal: sessao.estoquesAlteradosNaSessao,
       reqsGlobal: sessao.requisicoesFeitas,
-      progressoCombinado: sessao.progressoRotas,
-      novosListaCombinada: sessao.ultimosNovos,
-      precosListaCombinada: sessao.ultimosPrecosAlterados,
-      lidosListaCombinada: sessao.ultimosLidos,
-      logsCombinados: sessao.ultimosLogs,
-      resumoMaquinas: [{ id: 1, status: sessao.status, rota: sessao.rotaNomeAtual, pag: sessao.paginaAtual }]
+      progressoCombinado: { ...sessao.progressoRotas },
+      novosListaCombinada: sessao.ultimosNovos.slice(0, 50),
+      precosListaCombinada: sessao.ultimosPrecosAlterados.slice(0, 60),
+      lidosListaCombinada: sessao.ultimosLidos.slice(0, 8),
+      logsCombinados: sessao.ultimosLogs.slice(0, 80),
+      resumoMaquinas: [{
+        id: 1,
+        status: sessao.status,
+        rota: `#${sessao.rotaIndiceAtual + 1} ${sessao.rotaNomeAtual}`,
+        pag: sessao.paginaAtual,
+        lidos: sessao.totalLidosNaSessao
+      }]
     };
   }
 
   let enxameDados = {};
   try {
-    const r = await fetch(`${FIREBASE_ENXAME_BASE}.json?t=${Date.now()}`);
+    const r = await fetch(`${FIREBASE_ENXAME_BASE}.json`);
     if (r.ok) enxameDados = (await r.json()) || {};
   } catch {}
 
@@ -491,6 +337,7 @@ async function absorverEnxameNoMaestro() {
   const precosMap = new Map();
   const lidosCombinados = [...sessao.ultimosLidos];
   const logsCombinados = [...sessao.ultimosLogs];
+
   const resumoMaquinas = [{
     id: 1,
     status: sessao.status,
@@ -540,7 +387,6 @@ async function absorverEnxameNoMaestro() {
       wk.ultimosLogs.forEach((lg) => { if (lg) logsCombinados.push(lg); });
     }
 
-    // Mescla os produtos descobertos/atualizados pelo Worker W no mapa mestre do Maestro!
     if (Array.isArray(wk.produtosDelta)) {
       for (const prodW of wk.produtosDelta) {
         if (!prodW || !prodW.id) continue;
@@ -605,13 +451,11 @@ async function enviarTelemetriaAoVivo(forcar = false) {
   if (!forcar && agora - ultimoEnvioTelemetriaMs < 2800) return;
   ultimoEnvioTelemetriaMs = agora;
 
-  // Se for um Worker secundário (2..10), publica seu estado na sua bandeja do enxame
   if (!SOU_MAESTRO) {
     await publicarEstadoWorkerNoEnxame();
     return;
   }
 
-  // Se for o Maestro (Worker #1), absorve todas as máquinas do enxame e publica a Telemetria Unificada!
   await publicarEstadoWorkerNoEnxame();
   const enxame = await absorverEnxameNoMaestro();
   const metricas = calcularMetricasTempoEProgresso(enxame.progressoCombinado, enxame.maquinasAtivas);
@@ -622,6 +466,9 @@ async function enviarTelemetriaAoVivo(forcar = false) {
 
   const payload = {
     idExecucao: sessao.idExecucao,
+    mercado: MERCADO_ALVO,
+    mercadoNome: MERCADO_NOME,
+    lojaId: LOJA_ID,
     origem: sessao.origem,
     iniciadoEm: sessao.iniciadoEm,
     iniciadoEmMs: sessao.tempoInicioMs,
@@ -690,6 +537,14 @@ async function enviarTelemetriaAoVivo(forcar = false) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+    // Se for SuperKoch, mantém telemetria.json sincronizado para retrocompatibilidade
+    if (!EH_FORT) {
+      await fetch(`${FIREBASE_BASE}/robo_controle/telemetria.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
   } catch {}
 }
 
@@ -711,7 +566,7 @@ async function verificarComandosRemotos(forcar = false) {
       if (Number(cmd.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cmd.config.salvarAoAdicionar);
       if (Number(cmd.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cmd.config.salvarAoAtualizar);
       if (Number(cmd.config.cooldownSaveMs) >= 5000) CONFIG.cooldownSaveMs = Number(cmd.config.cooldownSaveMs);
-      if (Number(cmd.config.size) >= 12) CONFIG.size = Math.min(60, Number(cmd.config.size));
+      if (Number(cmd.config.size) >= 12) CONFIG.size = Math.min(MAX_ALLOWED_SIZE, Number(cmd.config.size));
       if (typeof cmd.config.usarProxy === "boolean") CONFIG.usarProxy = cmd.config.usarProxy;
       if (Array.isArray(cmd.config.listaProxies)) CONFIG.listaProxies = cmd.config.listaProxies.filter(Boolean);
     }
@@ -782,35 +637,51 @@ async function verificarComandosRemotos(forcar = false) {
 }
 
 async function aguardarSePausadoRemoto() {
-  await verificarComandosRemotos(false);
+  let contadorPausa = 0;
   while (sessao.pausadoRemoto && !sessao.canceladoRemoto) {
-    sessao.status = "PAUSADO";
-    await enviarTelemetriaAoVivo(false);
-    await dormir(2500);
+    contadorPausa++;
+    if (contadorPausa % 4 === 0) {
+      sessao.status = "PAUSADO";
+      await enviarTelemetriaAoVivo(false);
+    }
     await verificarComandosRemotos(true);
+    await dormir(1500);
   }
 }
 
 function recalcularFatiaDoWorker() {
-  const totalRotasParaDividir = Math.max(1, ROTAS_ATIVAS.length - CONFIG.startIndex);
-  const tamanhoFatia = Math.ceil(totalRotasParaDividir / TOTAL_WORKERS);
-  sessao.meuIndiceInicio = CONFIG.startIndex + (WORKER_ID - 1) * tamanhoFatia;
-  sessao.meuIndiceFim = Math.min(ROTAS_ATIVAS.length - 1, sessao.meuIndiceInicio + tamanhoFatia - 1);
-  sessao.rotaIndiceAtual = Math.min(sessao.meuIndiceInicio, ROTAS_ATIVAS.length - 1);
+  const totalRotas = ROTAS_ATIVAS.length;
+  if (totalRotas === 0) {
+    sessao.meuIndiceInicio = 0;
+    sessao.meuIndiceFim = 0;
+    return;
+  }
+  const tamanhoFatiaBase = Math.floor(totalRotas / TOTAL_WORKERS);
+  const resto = totalRotas % TOTAL_WORKERS;
+
+  let inicio = 0;
+  for (let i = 1; i < WORKER_ID; i++) {
+    inicio += tamanhoFatiaBase + (i <= resto ? 1 : 0);
+  }
+  const meuTamanho = tamanhoFatiaBase + (WORKER_ID <= resto ? 1 : 0);
+  const fim = Math.min(totalRotas - 1, inicio + meuTamanho - 1);
+
+  sessao.meuIndiceInicio = inicio;
+  sessao.meuIndiceFim = fim;
+  sessao.rotaIndiceAtual = Math.max(inicio, Math.min(fim, CONFIG.startIndex));
 }
 
 // =========================================================================
-// CAMADA 1 DE PROTEÇÃO DO FIREBASE: LEITURA E BACKUP ANTES DE QUALQUER AÇÃO
+// CAMADA 1: LEITURA E BACKUP DO FIREBASE ANTES DE QUALQUER AÇÃO
 // =========================================================================
 async function carregarProtegerFirebaseInicial() {
   if (SOU_MAESTRO) {
-    // Limpa bandeja de enxame anterior para iniciar limpo
     try {
       await fetch(`${FIREBASE_ENXAME_BASE}.json`, { method: "DELETE" });
     } catch {}
   }
 
-  registrarLog("OK", "Proteção Firebase", `Lendo banco atual em: ${FIREBASE_ENDPOINT}`);
+  registrarLog("OK", "Proteção Firebase", `Lendo banco atual de ${MERCADO_NOME} em: ${FIREBASE_ENDPOINT}`);
 
   let resp = null;
   while (!resp || !resp.ok) {
@@ -824,7 +695,6 @@ async function carregarProtegerFirebaseInicial() {
     await dormir(30000);
   }
 
-  // Verifica se há configurações salvas no comando remoto antes de montar a fila
   try {
     const rCmd = await fetch(FIREBASE_COMANDOS_ENDPOINT);
     if (rCmd.ok) {
@@ -835,7 +705,7 @@ async function carregarProtegerFirebaseInicial() {
       if (cAntigo?.config) {
         if (Number(cAntigo.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cAntigo.config.salvarAoAdicionar);
         if (Number(cAntigo.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cAntigo.config.salvarAoAtualizar);
-        if (Number(cAntigo.config.size) >= 12) CONFIG.size = Math.min(60, Number(cAntigo.config.size));
+        if (Number(cAntigo.config.size) >= 12) CONFIG.size = Math.min(MAX_ALLOWED_SIZE, Number(cAntigo.config.size));
         if (cAntigo.config.modoFila && !process.env.MODO_FILA) CONFIG.modoFila = String(cAntigo.config.modoFila).toUpperCase();
         if (typeof cAntigo.config.usarProxy === "boolean") CONFIG.usarProxy = cAntigo.config.usarProxy;
         if (Array.isArray(cAntigo.config.listaProxies)) CONFIG.listaProxies = cAntigo.config.listaProxies.filter(Boolean);
@@ -843,7 +713,6 @@ async function carregarProtegerFirebaseInicial() {
     }
   } catch {}
 
-  // Verifica fila customizada salva no Firebase
   let filaCustomSalva = null;
   try {
     const rFila = await fetch(FIREBASE_FILA_ENDPOINT);
@@ -863,13 +732,16 @@ async function carregarProtegerFirebaseInicial() {
   registrarLog(
     "OK",
     "Divisão do Enxame",
-    `Modo Fila: ${CONFIG.modoFila} (${ROTAS_ATIVAS.length} rotas totais | Lote size=${CONFIG.size}). Máquina #${WORKER_ID}/${TOTAL_WORKERS} cuidará das rotas #${sessao.meuIndiceInicio + 1} até #${sessao.meuIndiceFim + 1}.`
+    `${MERCADO_NOME} • Modo Fila: ${CONFIG.modoFila} (${ROTAS_ATIVAS.length} rotas totais | Lote size=${CONFIG.size}). Máquina #${WORKER_ID}/${TOTAL_WORKERS} cuidará das rotas #${sessao.meuIndiceInicio + 1} até #${sessao.meuIndiceFim + 1}.`
   );
 
   const dados = await resp.json();
   if (dados && Array.isArray(dados.produtos)) {
     if (SOU_MAESTRO) {
-      fs.writeFileSync("backup_koch_1408_antes.json", JSON.stringify(dados), "utf-8");
+      const arqBackup = EH_FORT ? "backup_fort_1644_antes.json" : "backup_koch_1408_antes.json";
+      try {
+        fs.writeFileSync(arqBackup, JSON.stringify(dados), "utf-8");
+      } catch {}
     }
 
     for (const p of dados.produtos) {
@@ -887,7 +759,7 @@ async function carregarProtegerFirebaseInicial() {
 }
 
 // =========================================================================
-// CAMADA 2: MERGE INCREMENTAL + HISTÓRICO SEM REPETIÇÃO CONSECUTIVA
+// CAMADA 2: MERGE INCREMENTAL COM PREÇO CLUBE E VUON DISCRETO
 // =========================================================================
 function processarHits(hits, rotaContexto = null) {
   if (!Array.isArray(hits) || hits.length === 0) {
@@ -905,9 +777,30 @@ function processarHits(hits, rotaContexto = null) {
 
     const existente = mapaProdutos.get(item.id);
 
+    // Preços base
     const precoNormal = Number(item.pricing?.price || item.pricing?.normalPrice || 0);
     const precoPromo = Number(item.pricing?.promotionalPrice || item.activePrice || precoNormal);
-    const precoFinal = precoPromo > 0 && precoPromo < precoNormal ? precoPromo : (precoNormal || precoPromo);
+
+    // Preço Clube (Clube Mais no Fort ou Clube K no Koch)
+    let precoClube = 0;
+    if (Array.isArray(item.personaPromotions) && item.personaPromotions.length > 0) {
+      const pC = Number(item.personaPromotions[0]?.price || item.personaPromotions[0]?.promotionalPrice || 0);
+      if (pC > 0) precoClube = pC;
+    }
+
+    // Preço Vuon Card (apenas Fort)
+    let precoVuon = null;
+    if (Array.isArray(item.paymentPromotions) && item.paymentPromotions.length > 0) {
+      const pV = Number(item.paymentPromotions[0]?.price || item.paymentPromotions[0]?.promotionalPrice || 0);
+      if (pV > 0) precoVuon = pV;
+    } else if (Array.isArray(item.paymentConditionalPrices) && item.paymentConditionalPrices.length > 0) {
+      const pV = Number(item.paymentConditionalPrices[0]?.price || 0);
+      if (pV > 0) precoVuon = pV;
+    }
+
+    // REGRA DE OURO SOLICITADA: Preço de comparação leva em consideração Clube e Promocional, NUNCA Vuon Card!
+    const precosCandidatos = [precoClube, precoPromo, precoNormal].filter((x) => x > 0);
+    const precoFinal = precosCandidatos.length > 0 ? Math.min(...precosCandidatos) : (precoPromo || precoNormal);
 
     const precoSeguro = precoFinal > 0 ? precoFinal : Number(existente?.preco || 0);
     const precoOrigSeguro = precoNormal > precoSeguro ? precoNormal : Number(existente?.precoOriginal || precoSeguro);
@@ -918,8 +811,12 @@ function processarHits(hits, rotaContexto = null) {
     }
     if (Array.isArray(item.categories)) {
       item.categories.forEach((c) => {
-        if (typeof c === "string" && c.trim()) setCats.add(c.trim());
-        else if (c && typeof c === "object" && c.name) setCats.add(String(c.name).trim());
+        if (typeof c === "string" && c.trim()) {
+          const limpo = c.replace(/^store\d+:/, "").trim();
+          if (limpo) setCats.add(limpo);
+        } else if (c && typeof c === "object" && c.name) {
+          setCats.add(String(c.name).trim());
+        }
       });
     }
     if (item.level1Category?.name) setCats.add(String(item.level1Category.name).trim());
@@ -941,7 +838,7 @@ function processarHits(hits, rotaContexto = null) {
     const estoqueNovo = item.quantity?.inStock ?? existente?.estoque ?? 0;
 
     const historico = atualizarHistoricoSemDuplicarConsecutivos(existente?.historicoPrecos, dataHojeISO, precoSeguro);
-    const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0));
+    const emPromo = Boolean(item.pricing?.promotion || (precoOrigSeguro > precoSeguro && precoSeguro > 0) || (precoClube > 0 && precoClube < precoNormal));
     const descPct = item.pricing?.discount || (precoOrigSeguro > precoSeguro && precoOrigSeguro > 0 ? Math.round(((precoOrigSeguro - precoSeguro) / precoOrigSeguro) * 100) : 0);
 
     let foiAlteradoOuNovo = false;
@@ -957,10 +854,13 @@ function processarHits(hits, rotaContexto = null) {
         marca: marcaStr,
         preco: precoSeguro,
         precoOriginal: precoOrigSeguro,
+        precoClube: precoClube > 0 ? precoClube : null,
+        precoVuon: precoVuon > 0 ? precoVuon : null,
         desconto: descPct,
         estoque: estoqueNovo,
         imagem: imgStr,
         categoria: catRotaNome,
+        mercado: MERCADO_ALVO,
         hora: horaStr
       });
       if (sessao.ultimosNovos.length > 50) sessao.ultimosNovos.pop();
@@ -986,11 +886,14 @@ function processarHits(hits, rotaContexto = null) {
           marca: marcaStr,
           precoAntigo,
           precoNovo: precoSeguro,
+          precoClube: precoClube > 0 ? precoClube : null,
+          precoVuon: precoVuon > 0 ? precoVuon : null,
           diferenca,
           pctMudanca,
           estoque: estoqueNovo,
           imagem: imgStr,
           categoria: catRotaNome,
+          mercado: MERCADO_ALVO,
           hora: horaStr
         });
         if (sessao.ultimosPrecosAlterados.length > 60) sessao.ultimosPrecosAlterados.pop();
@@ -1008,6 +911,7 @@ function processarHits(hits, rotaContexto = null) {
           estoqueNovo,
           preco: precoSeguro,
           categoria: catRotaNome,
+          mercado: MERCADO_ALVO,
           hora: horaStr
         });
         if (sessao.ultimosEstoquesAlterados.length > 40) sessao.ultimosEstoquesAlterados.pop();
@@ -1020,6 +924,8 @@ function processarHits(hits, rotaContexto = null) {
       marca: marcaStr,
       preco: precoSeguro,
       precoOriginal: precoOrigSeguro,
+      precoClube: precoClube > 0 ? precoClube : null,
+      precoVuon: precoVuon > 0 ? precoVuon : (existente?.precoVuon || null),
       emPromocao: emPromo,
       desconto: descPct,
       estoque: estoqueNovo,
@@ -1027,6 +933,8 @@ function processarHits(hits, rotaContexto = null) {
       imagem: imgStr,
       categorias: Array.from(setCats),
       slug: item.slug || existente?.slug || "",
+      mercado: MERCADO_ALVO,
+      lojaId: LOJA_ID,
       historicoPrecos: historico
     };
 
@@ -1035,7 +943,8 @@ function processarHits(hits, rotaContexto = null) {
       mapaDeltaWorker.set(item.id, objProduto);
     }
 
-    sessao.ultimosLidos.unshift(`${nomeLimpo} • R$ ${precoSeguro.toFixed(2).replace(".", ",")}`);
+    const tagVuon = objProduto.precoVuon ? ` (Vuon: R$ ${objProduto.precoVuon.toFixed(2)})` : "";
+    sessao.ultimosLidos.unshift(`${nomeLimpo} • R$ ${precoSeguro.toFixed(2).replace(".", ",")}${tagVuon}`);
     if (sessao.ultimosLidos.length > 8) sessao.ultimosLidos.pop();
   }
 
@@ -1044,10 +953,9 @@ function processarHits(hits, rotaContexto = null) {
 }
 
 // =========================================================================
-// GRAVAÇÃO CENTRALIZADA E BLINDADA NO FIREBASE (NUNCA PARA O ROBÔ)
+// GRAVAÇÃO BLINDADA NO FIREBASE
 // =========================================================================
 async function gravarComSegurancaNoFirebase(motivo = "") {
-  // Se este for um worker secundário (2..10), ele apenas envia seu delta para o Maestro!
   if (!SOU_MAESTRO) {
     await publicarEstadoWorkerNoEnxame();
     sessao.novosDesdeUltimoSave = 0;
@@ -1057,7 +965,6 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
   }
 
   try {
-    // Maestro absorve todas as descobertas dos workers 2..10 antes de salvar!
     const enxame = await absorverEnxameNoMaestro();
     const listaFinal = Array.from(mapaProdutos.values());
     if (listaFinal.length === 0) return false;
@@ -1080,6 +987,9 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
       body: JSON.stringify({
         atualizadoEm: new Date().toISOString(),
         totalItens: listaFinal.length,
+        mercado: MERCADO_ALVO,
+        mercadoNome: MERCADO_NOME,
+        lojaId: LOJA_ID,
         resumoUltimaSessao: {
           novosAdicionados: enxame.novosGlobal,
           precosAtualizados: enxame.precosGlobal,
@@ -1093,30 +1003,28 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     });
 
     if (!resp.ok) {
-      registrarLog("ERRO", "Firebase Save", `HTTP ${resp.status} ao salvar (${motivo}). Continuando execução sem parar!`);
+      registrarLog("ERRO", "Firebase Save", `HTTP ${resp.status} ao salvar (${motivo}). Continuando sem parar!`);
       return false;
     }
 
     sessao.totalInicialFirebase = Math.max(sessao.totalInicialFirebase, listaFinal.length);
     sessao.savesRealizados++;
-    sessao.ultimoSaveEm = new Date().toISOString();
+    sessao.ultimoSaveEm = horaAtualBR();
     sessao.ultimoSaveMotivo = motivo;
     sessao.ultimoSaveMs = Date.now();
-    const nSalvos = sessao.novosDesdeUltimoSave;
-    const aSalvos = sessao.atualizadosDesdeUltimoSave;
     sessao.novosDesdeUltimoSave = 0;
     sessao.atualizadosDesdeUltimoSave = 0;
+    mapaDeltaWorker.clear();
 
-    registrarLog("OK", `Firebase Salvo #${sessao.savesRealizados}`, `${listaFinal.length} produtos no banco (+${nSalvos} novos, ${aSalvos} atualizados | ${motivo}).`);
-    await enviarTelemetriaAoVivo(true);
+    registrarLog("OK", "Firebase Salvo", `${listaFinal.length} produtos salvos com segurança (${motivo}).`);
     return true;
   } catch (err) {
-    registrarLog("ERRO", "Firebase Save", `Oscilação ao salvar (${motivo}): ${err.message}. Continuando sem parar!`);
+    registrarLog("ERRO", "Firebase Save", `Falha de rede ao salvar: ${err.message}`);
     return false;
   }
 }
 
-async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
+async function verificarAutoSaveInteligente(contextoCurto = "", fimDeRota = false) {
   if (!SOU_MAESTRO) {
     if (fimDeRota || sessao.novosDesdeUltimoSave >= 1 || sessao.atualizadosDesdeUltimoSave >= 20) {
       await publicarEstadoWorkerNoEnxame();
@@ -1145,7 +1053,7 @@ async function verificarAutoSaveInteligente(contextoCurto, fimDeRota = false) {
   await gravarComSegurancaNoFirebase(motivoDetalhe);
 }
 
-function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, size = CONFIG.size, from = 0, categoryId = "", categoryName = "" }) {
+function montarUrlOficial({ storePath = DEFAULT_STORE_PATH, promo = false, size = CONFIG.size, from = 0, categoryId = "", categoryName = "" }) {
   const base = `https://sense.osuper.com.br${storePath}`;
   const q = [];
   if (promo) q.push("promotion=true");
@@ -1155,17 +1063,16 @@ function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, si
   if (promo) {
     q.push("onlyPersonas=false");
     q.push("cashback=false");
-    q.push("hidePersonas=690");
+    if (!EH_FORT) q.push("hidePersonas=690");
   }
   q.push(`size=${size}`);
   q.push(`from=${from}`);
   q.push("search=");
   q.push("sortField=sales_count");
   q.push("sortOrder=desc");
-  if (categoryId) q.push(`categoryId=${encodeURIComponent(categoryId)}`);
+  if (categoryId && categoryId !== "PROMO_FORT") q.push(`categoryId=${encodeURIComponent(categoryId)}`);
   const urlFinal = `${base}?${q.join("&")}`;
 
-  // Caminho 4: Rotação de Proxies / Cloudflare Workers (se ativado pelo usuário)
   if (CONFIG.usarProxy && Array.isArray(CONFIG.listaProxies) && CONFIG.listaProxies.length > 0) {
     const proxyBase = CONFIG.listaProxies[sessao.indiceProxyAtual % CONFIG.listaProxies.length];
     sessao.indiceProxyAtual++;
@@ -1179,10 +1086,9 @@ function montarUrlOficial({ storePath = "/295/1408/v2/search", promo = false, si
 }
 
 // =========================================================================
-// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL (ENXAME + REDE 5 MIN + AUTO TOKEN)
+// EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL
 // =========================================================================
 async function executarRoboCloud() {
-  // Pequeno escalonamento de partida entre máquinas do enxame (1.2s por worker) para não baterem no mesmo milissegundo
   if (WORKER_ID > 1) {
     await dormir((WORKER_ID - 1) * 1200);
   }
@@ -1190,7 +1096,6 @@ async function executarRoboCloud() {
   await carregarProtegerFirebaseInicial();
   await enviarTelemetriaAoVivo(true);
 
-  // Se o índice inicial desta máquina já passou do total de rotas (ex: mais máquinas que rotas), encerra limpa
   if (sessao.meuIndiceInicio >= ROTAS_ATIVAS.length || sessao.meuIndiceInicio > sessao.meuIndiceFim) {
     sessao.status = "CONCLUIDO";
     sessao.mensagem = `Máquina #${WORKER_ID} sem rotas pendentes nesta divisão.`;
@@ -1198,7 +1103,7 @@ async function executarRoboCloud() {
     return;
   }
 
-  registrarLog("OK", "Navegador", `Iniciando navegador invisível da Máquina #${WORKER_ID}/${TOTAL_WORKERS}...`);
+  registrarLog("OK", "Navegador", `Iniciando navegador invisível da Máquina #${WORKER_ID}/${TOTAL_WORKERS} (${MERCADO_NOME})...`);
   const browser = await chromium.launch({
     headless: true,
     args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -1211,9 +1116,19 @@ async function executarRoboCloud() {
     viewport: { width: 1366, height: 768 }
   });
 
+  // INJEÇÃO ANTECIPADA DO COOKIE DA LOJA CORRETA (1644 no Fort ou 1408 no Koch)
+  await context.addCookies([
+    {
+      name: COOKIE_LOJA_NOME,
+      value: COOKIE_LOJA_VALOR,
+      domain: COOKIE_LOJA_DOMINIO,
+      path: "/"
+    }
+  ]);
+
   const page = await context.newPage();
   let tokenCapturado = "";
-  let storePath = "/295/1408/v2/search";
+  let storePath = DEFAULT_STORE_PATH;
 
   page.on("request", (req) => {
     const url = req.url();
@@ -1223,10 +1138,10 @@ async function executarRoboCloud() {
         storePath = u.pathname;
       } catch {}
     }
-    const tk = req.headers()["x-osuper-identity-token"];
+    const tk = req.headers()["x-osuper-identity-token"] || req.headers()["x-osuper-search-token"];
     if (tk && tk !== tokenCapturado) {
       tokenCapturado = tk;
-      registrarLog("OK", "Token", `Token de sessão exclusivo capturado.`);
+      registrarLog("OK", "Token", `Token de busca capturado via rede.`);
     }
   });
 
@@ -1234,12 +1149,15 @@ async function executarRoboCloud() {
     try {
       registrarLog("AVISO", "Token", `${motivoRenovacao} — Coletando novo token automaticamente...`);
       tokenCapturado = "";
-      await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
+      await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
       await dormirHumano(3500);
 
-      if (!tokenCapturado) {
-        const tkGql = await page.evaluate(async () => {
-          try {
+      const tkEval = await page.evaluate(async (ehFort) => {
+        try {
+          if (ehFort) {
+            const tkApp = window.INITIAL_STATE?.app?.searchEngineToken;
+            if (tkApp) return tkApp;
+          } else {
             const initTk = window.INITIAL_STATE?.auth?.searchIdentityToken;
             if (initTk) return initTk;
             const r = await fetch("https://api.superkoch.com.br:443/storefront/graphql", {
@@ -1256,13 +1174,14 @@ async function executarRoboCloud() {
               const j = await r.json();
               return j?.data?.customerViewer?.searchIdentityToken || "";
             }
-          } catch {}
-          return "";
-        });
-        if (tkGql) {
-          tokenCapturado = tkGql;
-          registrarLog("OK", "Token", `Token renovado via GraphQL interno.`);
-        }
+          }
+        } catch {}
+        return "";
+      }, EH_FORT);
+
+      if (tkEval) {
+        tokenCapturado = tkEval;
+        registrarLog("OK", "Token", `Token obtido via SSR HTML (${EH_FORT ? "searchEngineToken" : "searchIdentityToken"}).`);
       }
 
       await page.evaluate(() => window.scrollBy(0, 500)).catch(() => {});
@@ -1273,11 +1192,15 @@ async function executarRoboCloud() {
   }
 
   sessao.status = "RODANDO";
-  sessao.mensagem = `Máquina #${WORKER_ID}/${TOTAL_WORKERS} conectando ao SuperKoch...`;
+  sessao.mensagem = `Máquina #${WORKER_ID}/${TOTAL_WORKERS} conectando ao ${MERCADO_NOME}...`;
   await enviarTelemetriaAoVivo(true);
 
-  await page.goto("https://www.superkoch.com.br/", { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
+  await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
   await dormirHumano(3200);
+
+  if (!tokenCapturado) {
+    await renovarSessaoETokenAutomatico("Inicialização do Robô");
+  }
 
   async function aguardarCincoMinutosComTelemetria(rotulo, pag, from, motivoErro) {
     const totalSeg = Math.round(CONFIG.esperaErroRedeMs / 1000);
@@ -1304,10 +1227,10 @@ async function executarRoboCloud() {
       let resultado = { ok: false, status: 0, error: "Sem resposta" };
 
       try {
-        resultado = await page.evaluate(async ({ targetUrl, tk }) => {
+        resultado = await page.evaluate(async ({ targetUrl, tk, headerName }) => {
           try {
             const headers = { accept: "application/json, text/plain, */*" };
-            if (tk) headers["x-osuper-identity-token"] = tk;
+            if (tk) headers[headerName] = tk;
             const r = await fetch(targetUrl, { method: "GET", headers });
             if (!r.ok) return { ok: false, status: r.status };
             const data = await r.json();
@@ -1315,7 +1238,7 @@ async function executarRoboCloud() {
           } catch (err) {
             return { ok: false, status: 0, error: err.message };
           }
-        }, { targetUrl: url, tk: tokenCapturado });
+        }, { targetUrl: url, tk: tokenCapturado, headerName: HEADER_TOKEN_NAME });
       } catch (evalErr) {
         resultado = { ok: false, status: 0, error: evalErr.message };
       }
@@ -1325,12 +1248,11 @@ async function executarRoboCloud() {
         return resultado.data;
       }
 
-      // Se o proxy falhou e estava ativo, tenta direto sem proxy antes de esperar 5 minutos
       if (CONFIG.usarProxy && tentativa === 1 && url.includes("?url=")) {
         try {
           const urlDireta = decodeURIComponent(url.split("url=")[1]);
           url = urlDireta;
-          registrarLog("AVISO", rotulo, `Proxy oscilou na Pág ${pag}. Tentando conexão direta automaticamente...`);
+          registrarLog("AVISO", rotulo, `Proxy oscilou na Pág ${pag}. Tentando conexão direta...`);
           continue;
         } catch {}
       }
@@ -1348,163 +1270,174 @@ async function executarRoboCloud() {
       if (resultado.status === 0 || resultado.status === 429 || resultado.status >= 500) {
         const descErro = resultado.status === 0
           ? `Erro de Rede (${resultado.error || "Falha de conexão"})`
-          : `Limite/Servidor HTTP ${resultado.status}`;
+          : `Servidor HTTP ${resultado.status}`;
 
-        if (tentativa === 1) {
-          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag}. Aguardando 15s para re-tentativa rápida...`);
+        if (tentativa <= 2) {
+          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag} (off ${from}). Respiro curto de 15s antes de tentar novamente...`);
           await dormirHumano(CONFIG.backoffCurtoMs);
         } else {
           await aguardarCincoMinutosComTelemetria(rotulo, pag, from, descErro);
-          await renovarSessaoETokenAutomatico("Reconexão após espera de 5 minutos");
         }
         continue;
       }
 
-      registrarLog("AVISO", rotulo, `Status HTTP ${resultado.status} ignorado na Pág ${pag}.`);
+      registrarLog("AVISO", rotulo, `Resposta HTTP ${resultado.status} na Pág ${pag}. Continuando...`);
       return null;
     }
     return null;
   }
 
+  // =======================================================================
+  // LAÇO PRINCIPAL: VARREDURA SEQUENCIAL DAS ROTAS DA MÁQUINA
+  // =======================================================================
   try {
-    for (let i = sessao.meuIndiceInicio; i <= sessao.meuIndiceFim && i < ROTAS_ATIVAS.length; i++) {
+    for (let rIdx = sessao.rotaIndiceAtual; rIdx <= sessao.meuIndiceFim; rIdx++) {
+      await verificarComandosRemotos();
       await aguardarSePausadoRemoto();
+      if (sessao.canceladoRemoto) break;
 
-      if (sessao.irParaRotaIndice !== null) {
-        // Se o usuário mandou ir para uma rota específica dentro da fatia desta máquina (ou se há só 1 máquina)
-        if (TOTAL_WORKERS === 1 || (sessao.irParaRotaIndice >= sessao.meuIndiceInicio && sessao.irParaRotaIndice <= sessao.meuIndiceFim)) {
-          i = sessao.irParaRotaIndice;
-        }
+      if (sessao.irParaRotaIndice !== null && sessao.irParaRotaIndice >= 0) {
+        rIdx = Math.max(sessao.meuIndiceInicio, Math.min(sessao.meuIndiceFim, sessao.irParaRotaIndice));
         sessao.irParaRotaIndice = null;
-        sessao.pularRotaAtual = false;
       }
 
-      const rota = ROTAS_ATIVAS[i];
-      if (!rota) break;
+      sessao.pularRotaAtual = false;
+      const rota = ROTAS_ATIVAS[rIdx];
+      if (!rota) continue;
 
-      sessao.rotaIndiceAtual = i;
-      sessao.rotaTotal = ROTAS_ATIVAS.length;
+      sessao.rotaIndiceAtual = rIdx;
       sessao.rotaNomeAtual = rota.nome;
       sessao.rotaUrlAtual = rota.url;
       sessao.deptoAtualNome = rota.depto || "Geral";
       sessao.paginaAtual = 1;
       sessao.totalPaginasEstimadoRota = 1;
       sessao.offsetAtual = 0;
-      sessao.pularRotaAtual = false;
 
-      const rotulo = `[#${i + 1}/${ROTAS_ATIVAS.length}] ${rota.nome}`;
-      sessao.progressoRotas[i] = { st: "run", lidos: 0, novos: 0, precos: 0, pags: 0, worker: WORKER_ID };
+      const rotulo = `Rota #${rIdx + 1}/${ROTAS_ATIVAS.length} • ${rota.nome}`;
+      registrarLog("OK", rotulo, `Acessando categoria: ${rota.url}`);
 
-      if (rota.tipo === "categorias_index") {
-        sessao.progressoRotas[i] = { st: "ok", lidos: 0, novos: 0, precos: 0, pags: 1, worker: WORKER_ID };
-        await enviarTelemetriaAoVivo(false);
-        continue;
-      }
+      sessao.progressoRotas[rIdx] = {
+        st: "rodando",
+        nome: rota.nome,
+        depto: rota.depto,
+        url: rota.url,
+        lidos: 0,
+        novos: 0,
+        precos: 0,
+        pags: 1,
+        inicioEm: horaAtualBR(),
+        worker: WORKER_ID
+      };
 
-      if (rota.tipo === "home") {
-        sessao.mensagem = `🏠 Lendo destaques da Página Inicial...`;
-        await enviarTelemetriaAoVivo(true);
-        const urlHome = montarUrlOficial({ storePath, promo: true, size: CONFIG.size, from: 0 });
-        const dadosHome = await consultarAPINoPontoExato(urlHome, rotulo, 1, 0);
-        if (dadosHome?.hits) {
-          const { novosLote, precosLote } = processarHits(dadosHome.hits, rota);
-          sessao.progressoRotas[i] = { st: "ok", lidos: dadosHome.hits.length, novos: novosLote, precos: precosLote, pags: 1, worker: WORKER_ID };
-          await verificarAutoSaveInteligente(rota.nome, true);
-        }
-        await enviarTelemetriaAoVivo(true);
-        await dormirHumano(CONFIG.delayTrocaRotaMs);
-        continue;
-      }
+      await enviarTelemetriaAoVivo(true);
+
+      const ehHomeOuIndex = rota.tipo === "home" || rota.tipo === "categorias_index";
+      const ehPromo = rota.tipo === "promocoes" || rota.tipo === "promocao";
 
       let from = 0;
       let pag = 1;
+      let totalItensEstimado = null;
       let totalLidosRota = 0;
       let novosRota = 0;
       let precosRota = 0;
-      const idsVistosRota = new Set();
 
-      while (pag <= 500 && !sessao.pularRotaAtual) {
+      const categoryNameParam = (rota.tipo === "sub" || rota.tipo === "depto") && !rota.id ? rota.nome : "";
+      const categoryIdParam = (rota.id && rota.id !== "PROMO_FORT") ? String(rota.id) : "";
+
+      while (!sessao.pularRotaAtual && !sessao.canceladoRemoto) {
+        await verificarComandosRemotos();
         await aguardarSePausadoRemoto();
-        if (sessao.pularRotaAtual) break;
+        if (sessao.pularRotaAtual || sessao.canceladoRemoto) break;
 
         sessao.paginaAtual = pag;
         sessao.offsetAtual = from;
-        sessao.mensagem = `📂 ${rotulo} • Lendo Pág ${pag}${sessao.totalPaginasEstimadoRota > 1 ? `/${sessao.totalPaginasEstimadoRota}` : ""} (${totalLidosRota} itens lidos)...`;
-        await enviarTelemetriaAoVivo(false);
 
-        const ehPromo = rota.tipo === "promocoes";
-        const urlBusca = montarUrlOficial({
+        const urlAPI = montarUrlOficial({
           storePath,
           promo: ehPromo,
           size: CONFIG.size,
           from,
-          categoryId: rota.id || "",
-          categoryName: !rota.id && !ehPromo ? rota.nome.split(">").pop().trim() : ""
+          categoryId: categoryIdParam,
+          categoryName: categoryNameParam
         });
 
-        const dados = await consultarAPINoPontoExato(urlBusca, rotulo, pag, from);
-        if (!dados || !Array.isArray(dados.hits) || dados.hits.length === 0) break;
-
-        if (typeof dados.total === "number" && dados.total > 0) {
-          sessao.totalPaginasEstimadoRota = Math.max(1, Math.ceil(dados.total / CONFIG.size));
-        }
-
-        let ineditos = 0;
-        for (const h of dados.hits) {
-          if (h?.id && !idsVistosRota.has(h.id)) {
-            idsVistosRota.add(h.id);
-            ineditos++;
-          }
-        }
-
-        totalLidosRota += dados.hits.length;
-        const { novosLote, precosLote } = processarHits(dados.hits, rota);
-        novosRota += novosLote;
-        precosRota += precosLote;
-
-        sessao.progressoRotas[i] = { st: "run", lidos: totalLidosRota, novos: novosRota, precos: precosRota, pags: pag, worker: WORKER_ID };
-
-        await verificarAutoSaveInteligente(rota.nome, false);
+        sessao.status = "RODANDO";
+        sessao.mensagem = `Coletando ${rota.nome} • Pág ${pag} (off ${from}) • ${mapaProdutos.size} prods no banco...`;
         await enviarTelemetriaAoVivo(false);
 
-        const temProxima = Boolean(
-          dados.hasNext === true ||
-          (typeof dados.nextFrom === "number" && dados.nextFrom > from) ||
-          (typeof dados.total === "number" && (from + dados.hits.length) < dados.total)
-        );
-
-        if (!temProxima || dados.hits.length < CONFIG.size || ineditos === 0) {
+        const dados = await consultarAPINoPontoExato(urlAPI, rotulo, pag, from);
+        if (!dados) {
+          registrarLog("AVISO", rotulo, `Sem resposta na Pág ${pag}. Avançando para a próxima categoria.`);
           break;
         }
 
-        from = (typeof dados.nextFrom === "number" && dados.nextFrom > from) ? dados.nextFrom : (from + CONFIG.size);
+        const hits = Array.isArray(dados.products)
+          ? dados.products
+          : (Array.isArray(dados.hits) ? dados.hits : (Array.isArray(dados.items) ? dados.items : []));
+
+        if (totalItensEstimado === null && typeof dados.total === "number") {
+          totalItensEstimado = dados.total;
+          sessao.totalPaginasEstimadoRota = Math.max(1, Math.ceil(totalItensEstimado / CONFIG.size));
+        }
+
+        if (hits.length === 0) {
+          if (pag === 1) {
+            registrarLog("OK", rotulo, `Categoria sem produtos no momento (0 itens).`);
+          }
+          break;
+        }
+
+        const resHits = processarHits(hits, rota);
+        totalLidosRota += hits.length;
+        novosRota += resHits.novosLote;
+        precosRota += resHits.precosLote;
+
+        if (sessao.progressoRotas[rIdx]) {
+          sessao.progressoRotas[rIdx].lidos = totalLidosRota;
+          sessao.progressoRotas[rIdx].novos = novosRota;
+          sessao.progressoRotas[rIdx].precos = precosRota;
+          sessao.progressoRotas[rIdx].pags = pag;
+        }
+
+        await verificarAutoSaveInteligente(`${rota.nome} Pág ${pag}`, false);
+        await enviarTelemetriaAoVivo(false);
+
+        from += hits.length;
         pag++;
+
+        if (ehHomeOuIndex) {
+          if (pag > 3) break;
+        }
+
+        if (hits.length < CONFIG.size) {
+          break;
+        }
+
+        if (totalItensEstimado !== null && from >= totalItensEstimado) {
+          break;
+        }
+
         await dormirHumano(CONFIG.delayMs);
       }
 
-      if (sessao.irParaRotaIndice !== null) {
-        if (TOTAL_WORKERS === 1 || (sessao.irParaRotaIndice >= sessao.meuIndiceInicio && sessao.irParaRotaIndice <= sessao.meuIndiceFim)) {
-          i = sessao.irParaRotaIndice - 1;
-        }
-        sessao.irParaRotaIndice = null;
-        sessao.pularRotaAtual = false;
-        continue;
-      }
-
-      sessao.progressoRotas[i] = {
+      sessao.progressoRotas[rIdx] = {
         st: sessao.pularRotaAtual ? "skip" : "ok",
+        nome: rota.nome,
+        depto: rota.depto,
+        url: rota.url,
         lidos: totalLidosRota,
         novos: novosRota,
         precos: precosRota,
-        pags: pag,
+        pags: Math.max(1, pag - 1),
+        fimEm: horaAtualBR(),
         worker: WORKER_ID
       };
 
-      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${pag} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços).`);
+      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${Math.max(1, pag - 1)} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços).`);
 
       await verificarAutoSaveInteligente(rota.nome, true);
 
-      if (SOU_MAESTRO && CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes") && (sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0)) {
+      if (SOU_MAESTRO && CONFIG.autoSaveEveryDepto && (rota.tipo === "depto" || rota.tipo === "promocoes" || rota.tipo === "promocao") && (sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0)) {
         await gravarComSegurancaNoFirebase(`Fim de ${rota.nome}`);
       }
 
@@ -1512,7 +1445,6 @@ async function executarRoboCloud() {
       await dormirHumano(CONFIG.delayTrocaRotaMs);
     }
 
-    // Se este é um Worker secundário (2..10), publica seu estado final CONCLUIDO para o Maestro recolher
     if (!SOU_MAESTRO) {
       sessao.status = "CONCLUIDO";
       sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu sua fatia (#${sessao.meuIndiceInicio + 1} a #${sessao.meuIndiceFim + 1})!`;
@@ -1521,7 +1453,6 @@ async function executarRoboCloud() {
       return;
     }
 
-    // Se este é o Maestro (Worker #1) e há outras máquinas no enxame ainda rodando, coordena até todas terminarem!
     if (SOU_MAESTRO && TOTAL_WORKERS > 1) {
       registrarLog("OK", "Maestro do Enxame", `Máquina #1 concluiu sua fatia. Coordenando e salvando dados das demais máquinas do enxame...`);
       for (let esperaCiclo = 0; esperaCiclo < 720 && !sessao.canceladoRemoto; esperaCiclo++) {
@@ -1541,14 +1472,309 @@ async function executarRoboCloud() {
     await gravarComSegurancaNoFirebase("Extração 100% Concluída pelo Enxame");
     const enxameFinal = await absorverEnxameNoMaestro();
     sessao.status = "CONCLUIDO";
-    sessao.mensagem = `🎉 Concluído (${TOTAL_WORKERS} máq. | Modo ${CONFIG.modoFila})! ${mapaProdutos.size} produtos no banco (+${enxameFinal.novosGlobal} novos, 🔄 ${enxameFinal.precosGlobal} preços).`;
+    sessao.mensagem = `🎉 ${MERCADO_NOME} Concluído (${TOTAL_WORKERS} máq. | Modo ${CONFIG.modoFila})! ${mapaProdutos.size} produtos no banco (+${enxameFinal.novosGlobal} novos, 🔄 ${enxameFinal.precosGlobal} preços).`;
     registrarLog("OK", "Finalizado", sessao.mensagem);
     await enviarTelemetriaAoVivo(true);
+
+    // Se ambos os bancos existirem, dispara a vinculação inteligente automática ao final!
+    if (SOU_MAESTRO) {
+      try {
+        await executarVinculacaoInteligente();
+      } catch (eLink) {
+        registrarLog("AVISO", "Vinculação", `Vinculação automática pós-extração: ${eLink.message}`);
+      }
+    }
   } finally {
     await browser.close();
   }
 }
 
+// =========================================================================
+// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT
+// =========================================================================
+const STOPWORDS = new Set([
+  "de", "da", "do", "das", "dos", "com", "para", "em", "sem", "ao", "aos",
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "e", "ou", "por", "sobre"
+]);
+
+function normalizarTexto(str) {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s.,/-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extrairAssetHash(urlImg) {
+  if (!urlImg || typeof urlImg !== "string") return null;
+  const m = urlImg.match(/([0-9a-f]{5,10}-[0-9a-f]{6,16}|[0-9a-f]{20,40})\.(webp|png|jpg|jpeg)/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
+function extrairGramatura(nome) {
+  if (!nome) return null;
+  const n = normalizarTexto(nome);
+  const mPack = n.match(/(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|l|lt|ml)/i);
+  if (mPack) {
+    const qtd = parseFloat(mPack[1]);
+    const val = parseFloat(mPack[2].replace(",", "."));
+    const un = mPack[3].toLowerCase();
+    let totalBase = un.startsWith("k") || un === "l" || un === "lt" ? val * 1000 : val;
+    return { valorNorm: Math.round(qtd * totalBase), unidade: un.includes("l") ? "ml" : "g", str: `${qtd}x${val}${un}` };
+  }
+  const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml)\b/i);
+  if (m) {
+    const val = parseFloat(m[1].replace(",", "."));
+    const un = m[2].toLowerCase();
+    if (un.startsWith("k") || un === "l" || un === "lt") {
+      return { valorNorm: Math.round(val * 1000), unidade: un.includes("l") ? "ml" : "g", str: `${val}${un}` };
+    }
+    return { valorNorm: Math.round(val), unidade: un.includes("l") ? "ml" : "g", str: `${val}${un}` };
+  }
+  return null;
+}
+
+function calcularScoreCasamento(prodK, prodF) {
+  let score = 0;
+  const motivos = [];
+
+  // 1. Gramatura (Eliminatória!)
+  const gramK = extrairGramatura(prodK.nome);
+  const gramF = extrairGramatura(prodF.nome);
+
+  if (gramK && gramF) {
+    if (gramK.unidade === gramF.unidade) {
+      if (Math.abs(gramK.valorNorm - gramF.valorNorm) <= 1) {
+        score += 30;
+        motivos.push(`Gramatura idêntica (${gramK.str})`);
+      } else {
+        return { score: 0, motivo: "Gramaturas incompatíveis" };
+      }
+    } else {
+      return { score: 0, motivo: "Unidades incompatíveis" };
+    }
+  } else if (!gramK && !gramF) {
+    const unK = String(prodK.unidade || "UN").toUpperCase();
+    const unF = String(prodF.unidade || "UN").toUpperCase();
+    if (unK === unF) {
+      score += 15;
+    }
+  } else {
+    score += 5;
+  }
+
+  // 2. Hash da Imagem no Catálogo OSuper
+  const hashK = extrairAssetHash(prodK.imagem);
+  const hashF = extrairAssetHash(prodF.imagem);
+  if (hashK && hashF && hashK === hashF) {
+    score += 45;
+    motivos.push("Foto idêntica no catálogo OSuper");
+  }
+
+  // 3. Marca
+  const marcaK = normalizarTexto(prodK.marca);
+  const marcaF = normalizarTexto(prodF.marca);
+  if (marcaK && marcaF && marcaK !== "generico" && marcaF !== "generico") {
+    if (marcaK === marcaF) {
+      score += 20;
+      motivos.push(`Marca idêntica (${prodK.marca})`);
+    } else {
+      score -= 25;
+    }
+  }
+
+  // 4. Tokens do Nome (Jaccard)
+  const tokensK = new Set(normalizarTexto(prodK.nome).split(/\s+/).filter((w) => w.length >= 3 && !STOPWORDS.has(w)));
+  const tokensF = new Set(normalizarTexto(prodF.nome).split(/\s+/).filter((w) => w.length >= 3 && !STOPWORDS.has(w)));
+
+  if (tokensK.size > 0 && tokensF.size > 0) {
+    let intersecao = 0;
+    for (const t of tokensK) {
+      if (tokensF.has(t)) intersecao++;
+    }
+    const uniao = new Set([...tokensK, ...tokensF]).size;
+    const jaccard = uniao > 0 ? intersecao / uniao : 0;
+    const ptsTokens = Math.round(jaccard * 25);
+    score += ptsTokens;
+    if (jaccard >= 0.5) {
+      motivos.push(`Nomes similares (${Math.round(jaccard * 100)}%)`);
+    }
+  }
+
+  return {
+    score: Math.min(100, Math.max(0, score)),
+    motivo: motivos.join(" + ") || "Similaridade geral"
+  };
+}
+
+export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE) {
+  console.log("🔗 Iniciando vinculação inteligente Koch × Fort...");
+
+  let respKoch = null;
+  let respFort = null;
+  let respVinc = null;
+
+  try {
+    [respKoch, respFort, respVinc] = await Promise.all([
+      fetch(`${firebaseBase}/koch_loja_1408.json`),
+      fetch(`${firebaseBase}/fort_loja_1644.json`),
+      fetch(`${firebaseBase}/vinculos_produtos.json`).catch(() => null)
+    ]);
+  } catch (err) {
+    console.log(`⚠️ Erro de conexão ao buscar catálogos para vincular: ${err.message}`);
+    return null;
+  }
+
+  if (!respKoch || !respKoch.ok || !respFort || !respFort.ok) {
+    console.log("⚠️ Um dos catálogos ainda não está disponível no Firebase para vincular.");
+    return null;
+  }
+
+  const dadosKoch = await respKoch.json();
+  const dadosFort = await respFort.json();
+  const dadosVinc = respVinc && respVinc.ok ? await respVinc.json() : null;
+
+  const prodsKoch = Array.isArray(dadosKoch?.produtos) ? dadosKoch.produtos : [];
+  const prodsFort = Array.isArray(dadosFort?.produtos) ? dadosFort.produtos : [];
+
+  if (prodsKoch.length === 0 || prodsFort.length === 0) {
+    console.log("⚠️ Catálogos insuficientes para cruzamento.");
+    return null;
+  }
+
+  console.log(`📊 Cruzando ${prodsKoch.length} itens do Koch com ${prodsFort.length} itens do Fort...`);
+
+  const manuaisExistentes = dadosVinc?.manuais || {};
+  const rejeitadosExistentes = dadosVinc?.rejeitados || {};
+
+  const mapaFortPorAsset = new Map();
+  const mapaFortPorMarca = new Map();
+
+  for (const f of prodsFort) {
+    if (!f || !f.id) continue;
+    const asset = extrairAssetHash(f.imagem);
+    if (asset) {
+      if (!mapaFortPorAsset.has(asset)) mapaFortPorAsset.set(asset, []);
+      mapaFortPorAsset.get(asset).push(f);
+    }
+    const marcaNorm = normalizarTexto(f.marca);
+    if (marcaNorm && marcaNorm.length > 2 && marcaNorm !== "generico") {
+      if (!mapaFortPorMarca.has(marcaNorm)) mapaFortPorMarca.set(marcaNorm, []);
+      mapaFortPorMarca.get(marcaNorm).push(f);
+    }
+  }
+
+  const vinculosFinais = [];
+  const mapaKochParaFort = {};
+  const mapaFortParaKoch = {};
+  const fortJaCasados = new Set();
+
+  for (const [idK, idF] of Object.entries(manuaisExistentes)) {
+    mapaKochParaFort[idK] = idF;
+    mapaFortParaKoch[idF] = idK;
+    fortJaCasados.add(String(idF));
+    vinculosFinais.push({
+      idKoch: String(idK),
+      idFort: String(idF),
+      score: 100,
+      motivo: "Vínculo Manual Confirmado",
+      manual: true,
+      data: new Date().toISOString()
+    });
+  }
+
+  for (const k of prodsKoch) {
+    if (!k || !k.id) continue;
+    const idK = String(k.id);
+    if (mapaKochParaFort[idK]) continue;
+
+    let melhorFort = null;
+    let melhorScore = 0;
+    let melhorMotivo = "";
+
+    const assetK = extrairAssetHash(k.imagem);
+    const marcaK = normalizarTexto(k.marca);
+
+    const candidatos = new Set();
+    if (assetK && mapaFortPorAsset.has(assetK)) {
+      for (const f of mapaFortPorAsset.get(assetK)) candidatos.add(f);
+    }
+    if (marcaK && mapaFortPorMarca.has(marcaK)) {
+      for (const f of mapaFortPorMarca.get(marcaK)) candidatos.add(f);
+    }
+
+    if (candidatos.size === 0) {
+      const palavrasFortes = normalizarTexto(k.nome).split(/\s+/).filter((w) => w.length >= 4 && !STOPWORDS.has(w));
+      if (palavrasFortes.length > 0) {
+        const primeiraPalavra = palavrasFortes[0];
+        for (const f of prodsFort) {
+          if (f && f.nome && f.nome.toLowerCase().includes(primeiraPalavra)) {
+            candidatos.add(f);
+            if (candidatos.size > 30) break;
+          }
+        }
+      }
+    }
+
+    for (const f of candidatos) {
+      const idF = String(f.id);
+      if (fortJaCasados.has(idF)) continue;
+      const chavePar = `${idK}__${idF}`;
+      if (rejeitadosExistentes[chavePar]) continue;
+
+      const res = calcularScoreCasamento(k, f);
+      if (res.score > melhorScore) {
+        melhorScore = res.score;
+        melhorFort = f;
+        melhorMotivo = res.motivo;
+      }
+    }
+
+    if (melhorScore >= 70 && melhorFort) {
+      const idF = String(melhorFort.id);
+      mapaKochParaFort[idK] = idF;
+      mapaFortParaKoch[idF] = idK;
+      fortJaCasados.add(idF);
+      vinculosFinais.push({
+        idKoch: idK,
+        idFort: idF,
+        score: melhorScore,
+        motivo: melhorMotivo,
+        manual: false,
+        data: new Date().toISOString()
+      });
+    }
+  }
+
+  const payload = {
+    atualizadoEm: new Date().toISOString(),
+    totalVinculos: vinculosFinais.length,
+    vinculos: vinculosFinais,
+    mapaKochParaFort,
+    mapaFortParaKoch,
+    manuais: manuaisExistentes,
+    rejeitados: rejeitadosExistentes
+  };
+
+  try {
+    await fetch(FIREBASE_VINCULOS_ENDPOINT, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    console.log(`✅ Sucesso! ${vinculosFinais.length} vínculos de produtos salvos no Firebase (${FIREBASE_VINCULOS_ENDPOINT}).`);
+  } catch (err) {
+    console.log(`❌ Erro ao salvar vínculos no Firebase: ${err.message}`);
+  }
+
+  return payload;
+}
+
+// =========================================================================
+// PONTO DE ENTRADA
+// =========================================================================
 let salvandoCancelamento = false;
 const tratarCancelamento = async (sinal) => {
   if (salvandoCancelamento) return;
@@ -1569,11 +1795,18 @@ const tratarCancelamento = async (sinal) => {
 process.on("SIGINT", () => tratarCancelamento("SIGINT"));
 process.on("SIGTERM", () => tratarCancelamento("SIGTERM"));
 
-executarRoboCloud().catch(async (err) => {
-  registrarLog("ERRO", "Fatal", `Exceção: ${err.message}`);
-  sessao.status = "ERRO";
-  sessao.mensagem = `❌ Erro em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}): ${err.message}. Progresso salvo!`;
-  await gravarComSegurancaNoFirebase("Salvamento de Emergência").catch(() => {});
-  await enviarTelemetriaAoVivo(true).catch(() => {});
-  process.exit(1);
-});
+if (process.argv.includes("--vincular")) {
+  executarVinculacaoInteligente().then(() => process.exit(0)).catch((err) => {
+    console.error("Erro na vinculação:", err);
+    process.exit(1);
+  });
+} else {
+  executarRoboCloud().catch(async (err) => {
+    registrarLog("ERRO", "Fatal", `Exceção: ${err.message}`);
+    sessao.status = "ERRO";
+    sessao.mensagem = `❌ Erro em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}): ${err.message}. Progresso salvo!`;
+    await gravarComSegurancaNoFirebase("Salvamento de Emergência").catch(() => {});
+    await enviarTelemetriaAoVivo(true).catch(() => {});
+    process.exit(1);
+  });
+}
