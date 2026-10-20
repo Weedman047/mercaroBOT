@@ -1,0 +1,64 @@
+name: "🤖 Robô SuperKoch (Invisível na Nuvem)"
+
+on:
+  # Permite rodar manualmente com 1 clique na aba "Actions" do GitHub ou direto pelo Painel do Celular
+  workflow_dispatch:
+    inputs:
+      delay_paginas_ms:
+        description: "Tempo base entre páginas em ms (ex: 2200 = 2.2s a 3.4s)"
+        required: false
+        default: "2200"
+      delay_categorias_ms:
+        description: "Tempo base ao trocar de categoria em ms (ex: 3800 = 3.8s a 5.5s)"
+        required: false
+        default: "3800"
+      rota_inicial:
+        description: "Começar de qual número da fila (1 a 121)"
+        required: false
+        default: "1"
+      salvar_ao_adicionar:
+        description: "Salvar no Firebase ao adicionar X produtos novos (padrão: 1)"
+        required: false
+        default: "1"
+      salvar_ao_atualizar:
+        description: "Salvar no Firebase ao atualizar X produtos existentes (padrão: 50)"
+        required: false
+        default: "50"
+      modo_teste_sem_gravar:
+        description: "Apenas testar sem gravar no Firebase? (true / false)"
+        required: false
+        default: "false"
+
+  # Roda sozinho todos os dias às 06:00 da manhã (horário de Brasília = 09:00 UTC)
+  schedule:
+    - cron: "0 9 * * *"
+
+jobs:
+  extrair-catalogo-koch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240 # Até 4 horas de folga para rodar bem devagar sem bloquear
+
+    steps:
+      - name: "📥 Baixar código do repositório"
+        uses: actions/checkout@v4
+
+      - name: "🟢 Configurar Node.js 20"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: "📦 Instalar dependências e navegador invisível (Chromium)"
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: "🕵️ Executar Robô Sequencial Furtivo (Proteção Firebase + Controle Mobile Ativos)"
+        env:
+          FIREBASE_BASE_URL: ${{ secrets.FIREBASE_BASE_URL || 'https://mercaro-e6035-default-rtdb.firebaseio.com/' }}
+          DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
+          DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
+          START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '1' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '50' }}
+          DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
+        run: node scripts/extrator-cloud.mjs

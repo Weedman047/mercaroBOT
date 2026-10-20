@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuscaPreço - Comparador & Central do Robô</title>
+  <link rel="icon" type="image/png" href="icone.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { overflow-y: scroll; }
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.18); }
+    }
+    .dot-live { animation: pulse-fast 1.4s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col selection:bg-red-600 selection:text-white">
+
+  <!-- HEADER FIXO -->
+  <header class="bg-red-600 text-white shadow sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col lg:flex-row items-center justify-between gap-2.5">
+      
+      <!-- Logo + Status + Ações Mobile -->
+      <div class="flex items-center justify-between w-full lg:w-auto gap-2">
+        <div class="flex items-center gap-2.5 cursor-pointer select-none" onclick="resetarTodosFiltros()">
+          <div class="bg-white p-1 rounded-xl shadow-sm flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 overflow-hidden border border-red-200">
+            <span class="text-2xl">🛒</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-base sm:text-lg font-black tracking-tight leading-none">BuscaPreço</h1>
+              <span class="bg-red-800 text-red-100 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase">Koch</span>
+            </div>
+            <p class="text-[11px] text-red-100 mt-0.5 truncate max-w-[175px] sm:max-w-xs" id="statusNuvem">Conectando ao banco de dados...</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 lg:hidden">
+          <button onclick="abrirCentralRobo()" class="bg-gray-950 hover:bg-gray-900 text-emerald-400 border border-emerald-500/40 font-extrabold px-2.5 py-1.5 rounded-xl text-[11px] flex items-center gap-1.5 shadow">
+            <span id="dotRoboMobile" class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
+            <span>🤖 Robô</span>
+            <span id="badgePctRoboMobile" class="hidden bg-emerald-900 text-emerald-300 text-[9px] px-1 rounded">0%</span>
+          </button>
+          <button onclick="carregarDoFirebase()" title="Sincronizar catálogo" class="bg-white text-red-600 font-extrabold px-2.5 py-1.5 rounded-xl text-[11px] shadow-sm">🔄</button>
+          <button onclick="toggleSacola()" class="bg-yellow-400 text-red-950 font-black px-2.5 py-1.5 rounded-xl text-[11px] shadow-sm">🛍️ <span id="badgeSacolaMobile">0</span></button>
+          <button onclick="abrirModalDados()" class="bg-red-700 text-white px-2 py-1.5 rounded-xl text-[11px]">💾</button>
+        </div>
+      </div>
+
+      <!-- Barra de Pesquisa -->
+      <div class="flex items-center w-full lg:flex-1 max-w-2xl">
+        <div class="relative w-full">
+          <span class="absolute left-3.5 top-2.5 text-gray-400 text-xs pointer-events-none">🔍</span>
+          <input id="inputBusca" type="text" autocomplete="off" spellcheck="false" placeholder="Buscar produto, marca ou medida (ex: Sprite, Leite, Picanha, 2L)..." class="w-full pl-9 pr-16 py-2 rounded-xl text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-yellow-400 text-xs sm:text-sm font-medium shadow-inner" oninput="aoDigitarBusca()">
+          <button onclick="limparBusca()" id="btnLimparBusca" class="hidden absolute right-2 top-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg px-2 py-1 text-[11px] font-bold">Limpar</button>
+        </div>
+      </div>
+
+      <!-- Ações Desktop -->
+      <div class="hidden lg:flex items-center gap-2">
+        <button onclick="abrirCentralRobo()" class="bg-gray-950 hover:bg-gray-900 text-emerald-400 border border-emerald-500/40 font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow">
+          <span id="dotRoboDesktop" class="w-2.5 h-2.5 rounded-full bg-gray-400 inline-block"></span>
+          <span>🤖 Central do Robô</span>
+          <span id="badgePctRoboDesktop" class="hidden bg-emerald-900/90 text-emerald-300 text-[10px] px-1.5 py-0.5 rounded font-black">Ao Vivo</span>
+        </button>
+        <button onclick="carregarDoFirebase()" class="bg-white hover:bg-red-50 text-red-600 font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1 shadow-sm">🔄 Atualizar</button>
+        <button onclick="toggleSacola()" class="bg-yellow-400 hover:bg-yellow-300 text-red-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm">🛍️ Lista (<span id="badgeSacolaDesktop">0</span>) • <span id="valorSacolaHeader">R$ 0,00</span></button>
+        <button onclick="abrirModalDados()" class="bg-red-700 hover:bg-red-800 text-white font-bold p-2 rounded-xl text-xs">💾</button>
+      </div>
+    </div>
+
+    <!-- BARRA DE STATUS AO VIVO DO ROBÔ (APARECE AUTOMATICAMENTE QUANDO O ROBÔ ESTÁ RODANDO) -->
+    <div id="barraVivaRoboHeader" onclick="abrirCentralRobo()" class="hidden bg-gray-950 text-gray-100 border-t border-gray-800 cursor-pointer hover:bg-gray-900 transition">
+      <div class="max-w-7xl mx-auto px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 text-[11px]">
+        <div class="flex items-center gap-2 truncate">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 dot-live shrink-0"></span>
+          <span id="textoBarraVivaRobo" class="font-bold text-emerald-300 truncate">Robô ativo na nuvem...</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="contadoresBarraVivaRobo" class="text-[10px] font-extrabold bg-gray-800 text-gray-200 px-2 py-0.5 rounded border border-gray-700">+0 novos • 🔄 0 preços</span>
+          <span class="text-[10px] text-emerald-400 font-black underline">Abrir Painel ➔</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARROSSEL DE DEPARTAMENTOS ATUALIZADOS -->
+    <div class="bg-white text-gray-800 border-t border-gray-200">
+      <div id="containerDepartamentos" class="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar items-center"></div>
+      <div id="containerSubcategorias" class="hidden bg-gray-50 border-t border-gray-200 px-3 sm:px-4 py-1.5">
+        <div id="listaSubcategorias" class="max-w-7xl mx-auto flex gap-1.5 overflow-x-auto no-scrollbar items-center"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- AVISO BUSCA GLOBAL -->
+  <div id="avisoDestravamentoCategoria" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-900 text-xs font-bold px-4 py-2 text-center"></div>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 flex-1 w-full flex flex-col gap-4">
+
+    <!-- FILTROS AVANÇADOS -->
+    <section class="bg-white p-3.5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-3">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 id="tituloSecao" class="font-black text-gray-900 text-base">🏪 Todos os Produtos</h2>
+            <span id="contadorProdutos" class="text-xs font-extrabold bg-red-50 text-red-600 px-2.5 py-0.5 rounded-lg border border-red-200">0 itens</span>
+          </div>
+          <p id="subtituloSecao" class="text-[11px] text-gray-500 mt-0.5">Sincronizado em tempo real com Firebase</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
+          <select id="selectOrdenacao" onchange="reiniciarPaginacaoEFiltrar()" class="bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer">
+            <option value="relevancia">🎯 Relevância / Pontuação</option>
+            <option value="menor_preco">💲 Menor Preço</option>
+            <option value="maior_preco">💰 Maior Preço</option>
+            <option value="menor_unitario">⚖️ Menor Preço por Kg/L</option>
+            <option value="maior_desconto">🔥 Maior Desconto (%)</option>
+            <option value="az">🔤 Nome (A - Z)</option>
+          </select>
+          <select id="selectMarca" onchange="reiniciarPaginacaoEFiltrar()" class="bg-gray-50 border border-gray-300 text-gray-800 text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer max-w-[155px]">
+            <option value="TODAS">🏷️ Todas as Marcas</option>
+          </select>
+          <label class="flex items-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-lg cursor-pointer">
+            <input type="checkbox" id="checkPromocao" onchange="reiniciarPaginacaoEFiltrar()" class="accent-red-600"> 🔥 Ofertas
+          </label>
+          <button onclick="resetarTodosFiltros()" id="btnLimparFiltros" class="hidden text-xs font-extrabold text-red-600 hover:bg-red-50 px-2 py-1 rounded-lg">✕ Resetar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- GRID PRODUTOS -->
+    <section>
+      <div id="gridProdutos" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div class="col-span-full py-12 text-center bg-white rounded-xl border border-gray-200"><p class="text-sm font-bold text-gray-700">Carregando catálogo...</p></div>
+      </div>
+      <div id="containerCarregarMais" class="hidden py-6 text-center">
+        <button onclick="carregarMaisProdutos()" class="bg-red-600 hover:bg-red-700 text-white font-black text-xs sm:text-sm px-8 py-3 rounded-xl shadow">
+          ➕ Mostrar mais produtos (<span id="restantesCount">0</span> restantes)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL INTERATIVO: 🤖 CENTRAL DO ROBÔ (ACOMPANHAMENTO E CONTROLE PELO CELULAR) -->
+  <!-- ========================================================================= -->
+  <div id="modalCentralRobo" class="fixed inset-0 bg-black/75 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4" onclick="if(event.target === this) fecharCentralRobo()">
+    <div class="bg-slate-950 text-slate-100 w-full max-w-3xl rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-800 flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden">
+      
+      <!-- Cabeçalho do Painel -->
+      <div class="bg-slate-900 px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span id="roboModalDot" class="w-3 h-3 rounded-full bg-emerald-400 dot-live"></span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-black text-sm sm:text-base text-white leading-none">🤖 Central do Robô SuperKoch</h3>
+              <span id="roboBadgeStatus" class="text-[10px] font-black px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">SINCRONIZANDO</span>
+            </div>
+            <p id="roboSubtituloOrigem" class="text-[11px] text-slate-400 mt-0.5">Controle remoto em tempo real pelo celular ou PC</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="sincronizarTelemetriaRobo(true)" title="Atualizar agora" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-700">🔄</button>
+          <button onclick="fecharCentralRobo()" class="bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-white font-bold text-lg w-8 h-8 rounded-lg flex items-center justify-center border border-slate-700">&times;</button>
+        </div>
+      </div>
+
+      <!-- Abas da Central do Robô -->
+      <div class="grid grid-cols-5 bg-slate-900/60 border-b border-slate-800 text-[11px] sm:text-xs font-extrabold">
+        <button onclick="mudarAbaCentralRobo('aovivo')" id="tabRobo-aovivo" class="py-2.5 px-1 text-center border-b-2 border-emerald-400 text-emerald-400 bg-slate-900/80">📡 Ao Vivo</button>
+        <button onclick="mudarAbaCentralRobo('precos')" id="tabRobo-precos" class="py-2.5 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">🔄 Preços (<span id="tabCountPrecos">0</span>)</button>
+        <button onclick="mudarAbaCentralRobo('novos')" id="tabRobo-novos" class="py-2.5 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">🟢 Novos (<span id="tabCountNovos">0</span>)</button>
+        <button onclick="mudarAbaCentralRobo('fila')" id="tabRobo-fila" class="py-2.5 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">📑 Fila (121)</button>
+        <button onclick="mudarAbaCentralRobo('config')" id="tabRobo-config" class="py-2.5 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200">⚙️ Config</button>
+      </div>
+
+      <!-- Conteúdo Rolável das Abas -->
+      <div class="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5">
+
+        <!-- ABA 1: AO VIVO & CONTROLE REMOTO -->
+        <div id="viewRobo-aovivo" class="space-y-3.5">
+          
+          <!-- Card Progresso & O Que Falta -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-amber-400" id="roboRotaAtualTitulo">Aguardando início...</span>
+              </div>
+              <span class="text-[11px] font-bold text-sky-400 bg-sky-950/60 border border-sky-800/60 px-2 py-0.5 rounded-lg" id="roboTempoRestante">⏱️ --</span>
+            </div>
+
+            <p class="text-xs text-slate-300 font-medium break-words" id="roboMensagemViva">Conectado ao Firebase. Pronto para monitorar ou iniciar.</p>
+
+            <!-- Barra de Progresso -->
+            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700 p-0.5">
+              <div id="roboBarraProgresso" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold pt-0.5">
+              <span id="roboDetalhePosicao">Categoria 0 de 121 • Pág 1</span>
+              <span id="roboDetalheFaltam">Faltam 121 categorias</span>
+            </div>
+          </div>
+
+          <!-- Placar de Contadores da Sessão -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <div class="text-[10px] font-bold text-slate-400 uppercase">📦 Total no Banco</div>
+              <div id="kpiTotalBanco" class="text-lg sm:text-xl font-black text-white mt-0.5">0</div>
+              <div id="kpiLidosSessao" class="text-[10px] text-slate-400 mt-0.5">0 lidos na sessão</div>
+            </div>
+            <div onclick="mudarAbaCentralRobo('novos')" class="bg-slate-900 hover:bg-slate-800/80 border border-emerald-900/60 rounded-xl p-3 cursor-pointer transition">
+              <div class="text-[10px] font-bold text-emerald-400 uppercase">🟢 Novos Adicionados</div>
+              <div id="kpiNovosSessao" class="text-lg sm:text-xl font-black text-emerald-400 mt-0.5">+0</div>
+              <div id="kpiMetaNovos" class="text-[10px] text-slate-400 mt-0.5">Salva a cada +1 novo</div>
+            </div>
+            <div onclick="mudarAbaCentralRobo('precos')" class="bg-slate-900 hover:bg-slate-800/80 border border-amber-900/60 rounded-xl p-3 cursor-pointer transition">
+              <div class="text-[10px] font-bold text-amber-400 uppercase">🔄 Preços Alterados</div>
+              <div id="kpiPrecosSessao" class="text-lg sm:text-xl font-black text-amber-400 mt-0.5">0</div>
+              <div id="kpiEstoquesSessao" class="text-[10px] text-slate-400 mt-0.5">+0 estoques atualizados</div>
+            </div>
+            <div class="bg-slate-900 border border-sky-900/60 rounded-xl p-3">
+              <div class="text-[10px] font-bold text-sky-400 uppercase">☁️ Auto-Saves</div>
+              <div id="kpiSavesRealizados" class="text-lg sm:text-xl font-black text-sky-400 mt-0.5">0</div>
+              <div id="kpiUltimoSaveHora" class="text-[10px] text-slate-400 mt-0.5 truncate">Aguardando lote</div>
+            </div>
+          </div>
+
+          <!-- Painel de Botões de Controle Remoto (Funciona direto do Celular) -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-black text-slate-200">🎮 Controle Remoto Instantâneo</span>
+              <span id="feedbackComandoRemoto" class="text-[10px] font-bold text-emerald-400"></span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <button onclick="enviarComandoRobo('PAUSAR')" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 shadow">
+                ⏸ Pausar
+              </button>
+              <button onclick="enviarComandoRobo('RETOMAR')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 shadow">
+                ▶ Retomar
+              </button>
+              <button onclick="enviarComandoRobo('SALVAR_AGORA')" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 shadow">
+                💾 Salvar Já
+              </button>
+              <button onclick="enviarComandoRobo('PULAR_ROTA')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 shadow">
+                ⏭ Pular Cat.
+              </button>
+              <button onclick="confirmarCancelamentoRobo()" class="col-span-2 sm:col-span-1 bg-red-600 hover:bg-red-500 text-white font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 shadow">
+                ⏹ Cancelar
+              </button>
+            </div>
+
+            <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <button onclick="acionarRoboNuvemGitHub()" class="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow">
+                🚀 Iniciar Robô Invisível na Nuvem (GitHub Actions)
+              </button>
+              <button onclick="copiarRoboExtrator()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 px-3 rounded-xl text-xs border border-slate-700">
+                💻 Script p/ PC
+              </button>
+            </div>
+          </div>
+
+          <!-- Últimos Produtos Lidos Ao Vivo -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <div class="text-[11px] font-bold text-slate-400 mb-1.5 flex justify-between">
+              <span>⚡ Últimos itens processados em tempo real:</span>
+              <span id="roboRequisicoesCount" class="text-[10px] text-slate-500 font-mono">0 reqs</span>
+            </div>
+            <div id="listaUltimosLidosRobo" class="space-y-1 font-mono text-[11px] text-slate-300 max-h-32 overflow-y-auto">
+              <div class="text-slate-500">Nenhum item processado ainda nesta sessão.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 2: PREÇOS ATUALIZADOS (ANTIGO -> NOVO) -->
+        <div id="viewRobo-precos" class="hidden space-y-2.5">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-black text-amber-400">🔄 Produtos com Preço Atualizado na Sessão</h4>
+              <p class="text-[11px] text-slate-400">Mostra o comparativo Preço Antigo ➔ Preço Novo (salva automático a cada <span id="lblMetaAtualizar">50</span> atualizados)</p>
+            </div>
+          </div>
+          <div id="listaPrecosAlteradosRobo" class="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">
+              Nenhuma mudança de preço detectada ainda nesta sessão.
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 3: NOVOS PRODUTOS ADICIONADOS -->
+        <div id="viewRobo-novos" class="hidden space-y-2.5">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-black text-emerald-400">🟢 Novos Produtos Descobertos e Adicionados</h4>
+              <p class="text-[11px] text-slate-400">Produtos inéditos que não existiam no seu Firebase (salva automático ao adicionar <span id="lblMetaAdicionar">1</span> novo)</p>
+            </div>
+          </div>
+          <div id="listaNovosAdicionadosRobo" class="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">
+              Nenhum produto novo adicionado ainda nesta sessão.
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA 4: FILA DAS 121 CATEGORIAS -->
+        <div id="viewRobo-fila" class="hidden space-y-2.5">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-black text-white">📑 Fila Sequencial (121 Links e Subcategorias)</h4>
+              <p class="text-[11px] text-slate-400">Toque em "🎯 Ir para esta" em qualquer categoria para mandar o robô pular direto para ela.</p>
+            </div>
+          </div>
+          <div id="listaFilaCategoriasRobo" class="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- ABA 5: CONFIGURAÇÕES EM TEMPO REAL -->
+        <div id="viewRobo-config" class="hidden space-y-3">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3">
+            <h4 class="text-xs font-black text-emerald-400 uppercase tracking-wide">💾 Regra de Salvamento Inteligente (Sem Pesar no Banco)</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Salvar ao Adicionar X Novos:</label>
+                <input id="inpConfigSalvarNovos" type="number" min="1" max="500" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Padrão: 1 produto novo</span>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Salvar ao Atualizar X Preços/Est.:</label>
+                <input id="inpConfigSalvarAtualizados" type="number" min="1" max="1000" value="50" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Padrão: 50 atualizados</span>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Respiro Mínimo entre Saves (seg):</label>
+                <input id="inpConfigCooldownSeg" type="number" min="10" max="300" value="25" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Evita lentidão durante rolagem</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3">
+            <h4 class="text-xs font-black text-sky-400 uppercase tracking-wide">⏱️ Velocidade Furtiva Anti-Bloqueio</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Tempo entre Páginas (ms):</label>
+                <input id="inpConfigDelayPag" type="number" min="800" max="15000" step="100" value="2200" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Recomendado: 2200 ms</span>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Tempo ao Trocar Categoria (ms):</label>
+                <input id="inpConfigDelayRota" type="number" min="1500" max="25000" step="200" value="3800" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Recomendado: 3800 ms</span>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Iniciar da Categoria Nº (1 a 121):</label>
+                <input id="inpConfigRotaInicial" type="number" min="1" max="121" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Para novos disparos na nuvem</span>
+              </div>
+            </div>
+
+            <button onclick="salvarConfiguracoesRemotasRobo()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs shadow">
+              ✔ Aplicar Configurações no Robô Agora
+            </button>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+            <h4 class="text-xs font-black text-purple-400 uppercase tracking-wide">☁️ Disparo Direto GitHub Actions (Opcional)</h4>
+            <p class="text-[11px] text-slate-400">
+              Você pode iniciar o robô clicando no botão que abre a página do GitHub Actions, ou colar abaixo um Token Pessoal do GitHub (<code class="text-purple-300">repo</code> / <code class="text-purple-300">workflow</code>) para disparar com 1 toque sem sair deste site:
+            </p>
+            <div class="flex gap-2">
+              <input id="inpGithubToken" type="password" placeholder="Opcional: ghp_xxxxxxxxxxxxxxxxxxxx" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono">
+              <button onclick="salvarTokenGitHubLocal()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs">Salvar no Celular</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HISTÓRICO DE PREÇOS -->
+  <div id="modalHistorico" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden" onclick="if(event.target === this) fecharHistorico()">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-200 flex flex-col gap-3 relative">
+      <button onclick="fecharHistorico()" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 font-bold text-xl">&times;</button>
+      <div class="flex items-center gap-2 border-b border-gray-200 pb-2">
+        <span class="text-lg">📈</span><h3 class="font-black text-gray-900 text-sm">Histórico de Preços</h3>
+      </div>
+      <div id="modalHistoricoConteudo" class="flex flex-col gap-3"></div>
+    </div>
+  </div>
+
+  <!-- SACOLA LATERAL -->
+  <div id="drawerSacola" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-end" onclick="if(event.target === this) toggleSacola()">
+    <div class="bg-white w-full max-w-md h-full shadow-2xl flex flex-col justify-between">
+      <div class="p-4 bg-red-600 text-white flex justify-between items-center">
+        <div class="flex items-center gap-2"><span class="text-xl">🛍️</span><div><h3 class="font-black text-base leading-none">Minha Lista de Compras</h3><p class="text-[11px] text-red-100 mt-0.5"> Monte sua lista e envie para o WhatsApp</p></div></div>
+        <button onclick="toggleSacola()" class="text-white font-bold text-2xl leading-none">&times;</button>
+      </div>
+      <div id="listaItensSacola" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+      <div class="p-4 border-t border-gray-200 bg-gray-50 space-y-3">
+        <div class="flex justify-between text-base font-black text-gray-900"><span>Total Estimado:</span><span id="valorTotalSacola" class="text-red-600">R$ 0,00</span></div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="limparSacola()" class="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl text-xs font-bold">🗑️ Esvaziar</button>
+          <button onclick="copiarListaWhatsApp()" class="px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-black">📲 Copiar / WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL BANCO DE DADOS -->
+  <div id="modalDados" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden" onclick="if(event.target === this) fecharModalDados()">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl flex flex-col gap-4">
+      <div class="flex justify-between items-center border-b border-gray-200 pb-3"><h3 class="font-black text-sm">Gerenciar Conexão Firebase</h3><button onclick="fecharModalDados()" class="text-gray-400 font-bold text-xl">&times;</button></div>
+      <div class="text-xs text-gray-600 space-y-2">
+        <p class="font-bold text-gray-800">URL do Banco Firebase Realtime Database:</p>
+        <div class="flex gap-2">
+          <input id="inputFirebaseUrl" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono">
+          <button onclick="salvarUrlFirebaseManual()" class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-xl">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="robo.js"></script>
+  <script>
+    // =========================================================================
+    // CONFIGURAÇÃO DO FIREBASE E REPOSITÓRIO GITHUB
+    // =========================================================================
+    const FIREBASE_URL_FIXA = "https://mercaro-e6035-default-rtdb.firebaseio.com/";
+    const GITHUB_REPO_OWNER = "Weedman047";
+    const GITHUB_REPO_NAME = "mercaroBOT";
+    const GITHUB_WORKFLOW_FILE = "robo-koch.yml";
+
+    function obterUrlFirebase() {
+      const salvo = localStorage.getItem('koch_firebase_url') || '';
+      const url = (FIREBASE_URL_FIXA || salvo).trim().replace(/\/$/, '').replace(/\/koch_loja_1408\.json$/, '');
+      if (url && !salvo) localStorage.setItem('koch_firebase_url', url);
+      return url;
+    }
+
+    let catalogoGlobal = [];
+    let listaFiltradaAtual = [];
+    let sacolaCompras = [];
+    let departamentoSelecionado = 'TODOS';
+    let subcategoriaSelecionada = '';
+    let limiteExibicao = 60;
+    let telemetriaAtualRobo = null;
+    let timerPollingRobo = null;
+    let abaAtualRobo = 'aovivo';
+
+    try { sacolaCompras = JSON.parse(localStorage.getItem('koch_sacola_1408')) || []; } catch(e) { sacolaCompras = []; }
+
+    const FALLBACK_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f3f4f6%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ESem%20Foto%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+    // Lista das 121 rotas na ordem exata para exibição na aba Fila da Central do Robô
+    const NOMES_ROTAS_121 = [
+      "Página Inicial (Home)", "Índice Geral de Categorias",
+      "Eletro (Departamento)", "Eletro > Smart Tv", "Eletro > Ar Condicionado", "Eletro > Eletroportáteis", "Eletro > Forno e Micro-ondas", "Eletro > Informática e Eletrônicos", "Eletro > Beleza e Cuidado Pessoais", "Eletro > Cooktop", "Eletro > Adega", "Eletro > Centrifuga e Secadora",
+      "Hortifruti (Departamento)", "Hortifruti > Frutas", "Hortifruti > Legumes", "Hortifruti > Ovos", "Hortifruti > Verduras", "Hortifruti > Flores, Plantas e Sementes", "Hortifruti > Orgânicos", "Hortifruti > Frutas Secas",
+      "Açougue (Departamento)", "Açougue > Carnes Bovinas", "Açougue > Frango", "Açougue > Carne Suína", "Açougue > Linguiça", "Açougue > Pão de Alho", "Açougue > Peixes e Frutos do Mar", "Açougue > Queijo Coalho", "Açougue > Carnes Especiais & Aves",
+      "Frios & Laticínios (Departamento)", "Frios & Laticínios > Leite", "Frios & Laticínios > Queijos", "Frios & Laticínios > Iogurte", "Frios & Laticínios > Embutidos", "Frios & Laticínios > Requeijão & Queijo Cremoso", "Frios & Laticínios > Defumados", "Frios & Laticínios > Manteiga & Nata", "Frios & Laticínios > Margarina", "Frios & Laticínios > Achocolatados", "Frios & Laticínios > Bebidas Proteicas", "Frios & Laticínios > Massas Frescas",
+      "Congelados (Departamento)", "Congelados > Pizza", "Congelados > Pratos Prontos", "Congelados > Empanados", "Congelados > Batatas Congeladas", "Congelados > Pão de Queijo", "Congelados > Legumes Congelados", "Congelados > Hamburguer", "Congelados > Waffle", "Congelados > Salgados", "Congelados > Pães", "Congelados > Outros",
+      "Mercearia (Departamento)", "Mercearia > Cafés", "Mercearia > Alimentos Básicos", "Mercearia > Azeite, Óleo e Vinagre", "Mercearia > Confeitaria", "Mercearia > Chocolates e Doces", "Mercearia > Biscoitos e Torradas", "Mercearia > Matinais, Chás e Achocolatados", "Mercearia > Molhos e Condimentos", "Mercearia > Salgadinhos e Snacks", "Mercearia > Massas", "Mercearia > Conservas e Enlatados", "Mercearia > Açúcar e Adoçante", "Mercearia > Maioneses, Ketchups e Mostarda", "Mercearia > Doces e Geleias", "Mercearia > Natal", "Mercearia > Pratos Prontos", "Mercearia > Mel e Melado", "Mercearia > Zero Açúcar",
+      "Limpeza (Departamento)", "Limpeza > Limpeza de Roupas", "Limpeza > Limpeza da Casa", "Limpeza > Limpeza da Cozinha", "Limpeza > Limpeza de Banheiro",
+      "Higiene & Beleza (Departamento)", "Higiene & Beleza > Papel Higiênico", "Higiene & Beleza > Corpo", "Higiene & Beleza > Cabelo", "Higiene & Beleza > Higiene Bucal", "Higiene & Beleza > Íntimo", "Higiene & Beleza > Barba", "Higiene & Beleza > Beleza", "Higiene & Beleza > Farmácia", "Higiene & Beleza > Cuidados Solares", "Higiene & Beleza > Cuidados Geriátricos", "Higiene & Beleza > Infantil",
+      "Bebidas (Departamento)", "Bebidas > Refrigerantes", "Bebidas > Água", "Bebidas > Sucos e Refrescos", "Bebidas > Energético", "Bebidas > Água de Coco", "Bebidas > Isotônicos", "Bebidas > Chá Pronto", "Bebidas > Bebida Vegetal",
+      "Bebidas Alcoólicas (Departamento)", "Bebidas Alcoólicas > Cervejas", "Bebidas Alcoólicas > Vinhos", "Bebidas Alcoólicas > Destilados", "Bebidas Alcoólicas > Champagne & Espumantes",
+      "Casa & Utilidades (Departamento)", "Casa & Utilidades > Têxtil", "Casa & Utilidades > Proteção Contra Chuva", "Casa & Utilidades > Acessórios de Limpeza", "Casa & Utilidades > Cozinha", "Casa & Utilidades > Chimarrão e Café", "Casa & Utilidades > Praia, Piscina e Camping", "Casa & Utilidades > Churrasco", "Casa & Utilidades > Elétricos e Acessórios", "Casa & Utilidades > Floricultura e Jardim", "Casa & Utilidades > Calçados", "Casa & Utilidades > Papelaria", "Casa & Utilidades > Duchas e Torneiras Elétricas", "Casa & Utilidades > Festa", "Casa & Utilidades > Decoração", "Casa & Utilidades > Automotivo", "Casa & Utilidades > Brinquedos", "Casa & Utilidades > Organizadores",
+      "Padaria & Confeitaria (Departamento)", "Padaria & Confeitaria > Padaria", "Padaria & Confeitaria > Confeitaria",
+      "Mundo Bebê (Departamento)", "Mundo Bebê > Fraldas e Lenços Umedecidos", "Mundo Bebê > Banho", "Mundo Bebê > Higiene Oral", "Mundo Bebê > Alimentação Infantil", "Mundo Bebê > Chupetas / Bicos",
+      "Pet Care (Departamento)", "Pet Care > Cães", "Pet Care > Gatos",
+      "Alimentação Especial (Departamento)", "Alimentação Especial > Suplementos", "Alimentação Especial > Aveia, Granola, Grãos e Sementes", "Alimentação Especial > Fit", "Alimentação Especial > Sem Glúten", "Alimentação Especial > Zero Açúcar", "Alimentação Especial > Zero Lactose", "Alimentação Especial > Doces e Geleias", "Alimentação Especial > Integral",
+      "Promoções (Todas as Ofertas)"
+    ];
+
+    const DEPARTAMENTOS_IFOOD = [
+      { id: 'TODOS', nome: 'Todos', icone: '🏪', sub: [] },
+      { id: 'OFERTAS', nome: 'Ofertas', icone: '🔥', sub: ['Maiores Descontos', 'Até R$ 5', 'Até R$ 10', 'Até R$ 20'] },
+      { id: 'ELETRO', nome: 'Eletro', icone: '🔌', termosCat: ['eletro', 'smart tv', 'ar condicionado', 'informatica', 'eletronicos'], regexNome: /\b(tv|televisao|ar condicionado|ventilador|liquidificador|cafeteira|air fryer|ferro de passar)\b/i, sub: ['Eletroportáteis', 'TV & Áudio', 'Climatização'] },
+      { id: 'HORTIFRUTI', nome: 'Hortifruti', icone: '🥬', termosCat: ['hortifruti', 'fruta', 'verdura', 'legume', 'ovos', 'organicos'], regexNome: /\b(banana|maca|laranja|limao|uva|mamao|melancia|melao|abacaxi|morango|tomate|cebola|batata|alho|cenoura|alface|ovos|ovo)\b/i, sub: ['Frutas', 'Verduras & Folhas', 'Legumes', 'Ovos'] },
+      { id: 'ACOUGUE', nome: 'Açougue', icone: '🥩', termosCat: ['acougue', 'carne', 'aves', 'peixaria', 'pescado'], regexNome: /\b(bovino|bovina|picanha|alcatra|maminha|contra file|costela|coxao|patinho|acem|carne moida|frango|suino|linguica|salsicha|bacon|peixe|tilapia|salmao)\b/i, sub: ['Bovinos', 'Frango', 'Suínos', 'Linguiça & Salsicha', 'Peixes'] },
+      { id: 'FRIOS_LATICINIOS', nome: 'Frios & Laticínios', icone: '🧀', termosCat: ['frios', 'laticinio', 'queijo', 'leite', 'iogurte', 'embutidos'], regexNome: /\b(leite|queijo|mussarela|prato|parmesao|presunto|mortadela|salame|copa|iogurte|requeijao|manteiga|margarina|creme de leite)\b/i, sub: ['Leite', 'Queijos', 'Presunto & Embutidos', 'Iogurte & Laticínios', 'Manteiga & Margarina'] },
+      { id: 'CONGELADOS', nome: 'Congelados', icone: '🍕', termosCat: ['congelado', 'sorvete', 'sobremesa'], regexNome: /\b(pizza|lasanha|hamburguer|nuggets|batata pre-frita|pao de queijo|sorvete|picole)\b/i, sub: ['Pizza & Pratos Prontos', 'Hambúrguer & Empanados', 'Batata Congelada', 'Sorvete'] },
+      { id: 'MERCEARIA', nome: 'Mercearia', icone: '🍝', termosCat: ['mercearia', 'alimento', 'graos', 'matinal', 'biscoito', 'chocolate', 'doces', 'basicos'], regexNome: /\b(arroz|feijao|macarrao|massa|oleo|azeite|vinagre|sal|acucar|cafe|farinha|aveia|biscoito|bolacha|chocolate|molho|ketchup|maionese|milho|ervilha|atum|sardinha)\b/i, sub: ['Arroz & Feijão', 'Macarrão & Molhos', 'Óleo & Azeite', 'Café & Matinais', 'Biscoitos & Doces', 'Enlatados'] },
+      { id: 'LIMPEZA', nome: 'Limpeza', icone: '🧹', termosCat: ['limpeza', 'lava roupas', 'amaciante', 'desinfetante'], regexNome: /\b(sabao|lava roupas|omo|amaciante|downy|detergente|ype|agua sanitaria|alvejante|desinfetante|veja|multiuso|esponja|saco para lixo)\b/i, sub: ['Lava Roupas', 'Amaciante', 'Detergente & Esponja', 'Desinfetante & Multiuso'] },
+      { id: 'HIGIENE', nome: 'Higiene & Beleza', icone: '🧴', termosCat: ['higiene', 'beleza', 'cuidado pessoal', 'corpo', 'cabelo', 'bucal'], regexNome: /\b(papel higienico|sabonete|shampoo|condicionador|desodorante|creme dental|escova dental|enxaguante|absorvente)\b/i, sub: ['Papel Higiênico', 'Sabonete & Banho', 'Cabelo', 'Higiene Bucal', 'Desodorante'] },
+      { id: 'BEBIDAS', nome: 'Bebidas', icone: '🥤', termosCat: ['bebida'], excluirCat: ['alcoolica', 'cerveja', 'vinho', 'destilado'], regexNome: /\b(refrigerante|sprite|coca-cola|coca cola|pepsi|guarana|suco|agua mineral|agua com gas|energetico|red bull|monster|cha gelado)\b/i, sub: ['Refrigerante', 'Suco & Néctar', 'Água', 'Energético & Isotônico'] },
+      { id: 'ALCOOLICAS', nome: 'Bebidas Alcoólicas', icone: '🍺', termosCat: ['alcoolica', 'cerveja', 'vinho', 'destilado', 'champagne', 'licores'], regexNome: /\b(cerveja|heineken|amstel|brahma|skol|spaten|corona|vinho|espumante|whisky|vodka|gin|tequila|cachaca)\b/i, sub: ['Cerveja', 'Vinho & Espumante', 'Whisky & Vodka', 'Destilados & Gin'] },
+      { id: 'CASA_UTILIDADES', nome: 'Casa & Utilidades', icone: '🏠', termosCat: ['casa', 'utilidade', 'bazar', 'churrasco', 'descartaveis', 'textil'], regexNome: /\b(carvao|papel toalha|papel aluminio|copo descartavel|lampada|pilha)\b/i, sub: ['Churrasco & Carvão', 'Descartáveis', 'Papel Toalha & Alumínio', 'Lâmpadas & Pilhas'] },
+      { id: 'PADARIA', nome: 'Padaria & Confeitaria', icone: '🥖', termosCat: ['padaria', 'confeitaria', 'paes', 'bolo'], regexNome: /\b(pao|paes|bisnaguinha|torrada|bolo|torta|panetone)\b/i, sub: ['Pão de Forma', 'Pães Variados', 'Bolos & Tortas', 'Torradas'] },
+      { id: 'BEBE', nome: 'Bebê', icone: '👶', termosCat: ['bebe', 'infantil', 'fraldas'], regexNome: /\b(fralda|pampers|huggies|lenco umedecido|composto lacteo|aptamil|chupeta)\b/i, sub: ['Fraldas', 'Lenço Umedecido', 'Alimentação Infantil'] },
+      { id: 'PET', nome: 'Pet', icone: '🐾', termosCat: ['pet', 'caes', 'gatos', 'racao'], regexNome: /\b(racao|petisco|pedigree|whiskas|areia sanitaria|tapete higienico)\b/i, sub: ['Ração para Cães', 'Ração para Gatos', 'Higiene Pet'] }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      atualizarInterfaceSacola();
+      renderizarCarrosselDepartamentos();
+      carregarDoFirebase();
+      const tkSalvo = localStorage.getItem('koch_github_token') || '';
+      if (tkSalvo) document.getElementById('inpGithubToken').value = tkSalvo;
+      // Monitora o status do robô em segundo plano a cada 6 segundos (e a cada 2.5s quando o painel está aberto)
+      sincronizarTelemetriaRobo(false);
+      setInterval(() => {
+        const modalAberto = !document.getElementById('modalCentralRobo').classList.contains('hidden');
+        if (!modalAberto) sincronizarTelemetriaRobo(false);
+      }, 6000);
+    });
+
+    function normalizarTexto(str) { return String(str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w\s.,/-]/g,' ').replace(/\s+/g,' ').trim(); }
+
+    function calcularPrecoUnitarioBase(p) {
+      const nome = normalizarTexto(p.nome); const preco = Number(p.preco || 0); if(!preco) return null;
+      if (p.unidade === 'KG' || /\bkg\b$/.test(nome)) return { valor: preco, rotulo: '/kg' };
+      const mMedida = nome.match(/\b(\d+(?:[.,]\d+)?)\s*(ml|l|lt|litros|g|gr|kg)\b/i);
+      if (mMedida) {
+        const qtd = parseFloat(mMedida[1].replace(',','.')); const un = mMedida[2].toLowerCase();
+        if (qtd > 0) {
+          if(un === 'ml' && qtd >= 50) return { valor: (preco / (qtd / 1000)), rotulo: '/L' };
+          if(un.startsWith('l') && qtd <= 25) return { valor: (preco / qtd), rotulo: '/L' };
+          if(un.startsWith('g') && qtd >= 20) return { valor: (preco / (qtd / 1000)), rotulo: '/kg' };
+          if(un === 'kg' && qtd <= 50) return { valor: (preco / qtd), rotulo: '/kg' };
+        }
+      } return null;
+    }
+
+    function prepararProduto(p) {
+      const nomeLimpo = String(p.nome || 'Produto').trim(); const preco = Math.max(0, Number(p.preco || 0));
+      const _nomeNorm = normalizarTexto(nomeLimpo); const _catNorm = normalizarTexto((p.categorias||[]).join(' '));
+      const infoUnit = calcularPrecoUnitarioBase({ nome: nomeLimpo, preco, unidade: p.unidade });
+      
+      const _deptos = new Set(['TODOS']);
+      if (p.desconto > 0 || p.emPromocao) _deptos.add('OFERTAS');
+      DEPARTAMENTOS_IFOOD.forEach(d => {
+        if(d.id==='TODOS' || d.id==='OFERTAS') return;
+        if(d.excluirCat && d.excluirCat.some(ex => _catNorm.includes(ex))) return;
+        if((d.termosCat && d.termosCat.some(t => _catNorm.includes(t))) || (d.regexNome && d.regexNome.test(_nomeNorm))) _deptos.add(d.id);
+      });
+
+      return {
+        id: p.id, idOriginal: p.idOriginal || p.id, mercadoOrigem: p.mercadoOrigem || 'KOCH 1408',
+        nome: nomeLimpo, marca: String(p.marca||'').trim().toUpperCase(), preco, precoOriginal: Number(p.precoOriginal||preco),
+        desconto: Number(p.desconto||0), estoque: Number(p.estoque||0), unidade: String(p.unidade||'UN').toUpperCase(),
+        imagem: p.imagem || FALLBACK_IMG, categorias: p.categorias || [], slug: p.slug || '',
+        historicoPrecos: p.historicoPrecos || {}, 
+        precoUnitarioBase: infoUnit ? infoUnit.valor : 999999,
+        rotuloUnitario: infoUnit ? `≈ R$ ${infoUnit.valor.toFixed(2).replace('.',',')}${infoUnit.rotulo}` : '',
+        _nomeNorm, _marcaNorm: normalizarTexto(p.marca), _palavras: _nomeNorm.split(/[\s,/.-]+/).filter(Boolean), _deptos
+      };
+    }
+
+    // CONEXÃO PROTEGIDA COM O FIREBASE (IGNORA /robo_controle AO MONTAR CATÁLOGO)
+    async function carregarDoFirebase() {
+      const fbUrl = obterUrlFirebase();
+      const elStatus = document.getElementById('statusNuvem');
+      if (!fbUrl) { elStatus.textContent = 'Banco não vinculado'; return; }
+      try {
+        elStatus.textContent = 'Sincronizando catálogo...';
+        const resposta = await fetch(`${fbUrl}/koch_loja_1408.json?t=${Date.now()}`);
+        const dadosKoch = await resposta.json();
+
+        const mapaUnico = new Map();
+        if (dadosKoch && Array.isArray(dadosKoch.produtos)) {
+          dadosKoch.produtos.forEach(item => {
+            if (item && item.id) {
+              const p = prepararProduto(item);
+              p.mercadoOrigem = 'KOCH 1408';
+              p.idOriginal = item.id;
+              p.id = `koch_loja_1408_${item.id}`;
+              mapaUnico.set(p.id, p);
+            }
+          });
+        }
+
+        catalogoGlobal = Array.from(mapaUnico.values());
+        const dtStr = dadosKoch?.atualizadoEm ? new Date(dadosKoch.atualizadoEm).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        elStatus.textContent = `${catalogoGlobal.length.toLocaleString('pt-BR')} produtos${dtStr ? ` • Atualizado ${dtStr}` : ''}`;
+        document.getElementById('subtituloSecao').textContent = dtStr
+          ? `Última sincronização do banco: ${dtStr} (${catalogoGlobal.length.toLocaleString('pt-BR')} itens únicos)`
+          : `${catalogoGlobal.length.toLocaleString('pt-BR')} produtos disponíveis`;
+
+        renderizarCarrosselDepartamentos();
+        popularSelectMarcas();
+        reiniciarPaginacaoEFiltrar();
+      } catch (e) {
+        elStatus.textContent = `Erro: ${e.message}`;
+      }
+    }
+
+    // =========================================================================
+    // CENTRAL DO ROBÔ AO VIVO (SINCRONIZAÇÃO + CONTROLE REMOTO MOBILE)
+    // =========================================================================
+    function abrirCentralRobo() {
+      document.getElementById('modalCentralRobo').classList.remove('hidden');
+      sincronizarTelemetriaRobo(true);
+      if (timerPollingRobo) clearInterval(timerPollingRobo);
+      timerPollingRobo = setInterval(() => sincronizarTelemetriaRobo(false), 2500);
+    }
+
+    function fecharCentralRobo() {
+      document.getElementById('modalCentralRobo').classList.add('hidden');
+      if (timerPollingRobo) { clearInterval(timerPollingRobo); timerPollingRobo = null; }
+    }
+
+    function mudarAbaCentralRobo(aba) {
+      abaAtualRobo = aba;
+      ['aovivo', 'precos', 'novos', 'fila', 'config'].forEach(id => {
+        document.getElementById(`viewRobo-${id}`).classList.toggle('hidden', id !== aba);
+        const tab = document.getElementById(`tabRobo-${id}`);
+        if (id === aba) {
+          tab.className = "py-2.5 px-1 text-center border-b-2 border-emerald-400 text-emerald-400 bg-slate-900/80";
+        } else {
+          tab.className = "py-2.5 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+        }
+      });
+      if (aba === 'fila') renderizarFilaCategoriasRobo();
+    }
+
+    async function sincronizarTelemetriaRobo(forcar = false) {
+      const fbUrl = obterUrlFirebase();
+      if (!fbUrl) return;
+      try {
+        const r = await fetch(`${fbUrl}/robo_controle/telemetria.json?t=${Date.now()}`);
+        if (!r.ok) return;
+        const t = await r.json();
+        if (!t || typeof t !== 'object') {
+          renderizarFilaCategoriasRobo();
+          return;
+        }
+        telemetriaAtualRobo = t;
+        atualizarInterfaceCentralRobo(t);
+      } catch (e) {}
+    }
+
+    function atualizarInterfaceCentralRobo(t) {
+      const agora = Date.now();
+      const idadeSeg = t.heartbeatMs ? Math.round((agora - Number(t.heartbeatMs)) / 1000) : 9999;
+      const estaRodandoRecente = (t.status === 'RODANDO' || t.status === 'INICIANDO' || t.status === 'BLOQUEIO_ESPERA') && idadeSeg < 180;
+      const estaPausado = t.status === 'PAUSADO' && idadeSeg < 3600;
+
+      // Atualiza indicadores no topo do site
+      const dotMob = document.getElementById('dotRoboMobile');
+      const dotDesk = document.getElementById('dotRoboDesktop');
+      const badgeMob = document.getElementById('badgePctRoboMobile');
+      const badgeDesk = document.getElementById('badgePctRoboDesktop');
+      const barraViva = document.getElementById('barraVivaRoboHeader');
+
+      if (estaRodandoRecente) {
+        dotMob.className = "w-2 h-2 rounded-full bg-emerald-400 dot-live inline-block";
+        dotDesk.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 dot-live inline-block";
+        badgeMob.textContent = `${t.progressoPct || 1}%`;
+        badgeMob.classList.remove('hidden');
+        badgeDesk.textContent = `${t.progressoPct || 1}% • Ao Vivo`;
+        badgeDesk.classList.remove('hidden');
+        barraViva.classList.remove('hidden');
+        document.getElementById('textoBarraVivaRobo').textContent = `🤖 [#${t.rotaIndiceAtual || 1}/${t.rotaTotal || 121}] ${t.rotaNomeAtual || ''} (Pág ${t.paginaAtual || 1}) • ${t.tempoRestante || ''}`;
+        document.getElementById('contadoresBarraVivaRobo').textContent = `+${t.novosNaSessao || 0} novos • 🔄 ${t.precosAlteradosNaSessao || 0} preços`;
+      } else if (estaPausado) {
+        dotMob.className = "w-2 h-2 rounded-full bg-amber-400 inline-block";
+        dotDesk.className = "w-2.5 h-2.5 rounded-full bg-amber-400 inline-block";
+        barraViva.classList.remove('hidden');
+        document.getElementById('textoBarraVivaRobo').textContent = `⏸ Robô Pausado em #${t.rotaIndiceAtual || 1}: ${t.rotaNomeAtual || ''} (Toque para retomar)`;
+      } else {
+        dotMob.className = "w-2 h-2 rounded-full bg-emerald-500/60 inline-block";
+        dotDesk.className = "w-2.5 h-2.5 rounded-full bg-emerald-500/60 inline-block";
+        badgeMob.classList.add('hidden');
+        badgeDesk.classList.add('hidden');
+        barraViva.classList.add('hidden');
+      }
+
+      // Badge de Status no Modal
+      const elBadge = document.getElementById('roboBadgeStatus');
+      let stTexto = t.status || 'PARADO';
+      let stCor = 'bg-slate-800 text-slate-300 border-slate-700';
+      if (estaRodandoRecente) {
+        stTexto = '🟢 RODANDO AO VIVO';
+        stCor = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+      } else if (t.status === 'PAUSADO') {
+        stTexto = '⏸ PAUSADO';
+        stCor = 'bg-amber-950 text-amber-300 border-amber-700';
+      } else if (t.status === 'CONCLUIDO') {
+        stTexto = '✅ 100% CONCLUÍDO';
+        stCor = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+      } else if (t.status === 'CANCELADO_SALVO') {
+        stTexto = '⏹ CANCELADO (SALVO)';
+        stCor = 'bg-red-950 text-red-300 border-red-800';
+      } else if (idadeSeg >= 180 && t.status === 'RODANDO') {
+        stTexto = '💤 INATIVO (ÚLTIMA SESSÃO)';
+      }
+      elBadge.className = `text-[10px] font-black px-2 py-0.5 rounded border ${stCor}`;
+      elBadge.textContent = stTexto;
+
+      const dtAt = t.atualizadoEm ? new Date(t.atualizadoEm).toLocaleTimeString('pt-BR') : '--';
+      document.getElementById('roboSubtituloOrigem').textContent = `${t.origem || 'Robô'} • Último sinal às ${dtAt}`;
+
+      // Progresso e O Que Falta
+      const idx = t.rotaIndiceAtual || 1;
+      const tot = t.rotaTotal || 121;
+      const faltam = Math.max(0, tot - idx);
+      document.getElementById('roboRotaAtualTitulo').textContent = `📂 [#${idx}/${tot}] ${t.rotaNomeAtual || 'Início'}`;
+      document.getElementById('roboTempoRestante').textContent = `⏱️ ${t.tempoRestante || '--'}`;
+      document.getElementById('roboMensagemViva').textContent = t.mensagem || '';
+      document.getElementById('roboBarraProgresso').style.width = `${Math.min(100, Math.max(0, t.progressoPct || 0))}%`;
+      document.getElementById('roboDetalhePosicao').textContent = `Categoria ${idx} de ${tot} • Pág ${t.paginaAtual || 1}${t.totalPaginasEstimadoRota > 1 ? ` de ~${t.totalPaginasEstimadoRota}` : ''} (offset ${t.offsetAtual || 0})`;
+      document.getElementById('roboDetalheFaltam').textContent = faltam > 0 ? `Faltam ${faltam} categorias` : `Todas as 121 categorias percorridas!`;
+
+      // KPIs
+      document.getElementById('kpiTotalBanco').textContent = Number(t.totalAtualNoBanco || catalogoGlobal.length || 0).toLocaleString('pt-BR');
+      document.getElementById('kpiLidosSessao').textContent = `${Number(t.totalLidosNaSessao || 0).toLocaleString('pt-BR')} lidos na sessão`;
+      document.getElementById('kpiNovosSessao').textContent = `+${Number(t.novosNaSessao || 0)}`;
+      const cfgAtiva = t.configAtiva || {};
+      document.getElementById('kpiMetaNovos').textContent = `${t.novosDesdeUltimoSave || 0}/${cfgAtiva.salvarAoAdicionar || 1} p/ próximo save`;
+      document.getElementById('kpiPrecosSessao').textContent = `${Number(t.precosAlteradosNaSessao || 0)}`;
+      document.getElementById('kpiEstoquesSessao').textContent = `+${Number(t.estoquesAlteradosNaSessao || 0)} estoques (${t.atualizadosDesdeUltimoSave || 0}/${cfgAtiva.salvarAoAtualizar || 50} p/ save)`;
+      document.getElementById('kpiSavesRealizados').textContent = `${Number(t.savesRealizados || 0)}`;
+      const horaSave = t.ultimoSaveEm ? new Date(t.ultimoSaveEm).toLocaleTimeString('pt-BR') : 'Nenhum ainda';
+      document.getElementById('kpiUltimoSaveHora').textContent = t.ultimoSaveEm ? `Último às ${horaSave}` : 'Aguardando meta';
+      document.getElementById('roboRequisicoesCount').textContent = `${t.requisicoesFeitas || 0} requisições API`;
+
+      // Contadores nas abas
+      const arrPrecos = Array.isArray(t.ultimosPrecosAlterados) ? t.ultimosPrecosAlterados : [];
+      const arrNovos = Array.isArray(t.ultimosNovos) ? t.ultimosNovos : [];
+      document.getElementById('tabCountPrecos').textContent = t.precosAlteradosNaSessao || arrPrecos.length;
+      document.getElementById('tabCountNovos').textContent = t.novosNaSessao || arrNovos.length;
+      document.getElementById('lblMetaAtualizar').textContent = cfgAtiva.salvarAoAtualizar || 50;
+      document.getElementById('lblMetaAdicionar').textContent = cfgAtiva.salvarAoAdicionar || 1;
+
+      // Lista de últimos lidos
+      const arrLidos = Array.isArray(t.ultimosLidos) ? t.ultimosLidos : [];
+      if (arrLidos.length > 0) {
+        document.getElementById('listaUltimosLidosRobo').innerHTML = arrLidos.map((txt, i) => `
+          <div class="${i === 0 ? 'text-emerald-400 font-bold' : 'text-slate-400'} truncate">✓ ${txt}</div>
+        `).join('');
+      }
+
+      // Renderiza Aba de Preços Atualizados
+      if (arrPrecos.length > 0) {
+        document.getElementById('listaPrecosAlteradosRobo').innerHTML = arrPrecos.map(p => {
+          const baixou = Number(p.precoNovo) < Number(p.precoAntigo);
+          const diffAbs = Math.abs(Number(p.diferenca || (p.precoNovo - p.precoAntigo))).toFixed(2).replace('.', ',');
+          const badgeDiff = baixou
+            ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-black px-2 py-0.5 rounded">📉 Baixou -R$ ${diffAbs} (${p.pctMudanca}%)</span>`
+            : `<span class="bg-amber-950 text-amber-300 border border-amber-700 text-[10px] font-black px-2 py-0.5 rounded">📈 Subiu +R$ ${diffAbs} (+${p.pctMudanca}%)</span>`;
+          return `
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex items-center gap-3">
+              <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[10px] font-bold text-slate-400 uppercase truncate">${p.marca || ''} • ${p.categoria || ''}</span>
+                  <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
+                </div>
+                <div class="text-xs font-bold text-white truncate">${p.nome}</div>
+                <div class="flex items-center flex-wrap gap-2 mt-1">
+                  <span class="text-[11px] text-slate-400 line-through">De R$ ${Number(p.precoAntigo).toFixed(2).replace('.', ',')}</span>
+                  <span class="text-xs font-black text-white">➔ Para R$ ${Number(p.precoNovo).toFixed(2).replace('.', ',')}</span>
+                  ${badgeDiff}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Renderiza Aba de Novos Adicionados
+      if (arrNovos.length > 0) {
+        document.getElementById('listaNovosAdicionadosRobo').innerHTML = arrNovos.map(p => `
+          <div class="bg-slate-900 border border-emerald-900/50 rounded-xl p-2.5 flex items-center gap-3">
+            <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[10px] font-bold text-emerald-400 uppercase truncate">🟢 NOVO • ${p.marca || ''} • ${p.categoria || ''}</span>
+                <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
+              </div>
+              <div class="text-xs font-bold text-white truncate">${p.nome}</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-xs font-black text-emerald-300">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>
+                <span class="text-[10px] text-slate-400">Estoque: ${p.estoque ?? 0} un</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      if (abaAtualRobo === 'fila') renderizarFilaCategoriasRobo();
+    }
+
+    function renderizarFilaCategoriasRobo() {
+      const container = document.getElementById('listaFilaCategoriasRobo');
+      if (!container) return;
+      const prog = telemetriaAtualRobo?.progressoRotas || {};
+      const idxAtual = (telemetriaAtualRobo?.rotaIndiceAtual || 1) - 1;
+
+      container.innerHTML = NOMES_ROTAS_121.map((nome, idx) => {
+        const p = prog[idx];
+        const ehAtual = idx === idxAtual && telemetriaAtualRobo?.status === 'RODANDO';
+        let statusHtml = `<span class="text-[10px] text-slate-500">⏳ Na fila</span>`;
+        let borda = "border-slate-800";
+
+        if (p?.st === 'ok') {
+          statusHtml = `<span class="text-[10px] font-bold text-emerald-400">✅ ${p.lidos || 0} lidos (+${p.novos || 0} / 🔄${p.precos || 0})</span>`;
+          borda = "border-emerald-900/60";
+        } else if (ehAtual || p?.st === 'run') {
+          statusHtml = `<span class="text-[10px] font-black text-amber-400">🔄 Rodando Pág ${p?.pags || telemetriaAtualRobo?.paginaAtual || 1}...</span>`;
+          borda = "border-amber-500/70 bg-slate-900";
+        } else if (p?.st === 'skip') {
+          statusHtml = `<span class="text-[10px] text-slate-400">⏭ Pulada</span>`;
+        }
+
+        return `
+          <div class="bg-slate-900/90 border ${borda} rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <span class="text-[10px] font-mono text-slate-500">#${idx + 1}</span>
+              <span class="text-xs font-bold ${nome.includes('(Departamento)') ? 'text-amber-300' : 'text-slate-200'} ml-1 truncate">${nome}</span>
+              <div class="mt-0.5">${statusHtml}</div>
+            </div>
+            <button onclick="pularParaCategoriaEspecifica(${idx + 1})" class="bg-slate-800 hover:bg-emerald-600 hover:text-slate-950 text-slate-300 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700 shrink-0 transition">
+              🎯 Ir p/ #${idx + 1}
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function enviarComandoRobo(acao, extras = {}) {
+      const fbUrl = obterUrlFirebase();
+      const elFeedback = document.getElementById('feedbackComandoRemoto');
+      elFeedback.textContent = `⏳ Enviando ${acao}...`;
+      try {
+        const payload = {
+          id: Date.now(),
+          timestamp: Date.now(),
+          acao,
+          ...extras
+        };
+        const r = await fetch(`${fbUrl}/robo_controle/comandos.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (r.ok) {
+          elFeedback.textContent = `✅ Comando [${acao}] enviado ao robô!`;
+          setTimeout(() => { if (elFeedback.textContent.includes(acao)) elFeedback.textContent = ''; }, 4000);
+          setTimeout(() => sincronizarTelemetriaRobo(true), 1200);
+        }
+      } catch (e) {
+        elFeedback.textContent = `❌ Erro: ${e.message}`;
+      }
+    }
+
+    function confirmarCancelamentoRobo() {
+      if (confirm('Deseja parar/cancelar o robô agora? Tudo o que ele leu até este segundo será salvo imediatamente no seu Firebase sem perder nada!')) {
+        enviarComandoRobo('CANCELAR');
+      }
+    }
+
+    function pularParaCategoriaEspecifica(numeroRota) {
+      enviarComandoRobo('IR_PARA_ROTA', { rotaNumero: Number(numeroRota) });
+      document.getElementById('inpConfigRotaInicial').value = Number(numeroRota);
+      mudarAbaCentralRobo('aovivo');
+    }
+
+    async function salvarConfiguracoesRemotasRobo() {
+      const config = {
+        salvarAoAdicionar: Math.max(1, Number(document.getElementById('inpConfigSalvarNovos').value) || 1),
+        salvarAoAtualizar: Math.max(1, Number(document.getElementById('inpConfigSalvarAtualizados').value) || 50),
+        cooldownSaveMs: Math.max(10, Number(document.getElementById('inpConfigCooldownSeg').value) || 25) * 1000,
+        delayMs: Math.max(800, Number(document.getElementById('inpConfigDelayPag').value) || 2200),
+        delayTrocaRotaMs: Math.max(1500, Number(document.getElementById('inpConfigDelayRota').value) || 3800)
+      };
+      await enviarComandoRobo('ATUALIZAR_CONFIG', { config });
+      alert('✅ Configurações salvas! O robô já está usando os novos limites e tempos.');
+      mudarAbaCentralRobo('aovivo');
+    }
+
+    function salvarTokenGitHubLocal() {
+      const tk = document.getElementById('inpGithubToken').value.trim();
+      if (tk) {
+        localStorage.setItem('koch_github_token', tk);
+        alert('✅ Token GitHub salvo apenas no seu navegador/celular! Agora o botão "Iniciar Robô na Nuvem" dispara com 1 clique.');
+      } else {
+        localStorage.removeItem('koch_github_token');
+        alert('Token removido.');
+      }
+    }
+
+    async function acionarRoboNuvemGitHub() {
+      const token = (localStorage.getItem('koch_github_token') || '').trim();
+      const rotaInicial = String(document.getElementById('inpConfigRotaInicial')?.value || '1');
+      const delayPag = String(document.getElementById('inpConfigDelayPag')?.value || '2200');
+      const delayRota = String(document.getElementById('inpConfigDelayRota')?.value || '3800');
+      const salvarAdd = String(document.getElementById('inpConfigSalvarNovos')?.value || '1');
+      const salvarUpd = String(document.getElementById('inpConfigSalvarAtualizados')?.value || '50');
+
+      if (token) {
+        try {
+          const resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/actions/workflows/${GITHUB_WORKFLOW_FILE}/dispatches`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/vnd.github+json',
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ref: 'main',
+              inputs: {
+                delay_paginas_ms: delayPag,
+                delay_categorias_ms: delayRota,
+                rota_inicial: rotaInicial,
+                salvar_ao_adicionar: salvarAdd,
+                salvar_ao_atualizar: salvarUpd,
+                modo_teste_sem_gravar: 'false'
+              }
+            })
+          });
+          if (resp.status === 204 || resp.ok) {
+            alert('🚀 Robô Invisível na Nuvem iniciado com sucesso! Em ~25 segundos o status aqui no painel mudará para 🟢 RODANDO AO VIVO.');
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Se não tiver token configurado, abre diretamente a página do GitHub Actions pronta para clicar em "Run workflow"
+      window.open(`https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/actions/workflows/${GITHUB_WORKFLOW_FILE}`, '_blank');
+    }
+
+    // =========================================================================
+    // MODAL DE HISTÓRICO DE PREÇOS
+    // =========================================================================
+    function abrirHistorico(idProduto) {
+      const p = catalogoGlobal.find(x => String(x.id) === String(idProduto));
+      if(!p || !p.historicoPrecos) return;
+      
+      const datas = Object.keys(p.historicoPrecos).sort((a,b) => new Date(b) - new Date(a));
+      let html = datas.map((d, index) => {
+        const dataFormatada = d.split('-').reverse().join('/');
+        const preco = Number(p.historicoPrecos[d]).toFixed(2).replace('.', ',');
+        const tag = index === 0 ? '<span class="bg-green-100 text-green-800 text-[9px] font-bold px-1.5 py-0.5 rounded ml-2">Atual</span>' : '';
+        return `<div class="flex justify-between items-center py-2 border-b border-gray-100 text-xs last:border-0"><span class="text-gray-600 font-medium">${dataFormatada}</span><span class="font-black text-gray-900">R$ ${preco} ${tag}</span></div>`;
+      }).join('');
+
+      document.getElementById('modalHistoricoConteudo').innerHTML = `
+        <div class="flex gap-3 mb-2 items-center">
+          <img src="${p.imagem}" class="w-12 h-12 object-contain rounded-lg border border-gray-200 p-1" onerror="this.src='${FALLBACK_IMG}'">
+          <div class="flex-1"><h4 class="font-bold text-xs text-gray-900 leading-tight line-clamp-2">${p.nome}</h4><p class="text-[10px] text-gray-500 mt-1 uppercase">${p.marca} • ${p.unidade}</p></div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3 max-h-64 overflow-y-auto border border-gray-200">${html}</div>
+      `;
+      document.getElementById('modalHistorico').classList.remove('hidden');
+    }
+    function fecharHistorico() { document.getElementById('modalHistorico').classList.add('hidden'); }
+
+    // =========================================================================
+    // FILTRAGEM, ORDENAÇÃO E RENDERIZAÇÃO DO CATÁLOGO
+    // =========================================================================
+    function resetarTodosFiltros() {
+      departamentoSelecionado = 'TODOS';
+      subcategoriaSelecionada = '';
+      document.getElementById('inputBusca').value = '';
+      document.getElementById('checkPromocao').checked = false;
+      document.getElementById('selectMarca').value = 'TODAS';
+      document.getElementById('selectOrdenacao').value = 'relevancia';
+      renderizarCarrosselDepartamentos();
+      popularSelectMarcas();
+      reiniciarPaginacaoEFiltrar();
+    }
+
+    function renderizarCarrosselDepartamentos() {
+      const container = document.getElementById('containerDepartamentos');
+      container.innerHTML = DEPARTAMENTOS_IFOOD.map(d => `<button onclick="selecionarDepartamento('${d.id}')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap font-bold text-xs border transition ${departamentoSelecionado === d.id ? 'bg-red-600 text-white border-red-600 shadow-sm' : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border-gray-200'}"><span>${d.icone}</span><span>${d.nome}</span></button>`).join('');
+      renderizarSubcategorias();
+    }
+
+    function renderizarSubcategorias() {
+      const depto = DEPARTAMENTOS_IFOOD.find(d => d.id === departamentoSelecionado);
+      if (!depto || !depto.sub || depto.sub.length === 0) return document.getElementById('containerSubcategorias').classList.add('hidden');
+      document.getElementById('containerSubcategorias').classList.remove('hidden');
+      document.getElementById('listaSubcategorias').innerHTML = `<button onclick="selecionarSubcategoria('')" class="px-2.5 py-1 rounded-lg text-xs font-bold ${subcategoriaSelecionada === '' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border'}">Tudo</button>` + depto.sub.map(s => `<button onclick="selecionarSubcategoria('${s.replace(/'/g,"\\'")}')" class="px-2.5 py-1 rounded-lg text-xs font-bold ${subcategoriaSelecionada === s ? 'bg-red-600 text-white' : 'bg-white text-gray-700 border'}">${s}</button>`).join('');
+    }
+
+    function selecionarDepartamento(id) {
+      departamentoSelecionado = id;
+      subcategoriaSelecionada = '';
+      const deptoObj = DEPARTAMENTOS_IFOOD.find(d => d.id === id);
+      document.getElementById('tituloSecao').textContent = deptoObj ? `${deptoObj.icone} ${deptoObj.nome}` : '🏪 Todos os Produtos';
+      reiniciarPaginacaoEFiltrar();
+      renderizarCarrosselDepartamentos();
+      popularSelectMarcas();
+    }
+
+    function selecionarSubcategoria(sub) { subcategoriaSelecionada = sub; reiniciarPaginacaoEFiltrar(); renderizarSubcategorias(); }
+
+    function popularSelectMarcas() {
+      const select = document.getElementById('selectMarca'); const atuais = {};
+      catalogoGlobal.forEach(p => { if(p._deptos.has(departamentoSelecionado)) atuais[p.marca] = (atuais[p.marca]||0)+1; });
+      select.innerHTML = `<option value="TODAS">🏷️ Todas as Marcas</option>` + Object.keys(atuais).sort().map(m => `<option value="${m}">${m} (${atuais[m]})</option>`).join('');
+    }
+
+    function reiniciarPaginacaoEFiltrar() { limiteExibicao = 60; aplicarFiltrosEBusca(); }
+    function carregarMaisProdutos() { limiteExibicao += 60; renderizarProdutos(listaFiltradaAtual); }
+    function aoDigitarBusca() {
+      const val = document.getElementById('inputBusca').value;
+      document.getElementById('btnLimparBusca').classList.toggle('hidden', !val);
+      reiniciarPaginacaoEFiltrar();
+    }
+    function limparBusca() {
+      document.getElementById('inputBusca').value = '';
+      document.getElementById('btnLimparBusca').classList.add('hidden');
+      reiniciarPaginacaoEFiltrar();
+    }
+
+    function aplicarFiltrosEBusca() {
+      const query = normalizarTexto(document.getElementById('inputBusca').value);
+      const termos = query.split(/\s+/).filter(Boolean);
+      const promocao = document.getElementById('checkPromocao').checked;
+      const marca = document.getElementById('selectMarca').value;
+      const ordenacao = document.getElementById('selectOrdenacao').value;
+
+      const temFiltroAtivo = departamentoSelecionado !== 'TODOS' || subcategoriaSelecionada !== '' || promocao || marca !== 'TODAS' || query !== '';
+      document.getElementById('btnLimparFiltros').classList.toggle('hidden', !temFiltroAtivo);
+
+      listaFiltradaAtual = catalogoGlobal.filter(p => {
+        if(!p._deptos.has(departamentoSelecionado)) return false;
+        if(subcategoriaSelecionada) {
+          if (subcategoriaSelecionada === 'Até R$ 5' && p.preco > 5) return false;
+          else if (subcategoriaSelecionada === 'Até R$ 10' && p.preco > 10) return false;
+          else if (subcategoriaSelecionada === 'Até R$ 20' && p.preco > 20) return false;
+          else if (!['Maiores Descontos','Até R$ 5','Até R$ 10','Até R$ 20'].includes(subcategoriaSelecionada)) {
+            const tSub = normalizarTexto(subcategoriaSelecionada).split(' ').filter(x => x.length > 2);
+            if(tSub.length > 0 && !tSub.some(ts => p._nomeNorm.includes(ts) || p._marcaNorm.includes(ts))) return false;
+          }
+        }
+        if(promocao && p.desconto <= 0) return false;
+        if(marca !== 'TODAS' && p.marca !== marca) return false;
+        if(query && !termos.every(t => p._nomeNorm.includes(t) || p._marcaNorm.includes(t))) return false;
+        return true;
+      });
+
+      if(subcategoriaSelecionada === 'Maiores Descontos' || ordenacao === 'maior_desconto') listaFiltradaAtual.sort((a,b) => b.desconto - a.desconto);
+      else if(ordenacao === 'menor_preco') listaFiltradaAtual.sort((a,b) => a.preco - b.preco);
+      else if(ordenacao === 'maior_preco') listaFiltradaAtual.sort((a,b) => b.preco - a.preco);
+      else if(ordenacao === 'menor_unitario') listaFiltradaAtual.sort((a,b) => a.precoUnitarioBase - b.precoUnitarioBase);
+      else if(ordenacao === 'az') listaFiltradaAtual.sort((a,b) => a.nome.localeCompare(b.nome));
+
+      renderizarProdutos(listaFiltradaAtual);
+    }
+
+    function renderizarProdutos(lista) {
+      document.getElementById('contadorProdutos').textContent = `${lista.length.toLocaleString('pt-BR')} itens`;
+      const grid = document.getElementById('gridProdutos');
+      const btnMais = document.getElementById('containerCarregarMais');
+      if (lista.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-10 text-center text-gray-500 font-bold bg-white rounded-xl border border-gray-200">Nenhum produto encontrado para este filtro.</div>`;
+        btnMais.classList.add('hidden');
+        return;
+      }
+
+      const fatia = lista.slice(0, limiteExibicao);
+      btnMais.classList.toggle('hidden', lista.length <= limiteExibicao);
+      document.getElementById('restantesCount').textContent = (lista.length - limiteExibicao).toLocaleString('pt-BR');
+
+      grid.innerHTML = fatia.map(p => {
+        const link = p.slug ? `https://www.superkoch.com.br/produtos/${p.idOriginal}/${p.slug}` : `https://www.superkoch.com.br/busca/${encodeURIComponent(p.nome)}`;
+        const histBtn = (p.historicoPrecos && Object.keys(p.historicoPrecos).length > 1) ? `<button onclick="abrirHistorico('${p.id}')" class="text-[10px] text-blue-600 font-bold flex items-center bg-blue-50 px-1.5 py-0.5 rounded">📈 Histórico</button>` : '';
+        const economia = p.precoOriginal > p.preco ? (p.precoOriginal - p.preco) : 0;
+        
+        return `
+          <div class="bg-white rounded-xl p-3 border border-gray-200 hover:border-red-500 flex flex-col justify-between relative transition shadow-sm hover:shadow">
+            <div>
+              <div class="relative w-full h-36 bg-white rounded-lg mb-2 flex justify-center">
+                <a href="${link}" target="_blank" class="w-full h-full flex justify-center"><img src="${p.imagem}" loading="lazy" class="object-contain h-full w-full" onerror="this.src='${FALLBACK_IMG}';"></a>
+                ${p.desconto > 0 ? `<span class="absolute top-1 left-1 bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded">-${p.desconto}%</span>` : ''}
+                <button onclick="adicionarNaSacola('${p.id}')" title="Adicionar à Minha Lista" class="absolute bottom-1 right-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-black w-7 h-7 rounded-full shadow flex items-center justify-center">＋</button>
+              </div>
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <div class="flex items-center gap-1.5 truncate"><span class="text-[10px] font-bold text-gray-400 uppercase truncate">${p.marca}</span><span class="text-[8px] font-black bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded uppercase">${p.mercadoOrigem}</span></div>
+                ${p.rotuloUnitario ? `<span class="text-[9px] font-bold bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded whitespace-nowrap">${p.rotuloUnitario}</span>` : ''}
+              </div>
+              <a href="${link}" target="_blank" class="font-bold text-xs text-gray-800 hover:text-red-600 line-clamp-2 h-8 leading-4">${p.nome}</a>
+            </div>
+            
+            <div class="pt-2 border-t border-gray-100 mt-2">
+              ${(p.desconto > 0 || economia > 0) ? `
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] text-gray-400 line-through">R$ ${p.precoOriginal.toFixed(2).replace('.', ',')}</span>
+                  <span class="text-[9px] font-bold text-green-700 bg-green-50 px-1 rounded">-R$ ${economia.toFixed(2).replace('.', ',')}</span>
+                </div>
+              ` : '<div class="h-4"></div>'}
+              
+              <div class="flex items-baseline gap-1 mb-1 mt-0.5">
+                <span class="text-xs text-red-600 font-bold">R$</span><span class="text-lg font-black text-gray-900 leading-none">${p.preco.toFixed(2).replace('.',',')}</span><span class="text-[10px] text-gray-500">/${p.unidade}</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="${p.estoque > 0 ? 'text-green-700' : 'text-red-500'} font-bold">${p.estoque > 0 ? `● ${p.estoque} un` : '● Esgotado'}</span>
+                ${histBtn}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function copiarRoboExtrator() {
+      const fbUrl = obterUrlFirebase();
+      if (!fbUrl) return alert('Informe a URL do seu Firebase primeiro.');
+      const script = `(${roboExtratorInfiltradoV6.toString()})(${JSON.stringify(fbUrl)});`;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(script).catch(()=>{});
+        const t = document.createElement('textarea'); t.value = script; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+      } catch(e){}
+      alert('✅ Script do Robô copiado para a área de transferência! Caso queira rodar manualmente no navegador do PC, cole no Console (F12) da aba do SuperKoch.');
+      window.open('https://www.superkoch.com.br/', '_blank');
+    }
+
+    // =========================================================================
+    // SACOLA / MINHA LISTA DE COMPRAS COMPLETA
+    // =========================================================================
+    function salvarSacolaLocal() {
+      try { localStorage.setItem('koch_sacola_1408', JSON.stringify(sacolaCompras)); } catch(e) {}
+    }
+
+    function adicionarNaSacola(idProd) {
+      const prod = catalogoGlobal.find(p => String(p.id) === String(idProd));
+      if (!prod) return;
+      const existente = sacolaCompras.find(i => String(i.id) === String(idProd));
+      if (existente) {
+        existente.qtd = (existente.qtd || 1) + 1;
+      } else {
+        sacolaCompras.push({
+          id: prod.id,
+          nome: prod.nome,
+          marca: prod.marca,
+          preco: prod.preco,
+          unidade: prod.unidade,
+          imagem: prod.imagem,
+          qtd: 1
+        });
+      }
+      salvarSacolaLocal();
+      atualizarInterfaceSacola();
+    }
+
+    function alterarQtdSacola(idProd, delta) {
+      const idx = sacolaCompras.findIndex(i => String(i.id) === String(idProd));
+      if (idx === -1) return;
+      sacolaCompras[idx].qtd = (sacolaCompras[idx].qtd || 1) + delta;
+      if (sacolaCompras[idx].qtd <= 0) sacolaCompras.splice(idx, 1);
+      salvarSacolaLocal();
+      atualizarInterfaceSacola();
+    }
+
+    function atualizarInterfaceSacola() {
+      const totalItens = sacolaCompras.reduce((acc, i) => acc + (i.qtd || 1), 0);
+      const valorTotal = sacolaCompras.reduce((acc, i) => acc + (Number(i.preco || 0) * (i.qtd || 1)), 0);
+      const valorFmt = `R$ ${valorTotal.toFixed(2).replace('.', ',')}`;
+
+      document.getElementById('badgeSacolaMobile').textContent = String(totalItens);
+      document.getElementById('badgeSacolaDesktop').textContent = String(totalItens);
+      document.getElementById('valorSacolaHeader').textContent = valorFmt;
+      document.getElementById('valorTotalSacola').textContent = valorFmt;
+
+      const container = document.getElementById('listaItensSacola');
+      if (!container) return;
+      if (sacolaCompras.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-xs text-gray-400 font-bold">Sua lista está vazia.<br>Toque no botão <b>＋</b> nos produtos para adicionar!</div>`;
+        return;
+      }
+
+      container.innerHTML = sacolaCompras.map(item => `
+        <div class="bg-white border border-gray-200 rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm">
+          <img src="${item.imagem || FALLBACK_IMG}" class="w-11 h-11 object-contain rounded-lg border border-gray-100 p-0.5" onerror="this.src='${FALLBACK_IMG}'">
+          <div class="flex-1 min-w-0">
+            <div class="text-xs font-bold text-gray-800 truncate">${item.nome}</div>
+            <div class="text-[11px] font-black text-red-600 mt-0.5">R$ ${(Number(item.preco) * (item.qtd || 1)).toFixed(2).replace('.', ',')} <span class="text-[10px] text-gray-400 font-normal">(${item.qtd}x R$ ${Number(item.preco).toFixed(2).replace('.', ',')})</span></div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="alterarQtdSacola('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-gray-100 hover:bg-gray-200 font-black text-xs">-</button>
+            <span class="text-xs font-bold w-5 text-center">${item.qtd}</span>
+            <button onclick="alterarQtdSacola('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-red-600 text-white font-black text-xs">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function copiarListaWhatsApp() {
+      if (sacolaCompras.length === 0) return alert('Adicione produtos à sua lista primeiro!');
+      const total = sacolaCompras.reduce((acc, i) => acc + (Number(i.preco || 0) * (i.qtd || 1)), 0);
+      const linhas = [
+        `🛒 *Minha Lista BuscaPreço (SuperKoch)*`,
+        `----------------------------------`,
+        ...sacolaCompras.map(i => `• ${i.qtd}x ${i.nome} — *R$ ${(Number(i.preco) * i.qtd).toFixed(2).replace('.', ',')}*`),
+        `----------------------------------`,
+        `💰 *Total Estimado: R$ ${total.toFixed(2).replace('.', ',')}*`
+      ];
+      const texto = linhas.join('\n');
+      try { navigator.clipboard.writeText(texto); } catch(e) {}
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+
+    function abrirModalDados() { document.getElementById('modalDados').classList.remove('hidden'); document.getElementById('inputFirebaseUrl').value = obterUrlFirebase(); }
+    function fecharModalDados() { document.getElementById('modalDados').classList.add('hidden'); }
+    function salvarUrlFirebaseManual() { const v = document.getElementById('inputFirebaseUrl').value.trim(); if(v) localStorage.setItem('koch_firebase_url', v); fecharModalDados(); carregarDoFirebase(); }
+    function toggleSacola() { document.getElementById('drawerSacola').classList.toggle('hidden'); }
+    function limparSacola() { sacolaCompras = []; localStorage.removeItem('koch_sacola_1408'); atualizarInterfaceSacola(); }
+  </script>
+</body>
+</html>
