@@ -1,7 +1,5 @@
 node_modules/
 backup_koch_1408_antes.json
 backup_fort_1644_antes.json
-backups/estado_atual_v8/firebase_db/*.json
-backups/estado_atual_v10/firebase_db/*.json
-scratch/
+backups/ultimo_backup_completo/firebase_db/*.json
 .DS_Store
