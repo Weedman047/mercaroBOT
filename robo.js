@@ -548,7 +548,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
   // Cria Popup Moderno e Funcional
   const balao = document.createElement("div");
   balao.id = "balao-extrator-koch";
-  balao.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:2147483647;background:#0f172a;color:#f8fafc;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,0.85);font-family:system-ui,-apple-system,sans-serif;width:435px;border:1px solid #334155;overflow:hidden;font-size:11px;line-height:1.35;user-select:none;";
+  balao.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:2147483647;background:#0f172a;color:#f8fafc;border-radius:12px;box-shadow:0 12px 35px rgba(0,0,0,0.85);font-family:system-ui,-apple-system,sans-serif;width:480px;max-width:96vw;max-height:94vh;border:1px solid #334155;overflow:hidden;font-size:11px;line-height:1.35;user-select:none;display:flex;flex-direction:column;";
 
   balao.innerHTML = `
     <style>
@@ -740,7 +740,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
 
       <!-- ABA 4: PAINEL DE LOGS -->
       <div id="koch-view-logs" style="display:none;padding:8px;flex-direction:column;gap:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;flex-wrap:wrap;">
           <div style="display:flex;gap:3px;">
             <button data-logfilter="TODOS" class="koch-log-filter" style="background:#334155;color:#fff;border:none;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:700;">Todos</button>
             <button data-logfilter="INESPERADO" class="koch-log-filter" style="background:#450a0a;color:#fca5a5;border:1px solid #7f1d1d;border-radius:4px;padding:3px 6px;font-size:10px;font-weight:700;">Alertas (<span id="koch-log-err">0</span>)</button>
@@ -752,7 +752,9 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
           </div>
         </div>
 
-        <div id="koch-log-list" class="koch-scroll" style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:6px;height:250px;overflow-y:auto;font-family:monospace;font-size:10px;display:flex;flex-direction:column;gap:4px;">
+        <input type="text" id="koch-log-search" placeholder="🔍 Filtrar logs em tempo real (ex: erro, token, preço)..." style="background:#020617;color:#f8fafc;border:1px solid #334155;border-radius:4px;padding:3px 6px;font-size:10px;width:100%;outline:none;">
+
+        <div id="koch-log-list" class="koch-scroll" style="background:#020617;border:1px solid #1e293b;border-radius:6px;padding:6px;height:290px;overflow-y:auto;font-family:monospace;font-size:10px;display:flex;flex-direction:column;gap:4px;">
           <div style="color:#64748b;">Nenhum evento registrado ainda.</div>
         </div>
       </div>
@@ -1030,29 +1032,42 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
     if (estado.abaAtual === "logs") renderizarLogs();
   };
 
+  let filtroLogTextoRobo = "";
+  const inpSearchLogRobo = document.getElementById("koch-log-search");
+  if (inpSearchLogRobo) {
+    inpSearchLogRobo.oninput = (e) => {
+      filtroLogTextoRobo = String(e.target.value || "").trim().toLowerCase();
+      renderizarLogs();
+    };
+  }
+
   const renderizarLogs = () => {
-    const filtrados = estado.filtroLog === "TODOS"
+    let filtrados = estado.filtroLog === "TODOS"
       ? estado.logs
       : estado.logs.filter(l => l.tipo === estado.filtroLog);
 
+    if (filtroLogTextoRobo) {
+      filtrados = filtrados.filter(l => `${l.hora} ${l.tipo} ${l.contexto} ${l.mensagem} ${l.detalhe}`.toLowerCase().includes(filtroLogTextoRobo));
+    }
+
     if (filtrados.length === 0) {
-      elLogList.innerHTML = `<div style="color:#64748b;">Nenhum log para o filtro [${estado.filtroLog}].</div>`;
+      elLogList.innerHTML = `<div style="color:#64748b;">Nenhum log para o filtro [${estado.filtroLog}${filtroLogTextoRobo ? ` • "${filtroLogTextoRobo}"` : ""}].</div>`;
       return;
     }
 
-    elLogList.innerHTML = filtrados.slice(0, 150).map(l => {
+    elLogList.innerHTML = filtrados.slice(0, 180).map(l => {
       let cor = "#86efac";
       let bg = "#052e16";
       if (l.tipo === "ESPERADO") { cor = "#fde047"; bg = "#422006"; }
       else if (l.tipo === "INESPERADO") { cor = "#fca5a5"; bg = "#450a0a"; }
 
       return `
-        <div style="border-bottom:1px solid #1e293b;padding-bottom:3px;">
+        <div style="border-bottom:1px solid #1e293b;padding-bottom:3px;word-break:break-word;">
           <span style="color:#64748b;">[${l.hora}]</span>
           <span style="background:${bg};color:${cor};padding:0 4px;border-radius:3px;font-weight:700;">${l.tipo}</span>
           <strong style="color:#e2e8f0;"> ${l.contexto}:</strong>
           <span style="color:#cbd5e1;"> ${l.mensagem}</span>
-          ${l.detalhe ? `<div style="color:#94a3b8;padding-left:10px;">↳ ${l.detalhe}</div>` : ""}
+          ${l.detalhe ? `<div style="color:#fde047;padding-left:10px;font-size:9px;background:#090d16;margin-top:2px;padding:2px 4px;border-radius:3px;">↳ ${l.detalhe}</div>` : ""}
         </div>
       `;
     }).join("");

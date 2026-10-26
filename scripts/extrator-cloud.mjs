@@ -39,6 +39,26 @@ const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS)
 const SWARM_RUN_ID = process.env.SWARM_RUN_ID || `swarm_${Date.now()}`;
 const SOU_MAESTRO = WORKER_ID === 1;
 
+let WORKER_PUBLIC_IP = "Descobrindo...";
+async function detectarIpPublico() {
+  try {
+    const res = await fetch("https://api.ipify.org?format=text", { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      WORKER_PUBLIC_IP = (await res.text()).trim();
+      return WORKER_PUBLIC_IP;
+    }
+  } catch {}
+  try {
+    const res2 = await fetch("https://icanhazip.com", { signal: AbortSignal.timeout(3000) });
+    if (res2.ok) {
+      WORKER_PUBLIC_IP = (await res2.text()).trim();
+      return WORKER_PUBLIC_IP;
+    }
+  } catch {}
+  WORKER_PUBLIC_IP = `runner-${WORKER_ID}`;
+  return WORKER_PUBLIC_IP;
+}
+
 // Leitura da Camada de Execução (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA NOTURNA)
 const argCamada = process.argv.find((a) => a.startsWith("--camada=") || a.startsWith("--modo="))?.split("=")[1];
 const MODO_CAMADA_BRUTO = String(argCamada || process.env.MODO_CAMADA || process.env.MODO_FILA || "2A").toUpperCase();
@@ -161,19 +181,24 @@ const sessao = {
 function registrarLog(tipo, contexto, mensagem, detalhe = "") {
   const hora = horaAtualBR();
   const tipoNorm = tipo === "ERRO" ? "INESPERADO" : (tipo === "AVISO" ? "ESPERADO" : tipo);
-  const tagMaq = TOTAL_WORKERS > 1 ? `[Máq #${WORKER_ID}] ` : "";
+  const tagMercado = EH_FORT ? "FORT" : "KOCH";
+  const tagMaq = `[MÁQ #${WORKER_ID}${WORKER_PUBLIC_IP && !WORKER_PUBLIC_IP.startsWith("Desc") ? ` • ${WORKER_PUBLIC_IP}` : ""}]`;
   sessao.ultimosLogs.unshift({
     hora,
+    timestamp: Date.now(),
+    mercado: tagMercado,
+    workerId: WORKER_ID,
+    ip: WORKER_PUBLIC_IP,
     tipo: tipoNorm,
-    etapa: `${tagMaq}${contexto}`,
-    contexto: `${tagMaq}${contexto}`,
+    etapa: `${tagMaq} ${contexto}`,
+    contexto: `${tagMaq} ${contexto}`,
     mensagem,
     detalhe
   });
-  if (sessao.ultimosLogs.length > 80) sessao.ultimosLogs.pop();
+  if (sessao.ultimosLogs.length > 250) sessao.ultimosLogs.pop();
   if (sessao.contagemLogs[tipoNorm] !== undefined) sessao.contagemLogs[tipoNorm]++;
   const prefixo = tipoNorm === "INESPERADO" ? "❌" : (tipoNorm === "ESPERADO" ? "⚠️" : "ℹ️");
-  console.log(`${prefixo} [${hora}] ${tagMaq}[${contexto}] ${mensagem}${detalhe ? ` (${detalhe})` : ""}`);
+  console.log(`${prefixo} [${hora}] [${tagMercado}] ${tagMaq} [${contexto}] ${mensagem}${detalhe ? ` (${detalhe})` : ""}`);
 }
 
 function formatarDuracaoSeg(segTotal) {
@@ -260,6 +285,7 @@ async function publicarEstadoWorkerNoEnxame() {
   const agora = Date.now();
   const payloadWorker = {
     workerId: WORKER_ID,
+    workerIp: WORKER_PUBLIC_IP,
     swarmId: SWARM_RUN_ID,
     mercado: MERCADO_ALVO,
     heartbeatMs: agora,
@@ -279,10 +305,10 @@ async function publicarEstadoWorkerNoEnxame() {
     estoquesAlteradosNaSessao: sessao.estoquesAlteradosNaSessao,
     requisicoesFeitas: sessao.requisicoesFeitas,
     progressoRotas: sessao.progressoRotas,
-    ultimosNovos: sessao.ultimosNovos.slice(0, 20),
-    ultimosPrecosAlterados: sessao.ultimosPrecosAlterados.slice(0, 25),
-    ultimosLidos: sessao.ultimosLidos.slice(0, 4),
-    ultimosLogs: sessao.ultimosLogs.slice(0, 25),
+    ultimosNovos: sessao.ultimosNovos.slice(0, 25),
+    ultimosPrecosAlterados: sessao.ultimosPrecosAlterados.slice(0, 30),
+    ultimosLidos: sessao.ultimosLidos.slice(0, 8),
+    ultimosLogs: sessao.ultimosLogs.slice(0, 50),
     produtosDelta: Array.from(mapaDeltaWorker.values())
   };
 
@@ -308,14 +334,22 @@ async function absorverEnxameNoMaestro() {
       progressoCombinado: { ...sessao.progressoRotas },
       novosListaCombinada: sessao.ultimosNovos.slice(0, 50),
       precosListaCombinada: sessao.ultimosPrecosAlterados.slice(0, 60),
-      lidosListaCombinada: sessao.ultimosLidos.slice(0, 8),
-      logsCombinados: sessao.ultimosLogs.slice(0, 80),
+      lidosListaCombinada: sessao.ultimosLidos.slice(0, 10),
+      logsCombinados: sessao.ultimosLogs.slice(0, 150),
       resumoMaquinas: [{
         id: 1,
+        ip: WORKER_PUBLIC_IP,
+        mercado: MERCADO_ALVO,
         status: sessao.status,
         rota: `#${sessao.rotaIndiceAtual + 1} ${sessao.rotaNomeAtual}`,
+        depto: sessao.deptoAtualNome || "Geral",
         pag: sessao.paginaAtual,
-        lidos: sessao.totalLidosNaSessao
+        offset: sessao.offsetAtual,
+        lidos: sessao.totalLidosNaSessao,
+        novos: sessao.novosNaSessao,
+        precos: sessao.precosAlteradosNaSessao,
+        reqs: sessao.requisicoesFeitas,
+        heartbeatMs: Date.now()
       }]
     };
   }
@@ -339,10 +373,18 @@ async function absorverEnxameNoMaestro() {
 
   const resumoMaquinas = [{
     id: 1,
+    ip: WORKER_PUBLIC_IP,
+    mercado: MERCADO_ALVO,
     status: sessao.status,
     rota: `#${sessao.rotaIndiceAtual + 1} ${sessao.rotaNomeAtual}`,
+    depto: sessao.deptoAtualNome || "Geral",
     pag: sessao.paginaAtual,
-    lidos: sessao.totalLidosNaSessao
+    offset: sessao.offsetAtual,
+    lidos: sessao.totalLidosNaSessao,
+    novos: sessao.novosNaSessao,
+    precos: sessao.precosAlteradosNaSessao,
+    reqs: sessao.requisicoesFeitas,
+    heartbeatMs: Date.now()
   }];
 
   sessao.ultimosNovos.forEach((n) => novosMap.set(n.id, n));
@@ -418,15 +460,25 @@ async function absorverEnxameNoMaestro() {
 
     resumoMaquinas.push({
       id: w,
+      ip: wk.workerIp || `Máquina-${w}`,
+      mercado: MERCADO_ALVO,
       status: wk.status,
       rota: `#${(wk.rotaIndiceAtual || 0) + 1} ${wk.rotaNomeAtual || ""}`,
+      depto: wk.deptoAtualNome || "Geral",
       pag: wk.paginaAtual || 1,
-      lidos: wk.totalLidosNaSessao || 0
+      offset: wk.offsetAtual || 0,
+      lidos: wk.totalLidosNaSessao || 0,
+      novos: wk.novosNaSessao || 0,
+      precos: wk.precosAlteradosNaSessao || 0,
+      reqs: wk.requisicoesFeitas || 0,
+      heartbeatMs: wk.heartbeatMs || Date.now()
     });
   }
 
   sessao.totalAtualNoBanco = mapaProdutos.size;
   const todosConcluidos = workersVistos >= TOTAL_WORKERS && workersFinalizados >= TOTAL_WORKERS;
+
+  logsCombinados.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   return {
     maquinasAtivas: Math.max(1, maquinasAtivas),
@@ -440,7 +492,7 @@ async function absorverEnxameNoMaestro() {
     novosListaCombinada: Array.from(novosMap.values()).slice(0, 50),
     precosListaCombinada: Array.from(precosMap.values()).slice(0, 60),
     lidosListaCombinada: lidosCombinados.slice(0, 10),
-    logsCombinados: logsCombinados.slice(0, 80),
+    logsCombinados: logsCombinados.slice(0, 200),
     resumoMaquinas
   };
 }
@@ -1124,6 +1176,9 @@ function montarUrlOficial({ storePath = DEFAULT_STORE_PATH, promo = false, size 
 // EXECUÇÃO PRINCIPAL DO ROBÔ INVISÍVEL
 // =========================================================================
 async function executarRoboCloud() {
+  await detectarIpPublico();
+  registrarLog("OK", "Rede", `IP Público detectado para Máquina #${WORKER_ID}: ${WORKER_PUBLIC_IP}`);
+
   if (WORKER_ID > 1) {
     await dormir((WORKER_ID - 1) * 1200);
   }
@@ -1133,12 +1188,14 @@ async function executarRoboCloud() {
 
   if (sessao.meuIndiceInicio >= ROTAS_ATIVAS.length || sessao.meuIndiceInicio > sessao.meuIndiceFim) {
     sessao.status = "CONCLUIDO";
-    sessao.mensagem = `Máquina #${WORKER_ID} sem rotas pendentes nesta divisão.`;
+    sessao.mensagem = `Máquina #${WORKER_ID} (${WORKER_PUBLIC_IP}) sem rotas pendentes nesta divisão.`;
     await enviarTelemetriaAoVivo(true);
     return;
   }
 
-  registrarLog("OK", "Navegador", `Iniciando navegador invisível da Máquina #${WORKER_ID}/${TOTAL_WORKERS} (${MERCADO_NOME})...`);
+  const userAgentNativo = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${129 + (WORKER_ID % 3)}.0.0.0 Safari/537.36`;
+
+  registrarLog("OK", "Navegador", `Iniciando navegador da Máquina #${WORKER_ID}/${TOTAL_WORKERS} (IP: ${WORKER_PUBLIC_IP})...`);
   const browser = await chromium.launch({
     headless: true,
     args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -1147,7 +1204,7 @@ async function executarRoboCloud() {
   const context = await browser.newContext({
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
-    userAgent: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${129 + (WORKER_ID % 3)}.0.0.0 Safari/537.36`,
+    userAgent: userAgentNativo,
     viewport: { width: 1366, height: 768 }
   });
 
@@ -1176,80 +1233,94 @@ async function executarRoboCloud() {
     const tk = req.headers()["x-osuper-identity-token"] || req.headers()["x-osuper-search-token"];
     if (tk && tk !== tokenCapturado) {
       tokenCapturado = tk;
-      registrarLog("OK", "Token", `Token de busca capturado via rede.`);
+      registrarLog("OK", "Token", `Token de busca capturado via tráfego de rede.`);
     }
   });
 
   async function renovarSessaoETokenAutomatico(motivoRenovacao = "Token solicitado") {
     try {
-      registrarLog("AVISO", "Token", `${motivoRenovacao} — Coletando novo token automaticamente...`);
+      registrarLog("AVISO", "Token", `${motivoRenovacao} — Coletando novo token...`);
       tokenCapturado = "";
-      await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-      await dormirHumano(3500);
+
+      // 1. FAST-PATH HTTP: Extração instantânea sem peso de renderizar navegador (~300ms)
+      if (EH_FORT) {
+        try {
+          const resHome = await fetch(SITE_URL, {
+            headers: {
+              "User-Agent": userAgentNativo,
+              "Cookie": `${COOKIE_LOJA_NOME}=${COOKIE_LOJA_VALOR}`
+            },
+            signal: AbortSignal.timeout(8000)
+          });
+          if (resHome.ok) {
+            const html = await resHome.text();
+            const m = html.match(/"searchEngineToken"\s*:\s*"([^"]+)"/);
+            if (m && m[1] && m[1].startsWith("v1.334.1644.")) {
+              tokenCapturado = m[1];
+              registrarLog("OK", "Token", `Token Fort obtido em 300ms (Loja 1644 confirmada): ${tokenCapturado.slice(0, 24)}...`);
+              return;
+            }
+          }
+        } catch (eHttp) {
+          registrarLog("AVISO", "Token", `Fast-path HTTP oscilou (${eHttp.message}). Recorrendo ao navegador...`);
+        }
+      } else {
+        // SuperKoch GraphQL Fast-Path
+        try {
+          const rGql = await fetch("https://api.superkoch.com.br:443/storefront/graphql", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": userAgentNativo,
+              "Accept": "*/*"
+            },
+            body: JSON.stringify({
+              operationName: "SearchIdentityTokenQuery",
+              variables: {},
+              query: "query SearchIdentityTokenQuery { customerViewer { id searchIdentityToken } }"
+            }),
+            signal: AbortSignal.timeout(8000)
+          });
+          if (rGql.ok) {
+            const jGql = await rGql.json();
+            const tkGql = jGql?.data?.customerViewer?.searchIdentityToken;
+            if (tkGql) {
+              tokenCapturado = tkGql;
+              registrarLog("OK", "Token", `Token Koch obtido via GraphQL em 300ms.`);
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Fallback Playwright DOM
+      await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
+      await dormirHumano(2500);
 
       const tkEval = await page.evaluate(async (ehFort) => {
         try {
           if (ehFort) {
-            const tkApp = window.INITIAL_STATE?.app?.searchEngineToken;
-            if (tkApp) return tkApp;
+            return window.INITIAL_STATE?.app?.searchEngineToken || "";
           } else {
-            const initTk = window.INITIAL_STATE?.auth?.searchIdentityToken;
-            if (initTk) return initTk;
-            const r = await fetch("https://api.superkoch.com.br:443/storefront/graphql", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json", "accept": "*/*" },
-              body: JSON.stringify({
-                operationName: "SearchIdentityTokenQuery",
-                variables: {},
-                query: "query SearchIdentityTokenQuery { customerViewer { id searchIdentityToken } }"
-              })
-            });
-            if (r.ok) {
-              const j = await r.json();
-              return j?.data?.customerViewer?.searchIdentityToken || "";
-            }
+            return window.INITIAL_STATE?.auth?.searchIdentityToken || "";
           }
-        } catch {}
-        return "";
+        } catch { return ""; }
       }, EH_FORT);
 
       if (tkEval) {
         tokenCapturado = tkEval;
         registrarLog("OK", "Token", `Token obtido via SSR HTML (${EH_FORT ? "searchEngineToken" : "searchIdentityToken"}).`);
       }
-
-      await page.evaluate(() => window.scrollBy(0, 500)).catch(() => {});
-      await dormirHumano(2000);
     } catch (e) {
       registrarLog("ERRO", "Token", `Erro ao tentar renovar sessão: ${e.message}`);
     }
   }
 
   sessao.status = "RODANDO";
-  sessao.mensagem = `Máquina #${WORKER_ID}/${TOTAL_WORKERS} conectando ao ${MERCADO_NOME}...`;
+  sessao.mensagem = `Máquina #${WORKER_ID}/${TOTAL_WORKERS} (${WORKER_PUBLIC_IP}) conectando ao ${MERCADO_NOME}...`;
   await enviarTelemetriaAoVivo(true);
 
-  await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-  await dormirHumano(3200);
-
-  if (!tokenCapturado) {
-    await renovarSessaoETokenAutomatico("Inicialização do Robô");
-  }
-
-  async function aguardarCincoMinutosComTelemetria(rotulo, pag, from, motivoErro) {
-    const totalSeg = Math.round(CONFIG.esperaErroRedeMs / 1000);
-    registrarLog("AVISO", rotulo, `${motivoErro} na Pág ${pag} (off ${from}). Aguardando 5 minutos para tentar novamente sem parar!`);
-    for (let s = totalSeg; s > 0; s -= 5) {
-      await aguardarSePausadoRemoto();
-      if (sessao.pularRotaAtual || sessao.canceladoRemoto) return;
-      sessao.status = "BLOQUEIO_ESPERA";
-      sessao.mensagem = `⏳ [${rotulo}] ${motivoErro} (Pág ${pag}). Tentando novamente em ${formatarDuracaoSeg(s)}...`;
-      await enviarTelemetriaAoVivo(false);
-      await dormir(5000);
-    }
-    sessao.status = "RODANDO";
-  }
+  await renovarSessaoETokenAutomatico("Inicialização do Robô");
 
   async function consultarAPINoPontoExato(url, rotulo, pag, from) {
     let tentativa = 0;
@@ -1261,21 +1332,57 @@ async function executarRoboCloud() {
       sessao.requisicoesFeitas++;
       let resultado = { ok: false, status: 0, error: "Sem resposta" };
 
+      // 1. MOTOR PRIMÁRIO: Fetch Direto Node.js (Ultra-rápido, sem CORS/CSP de navegador, ~200ms)
       try {
-        resultado = await page.evaluate(async ({ targetUrl, tk, headerName }) => {
-          try {
-            const headers = { accept: "application/json, text/plain, */*" };
-            if (tk) headers[headerName] = tk;
-            const r = await fetch(targetUrl, { method: "GET", headers });
-            if (!r.ok) return { ok: false, status: r.status };
-            const data = await r.json();
-            return { ok: true, status: 200, data };
-          } catch (err) {
-            return { ok: false, status: 0, error: err.message };
+        const headers = {
+          "Accept": "application/json, text/plain, */*",
+          "User-Agent": userAgentNativo,
+          "Origin": SITE_URL,
+          "Referer": `${SITE_URL}/`
+        };
+        if (tokenCapturado) headers[HEADER_TOKEN_NAME] = tokenCapturado;
+        const res = await fetch(url, { method: "GET", headers, signal: AbortSignal.timeout(12000) });
+        if (res.ok) {
+          const data = await res.json();
+          resultado = { ok: true, status: 200, data };
+        } else {
+          resultado = { ok: false, status: res.status, error: `HTTP ${res.status}` };
+        }
+      } catch (errDirect) {
+        // 2. MOTOR SECUNDÁRIO: Playwright context.request (compartilha sessão/cookies HTTP nativos)
+        try {
+          const respContext = await context.request.get(url, {
+            headers: {
+              "Accept": "application/json, text/plain, */*",
+              [HEADER_TOKEN_NAME]: tokenCapturado || ""
+            },
+            timeout: 15000
+          });
+          if (respContext.ok()) {
+            const data = await respContext.json();
+            resultado = { ok: true, status: 200, data };
+          } else {
+            resultado = { ok: false, status: respContext.status() };
           }
-        }, { targetUrl: url, tk: tokenCapturado, headerName: HEADER_TOKEN_NAME });
-      } catch (evalErr) {
-        resultado = { ok: false, status: 0, error: evalErr.message };
+        } catch (errContext) {
+          // 3. MOTOR TERCIÁRIO: page.evaluate no navegador
+          try {
+            resultado = await page.evaluate(async ({ targetUrl, tk, headerName }) => {
+              try {
+                const h = { accept: "application/json, text/plain, */*" };
+                if (tk) h[headerName] = tk;
+                const r = await fetch(targetUrl, { method: "GET", headers: h });
+                if (!r.ok) return { ok: false, status: r.status };
+                const data = await r.json();
+                return { ok: true, status: 200, data };
+              } catch (err) {
+                return { ok: false, status: 0, error: err.message };
+              }
+            }, { targetUrl: url, tk: tokenCapturado, headerName: HEADER_TOKEN_NAME });
+          } catch (evalErr) {
+            resultado = { ok: false, status: 0, error: evalErr.message };
+          }
+        }
       }
 
       if (resultado.ok && resultado.data) {
@@ -1292,28 +1399,38 @@ async function executarRoboCloud() {
         } catch {}
       }
 
+      // Trata 401 / 403 (Token Expirado)
       if (resultado.status === 401 || resultado.status === 403) {
+        registrarLog("AVISO", rotulo, `Token inválido/expirado (HTTP ${resultado.status}). Renovando token...`);
         await renovarSessaoETokenAutomatico(`HTTP ${resultado.status} em ${rotulo} (Pág ${pag})`);
-        if (tentativa >= 3) {
-          await aguardarCincoMinutosComTelemetria(rotulo, pag, from, `Token/Acesso HTTP ${resultado.status}`);
+        if (tentativa <= 2) {
+          await dormirHumano(2500);
+          continue;
         } else {
-          await dormirHumano(CONFIG.backoffCurtoMs);
+          registrarLog("AVISO", rotulo, `3 tentativas com erro de token em ${rotulo}. Pulando categoria com segurança.`);
+          return null;
         }
-        continue;
       }
 
+      // Trata Erros de Rede, 429 ou 5xx com respiro inteligente sem travar por 5 minutos
       if (resultado.status === 0 || resultado.status === 429 || resultado.status >= 500) {
         const descErro = resultado.status === 0
           ? `Erro de Rede (${resultado.error || "Falha de conexão"})`
           : `Servidor HTTP ${resultado.status}`;
 
-        if (tentativa <= 2) {
-          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag} (off ${from}). Respiro curto de 15s antes de tentar novamente...`);
-          await dormirHumano(CONFIG.backoffCurtoMs);
+        if (tentativa === 1) {
+          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag}. Respiro rápido de 3s e nova tentativa...`);
+          await dormirHumano(3000);
+          continue;
+        } else if (tentativa === 2) {
+          registrarLog("AVISO", rotulo, `${descErro} na Pág ${pag}. Renovando token e aguardando 6s...`);
+          await renovarSessaoETokenAutomatico("Falha de conexão na API");
+          await dormirHumano(6000);
+          continue;
         } else {
-          await aguardarCincoMinutosComTelemetria(rotulo, pag, from, descErro);
+          registrarLog("AVISO", rotulo, `Tentativa 3 falhou em ${rotulo} (Pág ${pag}): ${descErro}. Pulando categoria para não travar o robô.`);
+          return null;
         }
-        continue;
       }
 
       registrarLog("AVISO", rotulo, `Resposta HTTP ${resultado.status} na Pág ${pag}. Continuando...`);

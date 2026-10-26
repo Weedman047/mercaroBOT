@@ -222,14 +222,15 @@
         </div>
       </div>
 
-      <!-- Abas da Central do Robô (7 Abas: Ao Vivo, Vínculos, Preços, Novos, Fila, Logs, Config) -->
-      <div class="grid grid-cols-4 sm:grid-cols-7 bg-slate-900/60 border-b border-slate-800 text-[10px] sm:text-[11px] font-extrabold">
+      <!-- Abas da Central do Robô (8 Abas: Ao Vivo, Enxame Multi-IP, Logs Master, Vínculos, Preços, Novos, Fila, Config) -->
+      <div class="grid grid-cols-4 sm:grid-cols-8 bg-slate-900/60 border-b border-slate-800 text-[10px] sm:text-[11px] font-extrabold">
         <button onclick="mudarAbaCentralRobo('aovivo')" id="tabRobo-aovivo" class="py-2 px-1 text-center border-b-2 border-emerald-400 text-emerald-400 bg-slate-900/80 truncate">📡 Ao Vivo</button>
+        <button onclick="mudarAbaCentralRobo('enxame')" id="tabRobo-enxame" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">⚡ Enxame (IPs)</button>
+        <button onclick="mudarAbaCentralRobo('logs')" id="tabRobo-logs" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">📋 Logs (<span id="tabCountLogs">0</span>)</button>
         <button onclick="mudarAbaCentralRobo('vinculos')" id="tabRobo-vinculos" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">🔗 Vínculos (<span id="tabCountVinculos">0</span>)</button>
         <button onclick="mudarAbaCentralRobo('precos')" id="tabRobo-precos" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">🔄 Preços (<span id="tabCountPrecos">0</span>)</button>
         <button onclick="mudarAbaCentralRobo('novos')" id="tabRobo-novos" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">🟢 Novos (<span id="tabCountNovos">0</span>)</button>
         <button onclick="mudarAbaCentralRobo('fila')" id="tabRobo-fila" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">📑 Fila (<span id="tabCountFila">0</span>)</button>
-        <button onclick="mudarAbaCentralRobo('logs')" id="tabRobo-logs" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">📋 Logs (<span id="tabCountLogs">0</span>)</button>
         <button onclick="mudarAbaCentralRobo('config')" id="tabRobo-config" class="py-2 px-1 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 truncate">⚙️ Config</button>
       </div>
 
@@ -308,9 +309,12 @@
             </div>
 
             <!-- Resumo Máquinas Enxame Koch -->
-            <div id="boxResumoEnxameAoVivo" class="hidden pt-1.5 border-t border-slate-800/80">
-              <div id="lblTituloEnxameAtivo" class="text-[10px] font-bold text-red-400 mb-1">⚡ Enxame SuperKoch:</div>
-              <div id="listaMaquinasEnxameAoVivo" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-24 overflow-y-auto"></div>
+            <div id="boxResumoEnxameAoVivo" class="hidden pt-2 border-t border-slate-800/80 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <div id="lblTituloEnxameAtivo" class="text-[11px] font-bold text-red-400">⚡ Servidores SuperKoch Ativos:</div>
+                <button onclick="mudarAbaCentralRobo('enxame')" class="text-[10px] text-sky-400 hover:underline font-bold">Ver Matriz Completa ➔</button>
+              </div>
+              <div id="listaMaquinasEnxameAoVivo" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
             </div>
           </div>
 
@@ -362,9 +366,12 @@
             </div>
 
             <!-- Resumo Máquinas Enxame Fort -->
-            <div id="boxResumoEnxameFort" class="hidden pt-1.5 border-t border-slate-800/80">
-              <div class="text-[10px] font-bold text-emerald-400 mb-1">⚡ Enxame Fort Atacadista:</div>
-              <div id="listaMaquinasEnxameFort" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-24 overflow-y-auto"></div>
+            <div id="boxResumoEnxameFort" class="hidden pt-2 border-t border-slate-800/80 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] font-bold text-emerald-400">⚡ Servidores Fort Atacadista Ativos:</div>
+                <button onclick="mudarAbaCentralRobo('enxame')" class="text-[10px] text-sky-400 hover:underline font-bold">Ver Matriz Completa ➔</button>
+              </div>
+              <div id="listaMaquinasEnxameFort" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
             </div>
           </div>
 
@@ -460,6 +467,36 @@
             </div>
             <div id="listaUltimosLidosRobo" class="space-y-1 font-mono text-[11px] text-slate-300 max-h-28 overflow-y-auto">
               <div class="text-slate-500">Nenhum item processado ainda nesta sessão.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA: MATRIZ DO ENXAME (TODAS AS MÁQUINAS E IPs) -->
+        <div id="viewRobo-enxame" class="hidden space-y-3">
+          <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-sky-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xl">⚡</span>
+                <div>
+                  <h4 class="text-xs sm:text-sm font-black text-sky-300 flex items-center gap-2">
+                    <span>Matriz de Servidores e IPs do Enxame</span>
+                    <span id="badgeEnxameStatusGlobal" class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-black px-2 py-0.5 rounded font-mono">1 IP Ativo</span>
+                  </h4>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Acompanhe individualmente o que cada máquina e IP está minerando agora sem misturar dados.</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+              <button onclick="filtrarVisaoEnxame('AMBOS')" id="btnFiltroEnxame-AMBOS" class="bg-sky-500 text-slate-950 font-black text-[10px] px-2.5 py-1.5 rounded-lg shadow">⚡ Todos</button>
+              <button onclick="filtrarVisaoEnxame('KOCH')" id="btnFiltroEnxame-KOCH" class="bg-slate-800 text-red-300 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-700">🔴 SuperKoch</button>
+              <button onclick="filtrarVisaoEnxame('FORT')" id="btnFiltroEnxame-FORT" class="bg-slate-800 text-emerald-300 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-700">🟢 Fort Atacadista</button>
+            </div>
+          </div>
+
+          <!-- Grade de Servidores -->
+          <div id="gridClusterMaquinas" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500 col-span-full">
+              Nenhuma máquina ativa reportando telemetria no momento.
             </div>
           </div>
         </div>
@@ -631,24 +668,64 @@
           <div id="listaFilaCategoriasRobo" class="space-y-1.5 max-h-[52vh] overflow-y-auto pr-1"></div>
         </div>
 
-        <!-- ABA 5: LOGS E DIAGNÓSTICO DE ERROS -->
-        <div id="viewRobo-logs" class="hidden space-y-2.5">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h4 class="text-xs font-black text-white">📋 Logs Ao Vivo & Diagnóstico de Erros</h4>
-              <p class="text-[11px] text-slate-400">Veja todos os eventos de rede, renovações de token, auto-saves e possíveis erros.</p>
+        <!-- ABA: CENTRAL DE LOGS MASTER (TERMINAL INTEGRADO) -->
+        <div id="viewRobo-logs" class="hidden space-y-3">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 class="text-xs sm:text-sm font-black text-white flex items-center gap-2">
+                  <span>📋 Terminal de Logs & Eventos de Rede</span>
+                  <span class="bg-slate-950 text-slate-400 border border-slate-800 text-[10px] font-mono px-2 py-0.5 rounded" id="lblTotalLogsExibidos">0 eventos</span>
+                </h4>
+                <p class="text-[11px] text-slate-400 mt-0.5">Fluxo de auditoria em tempo real detalhando requisições, status de token, IPs e erros.</p>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button onclick="alternarAutoScrollLogs()" id="btnToggleAutoScrollLogs" class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition">
+                  📌 Auto-Scroll: LIGADO
+                </button>
+                <button onclick="copiarLogsRobo()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-700">
+                  📋 Copiar
+                </button>
+                <button onclick="limparLogsTela()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-700">
+                  🗑️ Limpar
+                </button>
+              </div>
             </div>
-            <div class="flex flex-wrap items-center gap-1">
-              <button onclick="filtrarLogsRobo('TODOS')" id="btnLogFiltro-TODOS" class="bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-1 rounded">Todos</button>
-              <button onclick="filtrarLogsRobo('INESPERADO')" id="btnLogFiltro-INESPERADO" class="bg-slate-800 text-red-400 font-bold text-[10px] px-2 py-1 rounded border border-slate-700">❌ Erros (<span id="lblCountLogsErro">0</span>)</button>
-              <button onclick="filtrarLogsRobo('ESPERADO')" id="btnLogFiltro-ESPERADO" class="bg-slate-800 text-amber-300 font-bold text-[10px] px-2 py-1 rounded border border-slate-700">⚠️ Avisos (<span id="lblCountLogsAviso">0</span>)</button>
-              <button onclick="copiarLogsRobo()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[10px] px-2 py-1 rounded border border-slate-700">📋 Copiar</button>
+
+            <!-- Barra de Filtros e Pesquisa Rápida -->
+            <div class="pt-2 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-12 gap-2">
+              <!-- Busca de Texto -->
+              <div class="sm:col-span-4">
+                <input id="inpBuscaLogsRobo" type="text" placeholder="🔍 Filtrar log (ex: erro, token, carne)..." oninput="aoDigitarBuscaLogs(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-sky-400">
+              </div>
+
+              <!-- Filtro de Mercado -->
+              <div class="sm:col-span-3 flex items-center gap-1">
+                <button onclick="filtrarLogsMercado('AMBOS')" id="btnLogMercado-AMBOS" class="flex-1 bg-sky-500 text-slate-950 font-black text-[10px] py-1.5 rounded">⚡ Ambos</button>
+                <button onclick="filtrarLogsMercado('KOCH')" id="btnLogMercado-KOCH" class="flex-1 bg-slate-800 text-red-400 font-bold text-[10px] py-1.5 rounded border border-slate-700">🔴 Koch</button>
+                <button onclick="filtrarLogsMercado('FORT')" id="btnLogMercado-FORT" class="flex-1 bg-slate-800 text-emerald-400 font-bold text-[10px] py-1.5 rounded border border-slate-700">🟢 Fort</button>
+              </div>
+
+              <!-- Filtro de Nível -->
+              <div class="sm:col-span-3 flex items-center gap-1">
+                <button onclick="filtrarLogsRobo('TODOS')" id="btnLogFiltro-TODOS" class="flex-1 bg-emerald-500 text-slate-950 font-black text-[10px] py-1.5 rounded">Todos</button>
+                <button onclick="filtrarLogsRobo('INESPERADO')" id="btnLogFiltro-INESPERADO" class="flex-1 bg-slate-800 text-red-400 font-bold text-[10px] py-1.5 rounded border border-slate-700">❌ (<span id="lblCountLogsErro">0</span>)</button>
+                <button onclick="filtrarLogsRobo('ESPERADO')" id="btnLogFiltro-ESPERADO" class="flex-1 bg-slate-800 text-amber-300 font-bold text-[10px] py-1.5 rounded border border-slate-700">⚠️ (<span id="lblCountLogsAviso">0</span>)</button>
+              </div>
+
+              <!-- Filtro de Máquina -->
+              <div class="sm:col-span-2">
+                <select id="selFiltroMaquinaLog" onchange="aoMudarFiltroMaquinaLog(this.value)" class="w-full bg-slate-950 border border-slate-700 text-white text-[10px] font-bold rounded-lg px-2 py-1.5">
+                  <option value="TODAS">🖥️ Todas Máqs</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div id="listaLogsRobo" class="space-y-1.5 max-h-[54vh] overflow-y-auto font-mono text-[11px] pr-1">
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500 font-sans">
-              Nenhum log recebido ainda.
+          <!-- Caixa do Terminal de Logs -->
+          <div id="listaLogsRobo" class="bg-slate-950/95 border border-slate-800 rounded-xl p-3 space-y-1.5 font-mono text-[11px] min-h-[350px] max-h-[600px] overflow-y-auto">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-500 font-sans">
+              Aguardando eventos do robô...
             </div>
           </div>
         </div>
@@ -1805,7 +1882,7 @@
 
     function mudarAbaCentralRobo(aba) {
       abaAtualRobo = aba;
-      ['aovivo', 'vinculos', 'precos', 'novos', 'fila', 'logs', 'config'].forEach(id => {
+      ['aovivo', 'enxame', 'logs', 'vinculos', 'precos', 'novos', 'fila', 'config'].forEach(id => {
         const view = document.getElementById(`viewRobo-${id}`);
         if (view) view.classList.toggle('hidden', id !== aba);
         const tab = document.getElementById(`tabRobo-${id}`);
@@ -1817,9 +1894,10 @@
           }
         }
       });
+      if (aba === 'enxame') renderizarEnxameCompleto(telemetriaKochAtual, telemetriaFortAtual);
+      if (aba === 'logs') renderizarLogsRobo();
       if (aba === 'vinculos') renderizarAbaVinculosUI();
       if (aba === 'fila') renderizarFilaCategoriasRobo();
-      if (aba === 'logs') renderizarLogsRobo();
     }
 
     async function sincronizarTelemetriaRobo(forcar = false) {
@@ -1988,13 +2066,16 @@
         const listaMaqK = document.getElementById('listaMaquinasEnxameAoVivo');
         if (boxEnxameK && listaMaqK) {
           const resumoMaqK = Array.isArray(tK.enxameAtivo?.resumoMaquinas) ? tK.enxameAtivo.resumoMaquinas : [];
-          if (maqTotalK > 1 && resumoMaqK.length > 0) {
+          if (resumoMaqK.length > 0) {
             boxEnxameK.classList.remove('hidden');
             listaMaqK.innerHTML = resumoMaqK.map(m => `
-              <div class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] flex items-center justify-between gap-1">
-                <span class="font-black text-red-300 shrink-0">🖥️ #${m.id}:</span>
-                <span class="truncate text-slate-300 flex-1">${m.rota || ''} (Pág ${m.pag || 1})</span>
-                <span class="font-mono text-[9px] text-emerald-400 shrink-0">${m.lidos || 0}</span>
+              <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="font-black text-red-300">🖥️ Máq #${m.id}</span>
+                  <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[110px]" title="IP: ${m.ip || 'Ativo'}">🌐 ${m.ip || 'IP Ativo'}</span>
+                  <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+                </div>
+                <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (Pág ${m.pag || 1})</div>
               </div>
             `).join('');
           } else {
@@ -2058,13 +2139,16 @@
         const listaMaqF = document.getElementById('listaMaquinasEnxameFort');
         if (boxEnxameF && listaMaqF) {
           const resumoMaqF = Array.isArray(tF.enxameAtivo?.resumoMaquinas) ? tF.enxameAtivo.resumoMaquinas : [];
-          if (maqTotalF > 1 && resumoMaqF.length > 0) {
+          if (resumoMaqF.length > 0) {
             boxEnxameF.classList.remove('hidden');
             listaMaqF.innerHTML = resumoMaqF.map(m => `
-              <div class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[10px] flex items-center justify-between gap-1">
-                <span class="font-black text-emerald-400 shrink-0">🖥️ #${m.id}:</span>
-                <span class="truncate text-slate-300 flex-1">${m.rota || ''} (Pág ${m.pag || 1})</span>
-                <span class="font-mono text-[9px] text-emerald-400 shrink-0">${m.lidos || 0}</span>
+              <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="font-black text-emerald-400">🖥️ Máq #${m.id}</span>
+                  <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[110px]" title="IP: ${m.ip || 'Ativo'}">🌐 ${m.ip || 'IP Ativo'}</span>
+                  <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+                </div>
+                <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (Pág ${m.pag || 1})</div>
               </div>
             `).join('');
           } else {
@@ -2072,6 +2156,9 @@
           }
         }
       }
+
+      // Sincroniza a Matriz do Enxame
+      renderizarEnxameCompleto(tK, tF);
 
       // -------------------------------------------------------------
       // PLACAR COMBINADO DE KPIS
@@ -2164,17 +2251,168 @@
     }
 
     // =========================================================================
-    // ABA DE LOGS E DIAGNÓSTICO DE ERROS
+    // MATRIZ AO VIVO DO ENXAME (CLUSTERS & SERVIDORES IPs)
     // =========================================================================
+    let filtroVisaoEnxame = 'AMBOS';
+
+    function filtrarVisaoEnxame(mercado) {
+      filtroVisaoEnxame = mercado;
+      ['AMBOS', 'KOCH', 'FORT'].forEach(k => {
+        const btn = document.getElementById(`btnFiltroEnxame-${k}`);
+        if (!btn) return;
+        if (k === mercado) {
+          btn.className = "bg-sky-500 text-slate-950 font-black text-[10px] px-2.5 py-1.5 rounded-lg shadow";
+        } else {
+          btn.className = "bg-slate-800 text-slate-300 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-slate-700";
+        }
+      });
+      renderizarEnxameCompleto(telemetriaKochAtual, telemetriaFortAtual);
+    }
+
+    function renderizarEnxameCompleto(tK, tF) {
+      const grid = document.getElementById('gridClusterMaquinas');
+      if (!grid) return;
+
+      const maqsK = (Array.isArray(tK?.enxameAtivo?.resumoMaquinas) ? tK.enxameAtivo.resumoMaquinas : []).map(m => ({ ...m, mercado: 'KOCH', mercadoNome: 'SuperKoch (1408)' }));
+      const maqsF = (Array.isArray(tF?.enxameAtivo?.resumoMaquinas) ? tF.enxameAtivo.resumoMaquinas : []).map(m => ({ ...m, mercado: 'FORT', mercadoNome: 'Fort Atacadista (1644)' }));
+
+      let todasMaqs = [];
+      if (filtroVisaoEnxame === 'KOCH') todasMaqs = maqsK;
+      else if (filtroVisaoEnxame === 'FORT') todasMaqs = maqsF;
+      else todasMaqs = [...maqsK, ...maqsF];
+
+      const badgeGlobal = document.getElementById('badgeEnxameStatusGlobal');
+      if (badgeGlobal) {
+        const ipsUnicos = new Set(todasMaqs.map(m => m.ip).filter(Boolean)).size;
+        badgeGlobal.textContent = `${todasMaqs.length} Servidores • ${ipsUnicos || todasMaqs.length} IPs Ativos`;
+      }
+
+      if (todasMaqs.length === 0) {
+        grid.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-500 col-span-full">Nenhum servidor em execução para o filtro selecionado.</div>`;
+        return;
+      }
+
+      grid.innerHTML = todasMaqs.map(m => {
+        const ehFort = m.mercado === 'FORT';
+        const corBorder = ehFort ? 'border-emerald-700/60 bg-emerald-950/10' : 'border-red-700/60 bg-red-950/10';
+        const corTag = ehFort ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-red-950 text-red-300 border-red-700';
+
+        const agora = Date.now();
+        const pingMs = m.heartbeatMs ? (agora - Number(m.heartbeatMs)) : 0;
+        let pingTexto = "🟢 Vivo (há 1s)";
+        if (pingMs > 120000) pingTexto = "⚠️ Sem resposta (+2m)";
+        else if (pingMs > 25000) pingTexto = `⏳ Ping há ${Math.round(pingMs / 1000)}s`;
+
+        return `
+          <div class="bg-slate-900/90 border ${corBorder} rounded-xl p-3.5 space-y-2.5 shadow-lg">
+            <div class="flex items-center justify-between gap-1 pb-2 border-b border-slate-800">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="text-xs font-black text-white shrink-0">🖥️ Máquina #${m.id}</span>
+                <span class="${corTag} text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0">${m.mercado}</span>
+              </div>
+              <span class="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 shrink-0">${pingTexto}</span>
+            </div>
+
+            <!-- IP e Status -->
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1 min-w-0 font-mono">
+                <span class="text-slate-400 text-[10px]">🌐 IP:</span>
+                <span class="font-bold text-sky-300 truncate" title="IP Público da Máquina">${m.ip || 'Descobrindo IP...'}</span>
+              </div>
+              <span class="text-[10px] font-black px-2 py-0.5 rounded bg-slate-950 text-emerald-400 border border-slate-800 uppercase shrink-0">${m.status || 'RODANDO'}</span>
+            </div>
+
+            <!-- Rota e Posição Atual -->
+            <div class="bg-slate-950 border border-slate-800/80 rounded-lg p-2 space-y-1">
+              <div class="text-[9px] font-bold text-slate-400 uppercase">📍 Ocupação Atual:</div>
+              <div class="text-xs font-bold text-white truncate" title="${m.rota || ''}">${m.rota || 'Inicializando...'}</div>
+              <div class="text-[10px] text-slate-400 flex items-center justify-between">
+                <span>Pág: <strong class="text-slate-200">${m.pag || 1}</strong> (off ${m.offset || 0})</span>
+                <span class="text-amber-400">${m.depto || 'Geral'}</span>
+              </div>
+            </div>
+
+            <!-- Grid de Contadores Individuais -->
+            <div class="grid grid-cols-4 gap-1 text-center pt-1">
+              <div class="bg-slate-950/80 border border-slate-800/60 rounded p-1">
+                <div class="text-[8px] text-slate-500 uppercase">Lidos</div>
+                <div class="text-[11px] font-black text-white mt-0.5">${m.lidos || 0}</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800/60 rounded p-1">
+                <div class="text-[8px] text-emerald-500 uppercase">+Novos</div>
+                <div class="text-[11px] font-black text-emerald-400 mt-0.5">+${m.novos || 0}</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800/60 rounded p-1">
+                <div class="text-[8px] text-amber-500 uppercase">Preços</div>
+                <div class="text-[11px] font-black text-amber-400 mt-0.5">${m.precos || 0}</div>
+              </div>
+              <div class="bg-slate-950/80 border border-slate-800/60 rounded p-1">
+                <div class="text-[8px] text-sky-500 uppercase">Reqs</div>
+                <div class="text-[11px] font-black text-sky-400 mt-0.5">${m.reqs || 0}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // ABA DE LOGS MASTER (TERMINAL EM TEMPO REAL COM BUSCA E FILTROS)
+    // =========================================================================
+    let filtroLogMercado = 'AMBOS';
+    let filtroLogMaquina = 'TODAS';
+    let filtroLogTexto = '';
+    let autoScrollLogsAtivo = true;
+
+    function alternarAutoScrollLogs() {
+      autoScrollLogsAtivo = !autoScrollLogsAtivo;
+      const btn = document.getElementById('btnToggleAutoScrollLogs');
+      if (btn) {
+        btn.textContent = autoScrollLogsAtivo ? '📌 Auto-Scroll: LIGADO' : '⏸ Auto-Scroll: PAUSADO';
+        btn.className = autoScrollLogsAtivo
+          ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition'
+          : 'bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition';
+      }
+    }
+
+    function limparLogsTela() {
+      const container = document.getElementById('listaLogsRobo');
+      if (container) container.innerHTML = '<div class="text-slate-500 text-center py-8">Visualização de logs limpa na tela. Novos eventos continuarão aparecendo.</div>';
+    }
+
+    function aoDigitarBuscaLogs(val) {
+      filtroLogTexto = String(val || '').trim();
+      renderizarLogsRobo();
+    }
+
+    function aoMudarFiltroMaquinaLog(val) {
+      filtroLogMaquina = String(val || 'TODAS');
+      renderizarLogsRobo();
+    }
+
+    function filtrarLogsMercado(mercado) {
+      filtroLogMercado = mercado;
+      ['AMBOS', 'KOCH', 'FORT'].forEach(k => {
+        const btn = document.getElementById(`btnLogMercado-${k}`);
+        if (!btn) return;
+        if (k === mercado) {
+          btn.className = "flex-1 bg-sky-500 text-slate-950 font-black text-[10px] py-1.5 rounded shadow";
+        } else {
+          btn.className = "flex-1 bg-slate-800 text-slate-300 font-bold text-[10px] py-1.5 rounded border border-slate-700";
+        }
+      });
+      renderizarLogsRobo();
+    }
+
     function filtrarLogsRobo(tipo) {
       filtroLogAtual = tipo;
       ['TODOS', 'INESPERADO', 'ESPERADO'].forEach(k => {
         const b = document.getElementById(`btnLogFiltro-${k}`);
         if (!b) return;
         if (k === tipo) {
-          b.className = "bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-1 rounded";
+          b.className = "flex-1 bg-emerald-500 text-slate-950 font-black text-[10px] py-1.5 rounded shadow";
         } else {
-          b.className = "bg-slate-800 text-slate-300 font-bold text-[10px] px-2 py-1 rounded border border-slate-700";
+          b.className = "flex-1 bg-slate-800 text-slate-300 font-bold text-[10px] py-1.5 rounded border border-slate-700";
         }
       });
       renderizarLogsRobo();
@@ -2183,50 +2421,117 @@
     function renderizarLogsRobo() {
       const container = document.getElementById('listaLogsRobo');
       if (!container) return;
-      const arrLogs = Array.isArray(telemetriaAtualRobo?.ultimosLogs) ? telemetriaAtualRobo.ultimosLogs : [];
-      const cont = telemetriaAtualRobo?.contagemLogs || {};
-      const qtdErro = cont.INESPERADO ?? arrLogs.filter(l => l.tipo === 'INESPERADO').length;
-      const qtdAviso = cont.ESPERADO ?? arrLogs.filter(l => l.tipo === 'ESPERADO').length;
-      document.getElementById('lblCountLogsErro').textContent = qtdErro;
-      document.getElementById('lblCountLogsAviso').textContent = qtdAviso;
 
-      const filtrados = arrLogs.filter(l => filtroLogAtual === 'TODOS' ? true : l.tipo === filtroLogAtual);
+      const logsK = Array.isArray(telemetriaKochAtual?.ultimosLogs) ? telemetriaKochAtual.ultimosLogs : [];
+      const logsF = Array.isArray(telemetriaFortAtual?.ultimosLogs) ? telemetriaFortAtual.ultimosLogs : [];
+
+      const todosLogs = [...logsK, ...logsF];
+      todosLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      const qtdErro = todosLogs.filter(l => l.tipo === 'INESPERADO' || l.tipo === 'ERRO').length;
+      const qtdAviso = todosLogs.filter(l => l.tipo === 'ESPERADO' || l.tipo === 'AVISO').length;
+      const elCountErr = document.getElementById('lblCountLogsErro');
+      const elCountAv = document.getElementById('lblCountLogsAviso');
+      if (elCountErr) elCountErr.textContent = qtdErro;
+      if (elCountAv) elCountAv.textContent = qtdAviso;
+      const elTabCount = document.getElementById('tabCountLogs');
+      if (elTabCount) elTabCount.textContent = todosLogs.length;
+
+      // Popula select de máquinas disponíveis
+      const selMaq = document.getElementById('selFiltroMaquinaLog');
+      if (selMaq) {
+        const maqs = Array.from(new Set(todosLogs.map(l => l.workerId || 1).filter(Boolean))).sort((a, b) => a - b);
+        const valorAtual = selMaq.value;
+        const opcoes = ['<option value="TODAS">🖥️ Todas as Máqs</option>'];
+        maqs.forEach(m => opcoes.push(`<option value="${m}">🖥️ Máquina #${m}</option>`));
+        selMaq.innerHTML = opcoes.join('');
+        selMaq.value = valorAtual || 'TODAS';
+      }
+
+      // Filtra por Mercado, Nível, Máquina e Busca
+      const filtrados = todosLogs.filter(l => {
+        if (filtroLogMercado === 'KOCH') {
+          const ehK = l.mercado === 'KOCH' || (l.etapa && l.etapa.includes('KOCH')) || (!l.mercado && logsK.includes(l));
+          if (!ehK) return false;
+        } else if (filtroLogMercado === 'FORT') {
+          const ehF = l.mercado === 'FORT' || (l.etapa && l.etapa.includes('FORT')) || (!l.mercado && logsF.includes(l));
+          if (!ehF) return false;
+        }
+
+        if (filtroLogAtual === 'INESPERADO' && !(l.tipo === 'INESPERADO' || l.tipo === 'ERRO')) return false;
+        if (filtroLogAtual === 'ESPERADO' && !(l.tipo === 'ESPERADO' || l.tipo === 'AVISO')) return false;
+
+        if (filtroLogMaquina !== 'TODAS') {
+          if (String(l.workerId || 1) !== String(filtroLogMaquina)) return false;
+        }
+
+        if (filtroLogTexto) {
+          const termo = filtroLogTexto.toLowerCase();
+          const strBusca = `${l.hora || ''} ${l.mercado || ''} ${l.ip || ''} ${l.etapa || ''} ${l.contexto || ''} ${l.mensagem || ''} ${l.detalhe || ''}`.toLowerCase();
+          if (!strBusca.includes(termo)) return false;
+        }
+
+        return true;
+      });
+
+      const elTotalExib = document.getElementById('lblTotalLogsExibidos');
+      if (elTotalExib) elTotalExib.textContent = `${filtrados.length} eventos`;
+
       if (filtrados.length === 0) {
-        container.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500 font-sans">Nenhum registro para este filtro.</div>`;
+        container.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-500 font-sans">Nenhum evento corresponde aos filtros selecionados.</div>`;
         return;
       }
 
-      container.innerHTML = filtrados.map(l => {
-        let corBorda = "border-slate-800";
-        let badge = `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded">OK</span>`;
-        if (l.tipo === 'INESPERADO') {
-          corBorda = "border-red-800/80 bg-red-950/20";
-          badge = `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded">❌ ERRO</span>`;
-        } else if (l.tipo === 'ESPERADO') {
-          corBorda = "border-amber-800/80 bg-amber-950/20";
-          badge = `<span class="bg-amber-950 text-amber-300 border border-amber-700 text-[9px] font-black px-1.5 py-0.5 rounded">⚠️ AVISO/REDE</span>`;
+      container.innerHTML = filtrados.slice(0, 250).map(l => {
+        const ehFort = l.mercado === 'FORT' || (l.etapa && l.etapa.includes('FORT'));
+        const badgeMercado = ehFort
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+
+        let badgeTipo = `<span class="bg-slate-800 text-slate-300 border border-slate-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">OK</span>`;
+        let corBorda = "border-slate-800/80 hover:border-slate-700";
+        if (l.tipo === 'INESPERADO' || l.tipo === 'ERRO') {
+          badgeTipo = `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 animate-pulse">❌ ERRO</span>`;
+          corBorda = "border-red-900/60 bg-red-950/15";
+        } else if (l.tipo === 'ESPERADO' || l.tipo === 'AVISO') {
+          badgeTipo = `<span class="bg-amber-950 text-amber-300 border border-amber-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">⚠️ AVISO</span>`;
+          corBorda = "border-amber-900/50 bg-amber-950/15";
         }
+
+        const tagMaq = l.ip
+          ? `<span class="bg-slate-950 text-sky-300 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">🖥️ Máq #${l.workerId || 1} • ${l.ip}</span>`
+          : `<span class="bg-slate-950 text-slate-400 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">🖥️ Máq #${l.workerId || 1}</span>`;
+
         return `
-          <div class="bg-slate-900 border ${corBorda} rounded-lg p-2.5 space-y-1">
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5 min-w-0">
-                ${badge}
-                <span class="text-slate-300 font-bold truncate">${l.etapa || 'Sistema'}</span>
+          <div class="bg-slate-950/90 border ${corBorda} rounded-lg p-2.5 space-y-1 transition text-xs font-mono">
+            <div class="flex items-center justify-between gap-1 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${badgeMercado}
+                ${tagMaq}
+                ${badgeTipo}
+                <span class="text-slate-300 font-bold truncate max-w-[260px] sm:max-w-md">${l.contexto || l.etapa || 'Sistema'}</span>
               </div>
-              <span class="text-[10px] text-slate-500 shrink-0">${l.hora || ''}</span>
+              <span class="text-[10px] text-slate-500 font-mono shrink-0">${l.hora || ''}</span>
             </div>
-            <div class="text-slate-200 break-words">${l.mensagem || ''}</div>
-            ${l.detalhe ? `<div class="text-[10px] text-red-300 bg-slate-950 p-1.5 rounded border border-slate-800 break-all">${l.detalhe}</div>` : ''}
+            <div class="text-slate-200 break-words font-sans text-xs pt-0.5">${l.mensagem || ''}</div>
+            ${l.detalhe ? `<div class="text-[10px] text-amber-300 bg-slate-900/90 p-2 rounded border border-slate-800 font-mono break-all mt-1">↳ ${l.detalhe}</div>` : ''}
           </div>
         `;
       }).join('');
+
+      if (autoScrollLogsAtivo && container.scrollTop < 80) {
+        container.scrollTop = 0;
+      }
     }
 
     function copiarLogsRobo() {
-      const arrLogs = Array.isArray(telemetriaAtualRobo?.ultimosLogs) ? telemetriaAtualRobo.ultimosLogs : [];
-      const txt = JSON.stringify(arrLogs, null, 2);
+      const logsK = Array.isArray(telemetriaKochAtual?.ultimosLogs) ? telemetriaKochAtual.ultimosLogs : [];
+      const logsF = Array.isArray(telemetriaFortAtual?.ultimosLogs) ? telemetriaFortAtual.ultimosLogs : [];
+      const todos = [...logsK, ...logsF];
+      todos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const txt = JSON.stringify(todos, null, 2);
       try { navigator.clipboard.writeText(txt); } catch (e) {}
-      alert('📋 Logs copiados para a área de transferência!');
+      alert('📋 Todos os logs do SuperKoch e Fort Atacadista foram copiados para a área de transferência!');
     }
 
     // =========================================================================
