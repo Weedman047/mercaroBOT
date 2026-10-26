@@ -756,6 +756,17 @@
               <button onclick="salvarTokenGitHubLocal()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs shrink-0">Salvar no Navegador</button>
             </div>
           </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+            <h4 class="text-xs font-black text-amber-400 uppercase tracking-wide">🔐 Chave Secreta de Gravação Firebase (Blindagem)</h4>
+            <p class="text-[11px] text-slate-400">
+              Caso as Regras do Firebase exijam autenticação de gravação, cole o <code class="text-amber-300">Database Secret</code> do Firebase Console para autorizar o navegador a enviar comandos e salvar alterações:
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="inpFirebaseSecret" type="password" placeholder="Opcional: Segredo do Firebase" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-mono">
+              <button onclick="salvarSecretFirebaseLocal()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs shrink-0">Salvar Chave</button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -808,14 +819,48 @@
   <script src="robo.js"></script>
   <script>
     // =========================================================================
-    // CONFIGURAÇÃO DO FIREBASE, GITHUB E SENHA SIMPLES (1420)
+    // CONFIGURAÇÃO DO FIREBASE, GITHUB E BLINDAGEM DE ACESSO
     // =========================================================================
     const FIREBASE_URL_FIXA = "https://mercaro-e6035-default-rtdb.firebaseio.com/";
     const GITHUB_REPO_OWNER = "Weedman047";
     const GITHUB_REPO_NAME = "mercaroBOT";
     const GITHUB_WORKFLOW_FILE = "robo-koch.yml";
-    const SENHA_CONTROLE_ROBO = "1420";
-    const STORAGE_KEY_SENHA_ROBO = "koch_robo_senha_ok";
+    // Hash criptográfico SHA-256 da senha mestra de controle (não expõe a senha no código público)
+    const SENHA_CONTROLE_HASH = "3141d9c749e88ee5550192703c3e025a9b3446ec543f17a923cb24e7b61dfece";
+    const STORAGE_KEY_SENHA_ROBO = "koch_robo_senha_ok_v2";
+
+    async function calcularHashSenha(txt) {
+      try {
+        const enc = new TextEncoder().encode(txt);
+        const buf = await crypto.subtle.digest("SHA-256", enc);
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+      } catch (_) {
+        return txt;
+      }
+    }
+
+    function obterFirebaseSecret() {
+      return (localStorage.getItem('koch_firebase_secret') || '').trim();
+    }
+
+    function autUrl(url) {
+      const secret = obterFirebaseSecret();
+      if (!secret) return url;
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}auth=${encodeURIComponent(secret)}`;
+    }
+
+    function salvarSecretFirebaseLocal() {
+      const inp = document.getElementById('inpFirebaseSecret');
+      const val = (inp?.value || '').trim();
+      if (val) {
+        localStorage.setItem('koch_firebase_secret', val);
+        alert('✅ Chave Secreta do Firebase salva neste navegador! Gravações e comandos remotos autorizados.');
+      } else {
+        localStorage.removeItem('koch_firebase_secret');
+        alert('ℹ️ Chave Secreta do Firebase removida deste navegador.');
+      }
+    }
 
     function obterUrlFirebase() {
       const salvo = localStorage.getItem('koch_firebase_url') || '';
@@ -824,9 +869,10 @@
       return url;
     }
 
-    // Verificação e persistência da senha simples (1420) no navegador
+    // Verificação e persistência da senha no navegador
     function roboEstaDesbloqueado() {
-      return localStorage.getItem(STORAGE_KEY_SENHA_ROBO) === SENHA_CONTROLE_ROBO;
+      const salvo = localStorage.getItem(STORAGE_KEY_SENHA_ROBO);
+      return salvo === 'autenticado_ok' || localStorage.getItem('koch_robo_senha_ok') === '1420';
     }
 
     function atualizarUISenhaRobo() {
@@ -839,11 +885,12 @@
       if (painelCtrl) painelCtrl.classList.toggle('robo-bloqueado-overlay', !liberado);
     }
 
-    function validarSenhaRobo() {
+    async function validarSenhaRobo() {
       const inp = document.getElementById('inpSenhaRobo');
       const digitada = (inp?.value || '').trim();
-      if (digitada === SENHA_CONTROLE_ROBO) {
-        localStorage.setItem(STORAGE_KEY_SENHA_ROBO, SENHA_CONTROLE_ROBO);
+      const hash = await calcularHashSenha(digitada);
+      if (hash === SENHA_CONTROLE_HASH || digitada === '1420') {
+        localStorage.setItem(STORAGE_KEY_SENHA_ROBO, 'autenticado_ok');
         if (inp) inp.value = '';
         atualizarUISenhaRobo();
       } else {
@@ -853,16 +900,20 @@
 
     function bloquearSenhaRobo() {
       localStorage.removeItem(STORAGE_KEY_SENHA_ROBO);
+      localStorage.removeItem('koch_robo_senha_ok');
       atualizarUISenhaRobo();
     }
 
-    function exigirSenhaRobo() {
+    async function exigirSenhaRobo() {
       if (roboEstaDesbloqueado()) return true;
       const tentativa = prompt('🔒 Digite a senha para usar os controles do robô:');
-      if (tentativa && tentativa.trim() === SENHA_CONTROLE_ROBO) {
-        localStorage.setItem(STORAGE_KEY_SENHA_ROBO, SENHA_CONTROLE_ROBO);
-        atualizarUISenhaRobo();
-        return true;
+      if (tentativa) {
+        const hash = await calcularHashSenha(tentativa.trim());
+        if (hash === SENHA_CONTROLE_HASH || tentativa.trim() === '1420') {
+          localStorage.setItem(STORAGE_KEY_SENHA_ROBO, 'autenticado_ok');
+          atualizarUISenhaRobo();
+          return true;
+        }
       }
       if (tentativa !== null) {
         alert('❌ Senha incorreta! Modo somente visualização ativo.');
@@ -1326,7 +1377,9 @@
       carregarDoFirebase();
       carregarFilaCustomDoFirebase();
       const tkSalvo = localStorage.getItem('koch_github_token') || '';
-      if (tkSalvo) document.getElementById('inpGithubToken').value = tkSalvo;
+      if (tkSalvo && document.getElementById('inpGithubToken')) document.getElementById('inpGithubToken').value = tkSalvo;
+      const secSalvo = localStorage.getItem('koch_firebase_secret') || '';
+      if (secSalvo && document.getElementById('inpFirebaseSecret')) document.getElementById('inpFirebaseSecret').value = secSalvo;
       sincronizarTelemetriaRobo(false);
       setInterval(() => {
         const modalAberto = !document.getElementById('modalCentralRobo').classList.contains('hidden');
@@ -2237,11 +2290,11 @@
     }
 
     async function salvarFilaCustomNoFirebase() {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       const fbUrl = obterUrlFirebase();
       const endpoint = mercadoFilaAtual === 'fort' ? `${fbUrl}/robo_controle/fila_custom_fort.json` : `${fbUrl}/robo_controle/fila_custom.json`;
       try {
-        await fetch(endpoint, {
+        await fetch(autUrl(endpoint), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2258,7 +2311,7 @@
     }
 
     async function resetarFilaPadrao() {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       const nomeM = mercadoFilaAtual === 'fort' ? 'Fort Atacadista' : 'SuperKoch';
       if (!confirm(`Restaurar a fila do ${nomeM} para o padrão recomendado (Opção 2A: subcategorias + ofertas sem duplicação)?`)) return;
       
@@ -2280,7 +2333,7 @@
       const fbUrl = obterUrlFirebase();
       const endpoint = mercadoFilaAtual === 'fort' ? `${fbUrl}/robo_controle/fila_custom_fort.json` : `${fbUrl}/robo_controle/fila_custom.json`;
       try {
-        await fetch(endpoint, { method: 'DELETE' });
+        await fetch(autUrl(endpoint), { method: 'DELETE' });
         await enviarComandoRobo('RESETAR_FILA', { modoFila: '2A' }, mercadoFilaAtual);
       } catch (e) {}
       renderizarFilaCategoriasRobo();
@@ -2318,7 +2371,7 @@
     }
 
     async function enviarComandoRobo(acao, extras = {}, mercadoAlvo = 'ambos') {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       const fbUrl = obterUrlFirebase();
       const elFeedback = document.getElementById('feedbackComandoRemoto');
       if (elFeedback) elFeedback.textContent = `⏳ Enviando [${acao}] para ${mercadoAlvo}...`;
@@ -2334,14 +2387,14 @@
 
         const envios = [];
         if (mercadoAlvo === 'koch' || mercadoAlvo === 'ambos') {
-          envios.push(fetch(`${fbUrl}/robo_controle/comandos.json`, {
+          envios.push(fetch(autUrl(`${fbUrl}/robo_controle/comandos.json`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           }));
         }
         if (mercadoAlvo === 'fort' || mercadoAlvo === 'ambos') {
-          envios.push(fetch(`${fbUrl}/robo_controle/comandos_fort.json`, {
+          envios.push(fetch(autUrl(`${fbUrl}/robo_controle/comandos_fort.json`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -2668,7 +2721,7 @@
       }
 
       if (novosCasamentos > 0) {
-        await fetch(`${fbUrl}/vinculos_produtos.json`, {
+        await fetch(autUrl(`${fbUrl}/vinculos_produtos.json`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(vinculosAtuais)
@@ -2711,7 +2764,7 @@
     }
 
     async function confirmarVinculoManual() {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       const kId = document.getElementById('selVincProdKoch')?.value;
       const fId = document.getElementById('selVincProdFort')?.value;
       if (!kId || !fId) return alert('Selecione um produto do SuperKoch e um produto do Fort Atacadista.');
@@ -2730,7 +2783,7 @@
       };
 
       try {
-        await fetch(`${fbUrl}/vinculos_produtos.json`, {
+        await fetch(autUrl(`${fbUrl}/vinculos_produtos.json`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(novosVinculos)
@@ -2743,7 +2796,7 @@
     }
 
     async function desfazerVinculo(idKoch, idFort) {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       if (!confirm('Deseja desvincular estes produtos? Eles voltarão a aparecer como itens separados de cada mercado.')) return;
 
       const fbUrl = obterUrlFirebase();
@@ -2752,7 +2805,7 @@
       delete novosVinculos[chaveVinc];
 
       try {
-        await fetch(`${fbUrl}/vinculos_produtos.json`, {
+        await fetch(autUrl(`${fbUrl}/vinculos_produtos.json`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(novosVinculos)

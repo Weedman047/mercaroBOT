@@ -1,13 +1,20 @@
 // =========================================================================
 // 4. ROBÔ EXTRATOR V7 (SEQUENCIAL POR LINKS/CATEGORIAS + ROLAGEM + CHECKPOINT EXATO)
 // =========================================================================
-async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null) {
+async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSecretForcado = null) {
   const isFort = mercadoForcado ? mercadoForcado === "fort" : window.location.hostname.includes("fortatacadista");
   const mercado = isFort ? "fort" : "koch";
   const mercadoNome = isFort ? "Fort Atacadista (Porto Belo 1644)" : "SuperKoch (Itapema 1408)";
   const mercadoIcone = isFort ? "🟢" : "🔴";
   const contaId = isFort ? "334" : "295";
   const lojaIdPadrao = isFort ? "1644" : "1408";
+
+  const authSecret = (authSecretForcado || localStorage.getItem('koch_firebase_secret') || '').trim();
+  const comAuth = (url) => {
+    if (!authSecret) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}auth=${encodeURIComponent(authSecret)}`;
+  };
 
   const baseLimpa = fbBaseUrl.replace(/\/$/, '').replace(/\/koch_loja_1408\.json$/, '').replace(/\/fort_loja_1644\.json$/, '');
   const FIREBASE_ENDPOINT = isFort ? baseLimpa + "/fort_loja_1644.json" : baseLimpa + "/koch_loja_1408.json";
@@ -1425,7 +1432,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null) {
   // Função auxiliar para ler e mesclar produtos do Firebase com segurança (nunca apaga itens existentes)
   const carregarEMesclarDoFirebase = async () => {
     try {
-      const rFb = await fetch(FIREBASE_ENDPOINT);
+      const rFb = await fetch(comAuth(FIREBASE_ENDPOINT));
       if (rFb.ok) {
         const dFb = await rFb.json();
         if (dFb && Array.isArray(dFb.produtos)) {
@@ -1568,13 +1575,13 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null) {
     };
 
     try {
-      await fetch(FIREBASE_TELEMETRIA_ENDPOINT, {
+      await fetch(comAuth(FIREBASE_TELEMETRIA_ENDPOINT), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!isFort) {
-        await fetch(baseLimpa + "/robo_controle/telemetria.json", {
+        await fetch(comAuth(baseLimpa + "/robo_controle/telemetria.json"), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -1606,7 +1613,7 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null) {
       }
 
       if (!silencioso) atualizarUI("☁️ Salvando no Firebase...", `Enviando ${listaSegura.length} produtos com proteção...`);
-      const r = await fetch(FIREBASE_ENDPOINT, {
+      const r = await fetch(comAuth(FIREBASE_ENDPOINT), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

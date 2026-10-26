@@ -105,6 +105,7 @@ jobs:
       - name: 🔴 Executar SuperKoch • Máquina #${{ matrix.worker_id }} de ${{ needs.preparar-enxame.outputs.total_workers }}
         env:
           FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
           MERCADO: "koch"
           WORKER_ID: ${{ matrix.worker_id }}
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
@@ -156,6 +157,7 @@ jobs:
       - name: 🟢 Executar Fort Atacadista • Máquina #${{ matrix.worker_id }} de ${{ needs.preparar-enxame.outputs.total_workers }}
         env:
           FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
           MERCADO: "fort"
           WORKER_ID: ${{ matrix.worker_id }}
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
@@ -195,4 +197,5 @@ jobs:
       - name: 🔗 Executar Vinculação Inteligente de Produtos (SuperKoch × Fort Atacadista)
         env:
           FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
         run: node scripts/extrator-cloud.mjs --vincular

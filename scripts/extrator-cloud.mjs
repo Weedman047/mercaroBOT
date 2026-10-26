@@ -18,6 +18,14 @@ const DEFAULT_STORE_PATH = EH_FORT ? "/334/1644/v2/search" : "/295/1408/v2/searc
 const HEADER_TOKEN_NAME = EH_FORT ? "x-osuper-search-token" : "x-osuper-identity-token";
 
 const FIREBASE_BASE = (process.env.FIREBASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com").replace(/\/$/, "");
+const FIREBASE_SECRET = (process.env.FIREBASE_SECRET || process.env.FIREBASE_AUTH || "").trim();
+
+function authUrl(url) {
+  if (!FIREBASE_SECRET) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}auth=${encodeURIComponent(FIREBASE_SECRET)}`;
+}
+
 const FIREBASE_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/fort_loja_1644.json` : `${FIREBASE_BASE}/koch_loja_1408.json`;
 const FIREBASE_TELEMETRIA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/telemetria_fort.json` : `${FIREBASE_BASE}/robo_controle/telemetria_koch.json`;
 const FIREBASE_COMANDOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/comandos_fort.json` : `${FIREBASE_BASE}/robo_controle/comandos.json`;
@@ -288,7 +296,7 @@ async function publicarEstadoWorkerNoEnxame() {
   };
 
   try {
-    await fetch(`${FIREBASE_ENXAME_BASE}/worker_${WORKER_ID}.json`, {
+    await fetch(authUrl(`${FIREBASE_ENXAME_BASE}/worker_${WORKER_ID}.json`), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payloadWorker)
@@ -323,7 +331,7 @@ async function absorverEnxameNoMaestro() {
 
   let enxameDados = {};
   try {
-    const r = await fetch(`${FIREBASE_ENXAME_BASE}.json`);
+    const r = await fetch(authUrl(`${FIREBASE_ENXAME_BASE}.json`));
     if (r.ok) enxameDados = (await r.json()) || {};
   } catch {}
 
@@ -532,14 +540,14 @@ async function enviarTelemetriaAoVivo(forcar = false) {
   };
 
   try {
-    await fetch(FIREBASE_TELEMETRIA_ENDPOINT, {
+    await fetch(authUrl(FIREBASE_TELEMETRIA_ENDPOINT), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     // Se for SuperKoch, mantém telemetria.json sincronizado para retrocompatibilidade
     if (!EH_FORT) {
-      await fetch(`${FIREBASE_BASE}/robo_controle/telemetria.json`, {
+      await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/telemetria.json`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -555,7 +563,7 @@ async function verificarComandosRemotos(forcar = false) {
   ultimaLeituraComandosMs = agora;
 
   try {
-    const resp = await fetch(`${FIREBASE_COMANDOS_ENDPOINT}?t=${agora}`);
+    const resp = await fetch(authUrl(`${FIREBASE_COMANDOS_ENDPOINT}?t=${agora}`));
     if (!resp.ok) return;
     const cmd = await resp.json();
     if (!cmd || typeof cmd !== "object") return;
@@ -677,7 +685,7 @@ function recalcularFatiaDoWorker() {
 async function carregarProtegerFirebaseInicial() {
   if (SOU_MAESTRO) {
     try {
-      await fetch(`${FIREBASE_ENXAME_BASE}.json`, { method: "DELETE" });
+      await fetch(authUrl(`${FIREBASE_ENXAME_BASE}.json`), { method: "DELETE" });
     } catch {}
   }
 
@@ -686,7 +694,7 @@ async function carregarProtegerFirebaseInicial() {
   let resp = null;
   while (!resp || !resp.ok) {
     try {
-      resp = await fetch(FIREBASE_ENDPOINT);
+      resp = await fetch(authUrl(FIREBASE_ENDPOINT));
       if (resp.ok) break;
       registrarLog("ERRO", "Firebase Inicial", `HTTP ${resp.status} ao ler banco inicial. Aguardando 30s...`);
     } catch (err) {
@@ -696,7 +704,7 @@ async function carregarProtegerFirebaseInicial() {
   }
 
   try {
-    const rCmd = await fetch(FIREBASE_COMANDOS_ENDPOINT);
+    const rCmd = await fetch(authUrl(FIREBASE_COMANDOS_ENDPOINT));
     if (rCmd.ok) {
       const cAntigo = await rCmd.json();
       if (cAntigo && (cAntigo.id || cAntigo.timestamp)) {
@@ -715,7 +723,7 @@ async function carregarProtegerFirebaseInicial() {
 
   let filaCustomSalva = null;
   try {
-    const rFila = await fetch(FIREBASE_FILA_ENDPOINT);
+    const rFila = await fetch(authUrl(FIREBASE_FILA_ENDPOINT));
     if (rFila.ok) {
       const dFila = await rFila.json();
       const arr = Array.isArray(dFila) ? dFila : (Array.isArray(dFila?.rotas) ? dFila.rotas : null);
@@ -981,7 +989,7 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
       return true;
     }
 
-    const resp = await fetch(FIREBASE_ENDPOINT, {
+    const resp = await fetch(authUrl(FIREBASE_ENDPOINT), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1618,9 +1626,9 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
 
   try {
     [respKoch, respFort, respVinc] = await Promise.all([
-      fetch(`${firebaseBase}/koch_loja_1408.json`),
-      fetch(`${firebaseBase}/fort_loja_1644.json`),
-      fetch(`${firebaseBase}/vinculos_produtos.json`).catch(() => null)
+      fetch(authUrl(`${firebaseBase}/koch_loja_1408.json`)),
+      fetch(authUrl(`${firebaseBase}/fort_loja_1644.json`)),
+      fetch(authUrl(`${firebaseBase}/vinculos_produtos.json`)).catch(() => null)
     ]);
   } catch (err) {
     console.log(`⚠️ Erro de conexão ao buscar catálogos para vincular: ${err.message}`);
@@ -1759,7 +1767,7 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
   };
 
   try {
-    await fetch(FIREBASE_VINCULOS_ENDPOINT, {
+    await fetch(authUrl(FIREBASE_VINCULOS_ENDPOINT), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
