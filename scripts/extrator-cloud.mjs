@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import fs from "node:fs";
-import { ROTAS_PADRAO_KOCH, ROTAS_PADRAO_FORT } from "./rotas-mercados.mjs";
+import { ROTAS_PADRAO_KOCH, ROTAS_PADRAO_FORT, ROTAS_RADAR_KOCH, ROTAS_RADAR_FORT, obterRotasPorCamada } from "./rotas-mercados.mjs";
 
 // =========================================================================
 // CONFIGURAÇÃO MULTI-MERCADO: SUPERKOCH (LOJA 1408) & FORT ATACADISTA (LOJA 1644)
@@ -39,22 +39,27 @@ const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS)
 const SWARM_RUN_ID = process.env.SWARM_RUN_ID || `swarm_${Date.now()}`;
 const SOU_MAESTRO = WORKER_ID === 1;
 
-// Configurações Furtivas e Otimizações de Rede
-const BATCH_SIZE_RAW = Number(process.env.BATCH_SIZE) || 12;
+// Leitura da Camada de Execução (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA NOTURNA)
+const argCamada = process.argv.find((a) => a.startsWith("--camada=") || a.startsWith("--modo="))?.split("=")[1];
+const MODO_CAMADA_BRUTO = String(argCamada || process.env.MODO_CAMADA || process.env.MODO_FILA || "2A").toUpperCase();
+const EH_MODO_RADAR = MODO_CAMADA_BRUTO === "RADAR" || MODO_CAMADA_BRUTO === "1" || MODO_CAMADA_BRUTO === "1A" || MODO_CAMADA_BRUTO === "OFERTAS";
+
+// Configurações Furtivas, Jitter e Otimizações de Rede
+const BATCH_SIZE_RAW = Number(process.env.BATCH_SIZE) || (EH_MODO_RADAR ? (EH_FORT ? 20 : 36) : 12);
 // Fort Atacadista OSuper tem limite rígido de size <= 20 ("size must not exceed 20")
 const MAX_ALLOWED_SIZE = EH_FORT ? 20 : 60;
 const CONFIG = {
-  delayMs: Math.max(800, Number(process.env.DELAY_MS) || 2200),
-  delayTrocaRotaMs: Math.max(1500, Number(process.env.DELAY_ROTA_MS) || 3800),
+  delayMs: Math.max(600, Number(process.env.DELAY_MS) || (EH_MODO_RADAR ? 1500 : 2200)),
+  delayTrocaRotaMs: Math.max(1200, Number(process.env.DELAY_ROTA_MS) || (EH_MODO_RADAR ? 2400 : 3800)),
   esperaErroRedeMs: 5 * 60 * 1000, // 5 minutos de espera em caso de bloqueio ou queda de rede
   backoffCurtoMs: 15000,
   size: Math.max(12, Math.min(MAX_ALLOWED_SIZE, BATCH_SIZE_RAW)),
-  modoFila: String(process.env.MODO_FILA || "2A").toUpperCase(),
+  modoFila: MODO_CAMADA_BRUTO,
   usarProxy: false,
   listaProxies: [],
-  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 1),
-  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 50),
-  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000),
+  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || (EH_MODO_RADAR ? 5 : 1)),
+  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || (EH_MODO_RADAR ? 10 : 50)),
+  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || (EH_MODO_RADAR ? 15000 : 25000)),
   autoSaveEveryDepto: true,
   startIndex: Math.max(0, (Number(process.env.START_INDEX) || 1) - 1),
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
@@ -63,24 +68,10 @@ const CONFIG = {
 const ROTAS_PADRAO_SEQUENCIAIS = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
 
 // =========================================================================
-// CAMINHO 2: ELIMINAÇÃO DE LEITURA DUPLICADA (OPÇÃO 2A PADRÃO ATIVADA + OPÇÃO 2B)
+// SELETOR DINÂMICO DE FILAS POR CAMADA (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA)
 // =========================================================================
 function obterRotasFiltradasPorModo(modo, filaCustom = null) {
-  const m = String(modo || "2A").toUpperCase();
-  if (m === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
-    return filaCustom;
-  }
-  const listaBase = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
-  if (m === "2A") {
-    // Opção 2A (Padrão Ativado): Apenas Subcategorias + Promoções (zero duplicação de depto cheio!)
-    return listaBase.filter((r) => r.tipo === "sub" || r.tipo === "promocoes" || r.tipo === "promocao");
-  }
-  if (m === "2B") {
-    // Opção 2B: Apenas Departamentos Principais + Promoções
-    return listaBase.filter((r) => r.tipo === "depto" || r.tipo === "promocoes" || r.tipo === "promocao");
-  }
-  // Modo COMPLETA
-  return [...listaBase];
+  return obterRotasPorCamada(MERCADO_ALVO, modo, filaCustom);
 }
 
 let ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
@@ -989,6 +980,25 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
       return true;
     }
 
+    const houveAlteracoes = enxame.novosGlobal > 0 || enxame.precosGlobal > 0 || enxame.estoquesGlobal > 0 || sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0;
+    const forcarCompleto = motivo.includes("100% Concluída") || motivo.includes("Manual") || motivo.includes("Inicial");
+
+    // ECONOMIA DE BANDA FIREBASE SPARK (Camada Radar): Se nada mudou, atualiza apenas heartbeat (200 bytes em vez de 12MB!)
+    if (!houveAlteracoes && !forcarCompleto) {
+      registrarLog("OK", "Economia Firebase", `Nenhuma alteração de preço/estoque detectada. Heartbeat leve enviado (Economia de 99.9% de banda).`);
+      await fetch(authUrl(FIREBASE_ENDPOINT), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          atualizadoEm: new Date().toISOString(),
+          "resumoUltimaSessao/motivoUltimoSave": `${motivo} (Verificado - Sem alterações)`,
+          "resumoUltimaSessao/ultimoHeartbeat": new Date().toISOString()
+        })
+      }).catch(() => {});
+      sessao.ultimoSaveMs = Date.now();
+      return true;
+    }
+
     const resp = await fetch(authUrl(FIREBASE_ENDPOINT), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1013,6 +1023,23 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     if (!resp.ok) {
       registrarLog("ERRO", "Firebase Save", `HTTP ${resp.status} ao salvar (${motivo}). Continuando sem parar!`);
       return false;
+    }
+
+    // Grava também nó compacto de últimas alterações (alimentação rápida do front-end sem ler 12MB)
+    if (houveAlteracoes) {
+      const alteracoesRecentes = [
+        ...sessao.ultimosPrecosAlterados.slice(0, 30),
+        ...sessao.ultimosNovos.slice(0, 20)
+      ];
+      await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/ultimas_alteracoes_${EH_FORT ? "fort" : "koch"}.json`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          atualizadoEm: new Date().toISOString(),
+          mercado: MERCADO_ALVO,
+          alteracoes: alteracoesRecentes
+        })
+      }).catch(() => {});
     }
 
     sessao.totalInicialFirebase = Math.max(sessao.totalInicialFirebase, listaFinal.length);
@@ -1484,8 +1511,8 @@ async function executarRoboCloud() {
     registrarLog("OK", "Finalizado", sessao.mensagem);
     await enviarTelemetriaAoVivo(true);
 
-    // Se ambos os bancos existirem, dispara a vinculação inteligente automática ao final!
-    if (SOU_MAESTRO) {
+    // Se ambos os bancos existirem e não for um radar relâmpago, executa a vinculação inteligente
+    if (SOU_MAESTRO && !EH_MODO_RADAR) {
       try {
         await executarVinculacaoInteligente();
       } catch (eLink) {

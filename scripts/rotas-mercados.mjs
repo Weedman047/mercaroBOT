@@ -328,3 +328,66 @@ export const ROTAS_PADRAO_FORT = [
 
 
 
+
+
+// =========================================================================
+// CAMADA 1: RADAR DE OFERTAS RELÂMPAGO (SUPER RÁPIDO ~1-2 MINUTOS)
+// Rastreia Home, Aba de Promoções e os Top 8 setores mais voláteis
+// =========================================================================
+export const ROTAS_RADAR_KOCH = [
+  { url: "https://www.superkoch.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "⚡ Radar > Página Inicial (Destaques)" },
+  { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: "PROMO_KOCH", depto: "Promoções", nome: "⚡ Radar > Promoções Ativas" },
+  { url: "https://www.superkoch.com.br/categorias/acougue/carnes-bovinas", pathReal: "/categorias/acougue/carnes-bovinas", tipo: "sub", id: "3886563", depto: "Açougue", nome: "⚡ Radar > Carnes Bovinas" },
+  { url: "https://www.superkoch.com.br/categorias/acougue/frango", pathReal: "/categorias/acougue/frango", tipo: "sub", id: "3886569", depto: "Açougue", nome: "⚡ Radar > Frango & Aves" },
+  { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas", pathReal: "/categorias/hortifruti/frutas", tipo: "sub", id: "3659966", depto: "Hortifruti", nome: "⚡ Radar > Frutas" },
+  { url: "https://www.superkoch.com.br/categorias/hortifruti/legumes", pathReal: "/categorias/hortifruti/legumes", tipo: "sub", id: "3660005", depto: "Hortifruti", nome: "⚡ Radar > Legumes" },
+  { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/leite", pathReal: "/categorias/frios-laticinios/leite", tipo: "sub", id: "3659921", depto: "Frios & Laticínios", nome: "⚡ Radar > Leite" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/cervejas", pathReal: "/categorias/bebidas-alcoolicas/cervejas", tipo: "sub", id: "3659885", depto: "Bebidas Alcoólicas", nome: "⚡ Radar > Cervejas" },
+  { url: "https://www.superkoch.com.br/categorias/mercearia/alimentos-basicos", pathReal: "/categorias/mercearia/alimentos-basicos", tipo: "sub", id: "3659766", depto: "Mercearia", nome: "⚡ Radar > Alimentos Básicos (Arroz/Feijão)" },
+  { url: "https://www.superkoch.com.br/categorias/mercearia/cafes", pathReal: "/categorias/mercearia/cafes", tipo: "sub", id: "3659760", depto: "Mercearia", nome: "⚡ Radar > Cafés" }
+];
+
+export const ROTAS_RADAR_FORT = [
+  { url: "https://www.fortatacadista.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "⚡ Radar > Página Inicial (Destaques)" },
+  { url: "https://www.fortatacadista.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: "PROMO_FORT", depto: "Promoções", nome: "⚡ Radar > Todas as Promoções" },
+  { url: "https://www.fortatacadista.com.br/categorias/carnes-aves-e-peixes/bovinos", pathReal: "/categorias/carnes-aves-e-peixes/bovinos", tipo: "sub", id: "1815170", depto: "Carnes, Aves e Peixes", nome: "⚡ Radar > Bovinos" },
+  { url: "https://www.fortatacadista.com.br/categorias/carnes-aves-e-peixes/aves", pathReal: "/categorias/carnes-aves-e-peixes/aves", tipo: "sub", id: "1815174", depto: "Carnes, Aves e Peixes", nome: "⚡ Radar > Aves" },
+  { url: "https://www.fortatacadista.com.br/categorias/hortifruti/frutas", pathReal: "/categorias/hortifruti/frutas", tipo: "sub", id: "1815147", depto: "Hortifruti", nome: "⚡ Radar > Frutas" },
+  { url: "https://www.fortatacadista.com.br/categorias/hortifruti/legumes", pathReal: "/categorias/hortifruti/legumes", tipo: "sub", id: "1815148", depto: "Hortifruti", nome: "⚡ Radar > Legumes" },
+  { url: "https://www.fortatacadista.com.br/categorias/frios-e-laticinios/leites", pathReal: "/categorias/frios-e-laticinios/leites", tipo: "sub", id: "1815187", depto: "Frios e Laticínios", nome: "⚡ Radar > Leites" },
+  { url: "https://www.fortatacadista.com.br/categorias/bebidas-alcoolicas/cervejas", pathReal: "/categorias/bebidas-alcoolicas/cervejas", tipo: "sub", id: "1815154", depto: "Bebidas Alcoólicas", nome: "⚡ Radar > Cervejas" },
+  { url: "https://www.fortatacadista.com.br/categorias/mercearia/graos-e-cereais", pathReal: "/categorias/mercearia/graos-e-cereais", tipo: "sub", id: "1815151", depto: "Mercearia", nome: "⚡ Radar > Grãos e Cereais (Arroz/Feijão)" },
+  { url: "https://www.fortatacadista.com.br/categorias/mercearia/cafes-e-chas", pathReal: "/categorias/mercearia/cafes-e-chas", tipo: "sub", id: "1815149", depto: "Mercearia", nome: "⚡ Radar > Cafés e Chás" }
+];
+
+// =========================================================================
+// SELETOR UNIVERSAL DE CAMADAS (1 = RADAR, 2 = TURNO, 3 = COMPLETA)
+// =========================================================================
+export function obterRotasPorCamada(mercado = "koch", camada = "2A", filaCustom = null) {
+  const c = String(camada || "2A").toUpperCase();
+  const ehFort = mercado === "fort" || mercado === "fortatacadista";
+
+  if (c === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
+    return filaCustom;
+  }
+
+  // Camada 1: RADAR (Ofertas relâmpago, destaques e setores mais voláteis ~1-2 min)
+  if (c === "RADAR" || c === "1" || c === "1A" || c === "OFERTAS") {
+    return ehFort ? ROTAS_RADAR_FORT : ROTAS_RADAR_KOCH;
+  }
+
+  const listaBase = ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
+
+  // Camada 2: TURNO / 2A (Subcategorias + Promoções - 98% dos itens sem duplicar departamentos)
+  if (c === "TURNO" || c === "2" || c === "2A") {
+    return listaBase.filter((r) => r.tipo === "sub" || r.tipo === "promocoes" || r.tipo === "promocao");
+  }
+
+  // Opção 2B: Somente Departamentos + Promoções
+  if (c === "2B" || c === "DEPTOS") {
+    return listaBase.filter((r) => r.tipo === "depto" || r.tipo === "promocoes" || r.tipo === "promocao");
+  }
+
+  // Camada 3: NOTURNA / COMPLETA (100% de todos os links e departamentos)
+  return [...listaBase];
+}

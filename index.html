@@ -239,6 +239,27 @@
         <!-- ABA 1: AO VIVO & CONTROLE REMOTO -->
         <div id="viewRobo-aovivo" class="space-y-3 min-w-0">
           
+          <!-- BANNER INTELIGÊNCIA 2.0 (ARQUITETURA EM 3 CAMADAS) -->
+          <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-amber-500/30 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🛡️</span>
+              <div>
+                <div class="font-black text-amber-300 text-xs flex items-center gap-1.5">
+                  <span>Arquitetura de Rastreamento 24h</span>
+                  <span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] px-1.5 py-0.2 rounded font-mono">Top 2.0</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5">
+                  ⚡ <strong>Radar Ofertas:</strong> a cada 2h • ⚖️ <strong>Turnos:</strong> 09h e 17h • 🌙 <strong>Noturna Geral:</strong> 03h (Madrugada)
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+              <span id="badgeStatusCamadaAtiva" class="bg-slate-900 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-1 rounded-lg">
+                ⚡ Radar 24h & Turnos Ativos
+              </span>
+            </div>
+          </div>
+          
           <!-- Card Telemetria SuperKoch (Itapema 1408) -->
           <div id="cardAoVivoKoch" class="bg-slate-900 border border-red-900/60 rounded-xl p-3 space-y-2.5 min-w-0">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 min-w-0">
@@ -407,12 +428,17 @@
             <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
               <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <select id="selDisparoMercado" class="bg-slate-950 border border-slate-700 text-white text-xs font-bold rounded-xl px-2.5 py-2">
-                  <option value="ambos">⚡ Disparar Ambos (Koch + Fort em Paralelo)</option>
-                  <option value="koch">🔴 Disparar Só SuperKoch (Loja 1408)</option>
-                  <option value="fort">🟢 Disparar Só Fort Atacadista (Loja 1644)</option>
+                  <option value="ambos">⚡ Ambos os Mercados (Paralelo)</option>
+                  <option value="koch">🔴 Só SuperKoch (Loja 1408)</option>
+                  <option value="fort">🟢 Só Fort Atacadista (Loja 1644)</option>
+                </select>
+                <select id="selDisparoCamada" class="bg-slate-950 border border-amber-600/80 text-amber-300 text-xs font-black rounded-xl px-2.5 py-2">
+                  <option value="RADAR">⚡ Camada 1: Radar de Ofertas (~1-2 min)</option>
+                  <option value="2A" selected>⚖️ Camada 2: Varredura de Turno (Subcats 2A)</option>
+                  <option value="COMPLETA">🌙 Camada 3: Varredura Noturna (100% Geral)</option>
                 </select>
                 <button onclick="acionarRoboNuvemGitHub()" class="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow">
-                  🚀 Iniciar Enxame na Nuvem (GitHub Actions)
+                  🚀 Disparar na Nuvem
                 </button>
               </div>
               <div class="flex items-center gap-1 shrink-0">
@@ -659,14 +685,19 @@
               </div>
 
               <div>
-                <label class="block text-[11px] text-slate-300 font-bold mb-1">Caminho 2 • Modo da Fila:</label>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Caminho 2 • Camada & Modo da Fila:</label>
                 <select id="inpConfigModoFila" onchange="aoMudarModoFilaUI(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-2 text-xs text-white font-bold">
-                  <option value="2A" selected>Opção 2A: Só Subcategorias (Padrão Ativado)</option>
+                  <option value="RADAR">⚡ Camada 1: Radar de Ofertas Relâmpago (~1-2 min)</option>
+                  <option value="2A" selected>⚖️ Camada 2: Varredura de Turno (Subcats 2A • Padrão)</option>
+                  <option value="COMPLETA">🌙 Camada 3: Varredura Noturna Geral (Completa 100%)</option>
                   <option value="2B">Opção 2B: Só Departamentos (Modo Turbo)</option>
-                  <option value="COMPLETA">Completa (Rotas Originais)</option>
                   <option value="CUSTOM">Personalizada Manual</option>
                 </select>
-                <span class="text-[10px] text-slate-500">2A elimina leitura duplicada (2x mais rápido)</span>
+                <div class="flex items-center gap-1 pt-1.5 flex-wrap">
+                  <button type="button" onclick="aplicarPresetCamada('RADAR')" class="text-[9.5px] bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/60 font-bold px-2 py-0.5 rounded">⚡ Preset Radar</button>
+                  <button type="button" onclick="aplicarPresetCamada('2A')" class="text-[9.5px] bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/60 font-bold px-2 py-0.5 rounded">⚖️ Preset Turno</button>
+                  <button type="button" onclick="aplicarPresetCamada('COMPLETA')" class="text-[9.5px] bg-sky-950/80 hover:bg-sky-900 text-sky-300 border border-sky-700/60 font-bold px-2 py-0.5 rounded">🌙 Preset Geral</button>
+                </div>
               </div>
 
               <div>
@@ -1243,9 +1274,54 @@
     function obterFilaPorModoPadrao(modo, mercado = 'koch') {
       const m = String(modo || '2A').toUpperCase();
       const base = mercado === 'fort' ? ROTAS_PADRAO_FORT_140 : ROTAS_PADRAO_KOCH_121;
-      if (m === '2A') return base.filter(r => r.tipo === 'sub' || r.tipo === 'promocoes').map(r => ({ ...r }));
-      if (m === '2B') return base.filter(r => r.tipo === 'depto' || r.tipo === 'promocoes').map(r => ({ ...r }));
+      if (m === 'RADAR' || m === '1' || m === '1A' || m === 'OFERTAS') {
+        return base.filter(r => r.tipo === 'promocoes' || r.tipo === 'home' ||
+          (r.tipo === 'sub' && (
+            r.nome.toLowerCase().includes('bovino') ||
+            r.nome.toLowerCase().includes('frango') ||
+            r.nome.toLowerCase().includes('fruta') ||
+            r.nome.toLowerCase().includes('legume') ||
+            r.nome.toLowerCase().includes('leite') ||
+            r.nome.toLowerCase().includes('cerveja') ||
+            r.nome.toLowerCase().includes('basico') ||
+            r.nome.toLowerCase().includes('graos') ||
+            r.nome.toLowerCase().includes('cafe')
+          ))
+        ).map(r => ({ ...r }));
+      }
+      if (m === '2A' || m === 'TURNO') return base.filter(r => r.tipo === 'sub' || r.tipo === 'promocoes').map(r => ({ ...r }));
+      if (m === '2B' || m === 'DEPTOS') return base.filter(r => r.tipo === 'depto' || r.tipo === 'promocoes').map(r => ({ ...r }));
       return base.map(r => ({ ...r }));
+    }
+
+    function aplicarPresetCamada(camada) {
+      if (document.getElementById('inpConfigModoFila')) document.getElementById('inpConfigModoFila').value = camada;
+      if (document.getElementById('selDisparoCamada')) document.getElementById('selDisparoCamada').value = camada;
+      if (document.getElementById('selModoFilaRapido')) document.getElementById('selModoFilaRapido').value = camada;
+
+      if (camada === 'RADAR') {
+        if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '1';
+        if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = mercadoConfigAtual === 'fort' ? '20' : '36';
+        if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '1500';
+        if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '2400';
+        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '5';
+        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '10';
+      } else if (camada === '2A' || camada === 'TURNO') {
+        if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '3';
+        if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = '12';
+        if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '2200';
+        if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '3800';
+        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '1';
+        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '50';
+      } else if (camada === 'COMPLETA') {
+        if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '5';
+        if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = '12';
+        if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '2200';
+        if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '3800';
+      }
+      aoMudarModoFilaUI(camada);
+      const nomes = { RADAR: '⚡ Radar de Ofertas (1-2 min)', '2A': '⚖️ Varredura de Turno (Subcats 2A)', COMPLETA: '🌙 Varredura Noturna Geral (100%)' };
+      alert(`🎯 Preset aplicado: ${nomes[camada] || camada}!`);
     }
 
     let filaKochEditavel = obterFilaPorModoPadrao('2A', 'koch');
@@ -2472,17 +2548,29 @@
     }
 
     async function acionarRoboNuvemGitHub() {
-      if (!exigirSenhaRobo()) return;
+      if (!await exigirSenhaRobo()) return;
       const token = (localStorage.getItem('koch_github_token') || '').trim();
       const mercadoAlvo = document.getElementById('selDisparoMercado')?.value || 'ambos';
-      const totalMaquinas = String(document.getElementById('inpConfigTotalMaquinas')?.value || '5');
-      const modoFila = String(document.getElementById('inpConfigModoFila')?.value || '2A');
-      const batchSize = String(document.getElementById('inpConfigBatchSize')?.value || '12');
+      const camadaEscolhida = document.getElementById('selDisparoCamada')?.value || document.getElementById('inpConfigModoFila')?.value || '2A';
+      const modoFila = camadaEscolhida;
+
+      let totalMaquinas = String(document.getElementById('inpConfigTotalMaquinas')?.value || '5');
+      let batchSize = String(document.getElementById('inpConfigBatchSize')?.value || '12');
+      let delayPag = String(document.getElementById('inpConfigDelayPag')?.value || '2200');
+      let delayRota = String(document.getElementById('inpConfigDelayRota')?.value || '3800');
+      let salvarAdd = String(document.getElementById('inpConfigSalvarNovos')?.value || '1');
+      let salvarUpd = String(document.getElementById('inpConfigSalvarAtualizados')?.value || '50');
+
+      if (camadaEscolhida === 'RADAR') {
+        totalMaquinas = '1';
+        batchSize = mercadoAlvo === 'fort' ? '20' : '36';
+        delayPag = '1500';
+        delayRota = '2400';
+        salvarAdd = '5';
+        salvarUpd = '10';
+      }
+
       const rotaInicial = String(document.getElementById('inpConfigRotaInicial')?.value || '1');
-      const delayPag = String(document.getElementById('inpConfigDelayPag')?.value || '2200');
-      const delayRota = String(document.getElementById('inpConfigDelayRota')?.value || '3800');
-      const salvarAdd = String(document.getElementById('inpConfigSalvarNovos')?.value || '1');
-      const salvarUpd = String(document.getElementById('inpConfigSalvarAtualizados')?.value || '50');
 
       if (token) {
         try {
@@ -2510,7 +2598,8 @@
             })
           });
           if (resp.status === 204 || resp.ok) {
-            alert(`🚀 Enxame disparado na nuvem (${mercadoAlvo.toUpperCase()}) com ${totalMaquinas} Máquina(s) simultânea(s)! Em ~25 segundos o status mudará para 🟢 RODANDO AO VIVO.`);
+            const rotuloCamada = camadaEscolhida === 'RADAR' ? '⚡ Radar de Ofertas (~1-2 min)' : (camadaEscolhida === 'COMPLETA' ? '🌙 Noturna Completa (100%)' : '⚖️ Varredura de Turno (2A)');
+            alert(`🚀 Robô disparado na nuvem!\n\n🛒 Mercado: ${mercadoAlvo.toUpperCase()}\n🛡️ Camada: ${rotuloCamada}\n🖥️ Máquinas: ${totalMaquinas}\n\nEm ~25s o status mudará para 🟢 RODANDO AO VIVO.`);
             return;
           }
         } catch (e) {}

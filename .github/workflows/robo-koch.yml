@@ -13,7 +13,7 @@ on:
         required: false
         default: "5"
       modo_fila:
-        description: "⚡ Modo da Fila (2A = Só Subcategorias [Padrão], 2B = Só Departamentos, COMPLETA = Todas as Rotas)"
+        description: "⚡ Camada de Rastreamento (RADAR = ⚡ Ofertas Relâmpago 1-2 min, 2A = ⚖️ Varredura Turno Subcategorias, COMPLETA = 🌙 Noturna Geral 100%)"
         required: false
         default: "2A"
       tamanho_lote_size:
@@ -45,9 +45,12 @@ on:
         required: false
         default: "false"
 
-  # 2. Execução automática diária (06:00 da manhã no horário de Brasília / 09:00 UTC)
+  # 2. Execução automática contínua em 3 Camadas:
+  # - Noturna Geral 100% às 03:00 BRT (06:00 UTC)
+  # - Varredura de Turno 2A às 09:00 BRT (12:00 UTC) e 17:00 BRT (20:00 UTC)
+  # - Radar de Ofertas a cada 2h durante o dia (11h, 13h, 15h, 19h, 21h BRT -> 14h, 16h, 18h, 22h, 00h UTC)
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "0 0,6,12,14,16,18,20,22 * * *"
 
 jobs:
   # Etapa 1: Prepara a lista de máquinas do enxame (1 a 10 servidores com IPs independentes)
@@ -58,23 +61,45 @@ jobs:
       total_workers: ${{ steps.calc.outputs.total_workers }}
       swarm_id: ${{ steps.calc.outputs.swarm_id }}
       mercado_escolhido: ${{ steps.calc.outputs.mercado_escolhido }}
+      modo_camada: ${{ steps.calc.outputs.modo_camada }}
     steps:
-      - name: 🧮 Definir parâmetros do Enxame
+      - name: 🧮 Definir parâmetros do Enxame e Camada
         id: calc
         run: |
-          RAW_N="${{ github.event.inputs.total_maquinas }}"
-          if [ -z "$RAW_N" ]; then RAW_N="5"; fi
-          if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="5"; fi
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            HORA_UTC=$(date -u +%H)
+            if [ "$HORA_UTC" = "06" ]; then
+              MODO_CAMADA="COMPLETA"
+              RAW_N="5"
+            elif [ "$HORA_UTC" = "12" ] || [ "$HORA_UTC" = "20" ]; then
+              MODO_CAMADA="2A"
+              RAW_N="3"
+            else
+              MODO_CAMADA="RADAR"
+              RAW_N="1"
+            fi
+            MERCADO="ambos"
+          else
+            MODO_CAMADA="${{ github.event.inputs.modo_fila || '2A' }}"
+            RAW_N="${{ github.event.inputs.total_maquinas }}"
+            if [ -z "$RAW_N" ]; then
+              if [ "$MODO_CAMADA" = "RADAR" ]; then RAW_N="1"; else RAW_N="5"; fi
+            fi
+            MERCADO="${{ github.event.inputs.mercado || 'ambos' }}"
+          fi
+
+          if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="3"; fi
           if [ "$RAW_N" -lt 1 ]; then RAW_N=1; fi
           if [ "$RAW_N" -gt 10 ]; then RAW_N=10; fi
           JSON_ARR=$(seq -s, 1 "$RAW_N" | sed 's/^/[/;s/$/]/')
           SWARM_ID="swarm_$(date +%s)"
-          MERCADO="${{ github.event.inputs.mercado || 'ambos' }}"
+
           echo "workers_json=$JSON_ARR" >> $GITHUB_OUTPUT
           echo "total_workers=$RAW_N" >> $GITHUB_OUTPUT
           echo "swarm_id=$SWARM_ID" >> $GITHUB_OUTPUT
           echo "mercado_escolhido=$MERCADO" >> $GITHUB_OUTPUT
-          echo "Enxame configurado com $RAW_N maquina(s) por mercado (Mercado: $MERCADO | ID: $SWARM_ID)"
+          echo "modo_camada=$MODO_CAMADA" >> $GITHUB_OUTPUT
+          echo "Enxame configurado: Camada $MODO_CAMADA | $RAW_N maquina(s) por mercado (Mercado: $MERCADO | ID: $SWARM_ID)"
 
   # Etapa 2A: Enxame SuperKoch (Loja 1408 Itapema)
   extrator-koch:
@@ -110,7 +135,7 @@ jobs:
           WORKER_ID: ${{ matrix.worker_id }}
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
           SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
-          MODO_FILA: ${{ github.event.inputs.modo_fila || '2A' }}
+          MODO_FILA: ${{ needs.preparar-enxame.outputs.modo_camada }}
           BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '12' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
@@ -162,7 +187,7 @@ jobs:
           WORKER_ID: ${{ matrix.worker_id }}
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
           SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
-          MODO_FILA: ${{ github.event.inputs.modo_fila || '2A' }}
+          MODO_FILA: ${{ needs.preparar-enxame.outputs.modo_camada }}
           BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '12' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
@@ -182,8 +207,8 @@ jobs:
 
   # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort)
   vincular-produtos:
-    needs: [extrator-koch, extrator-fort]
-    if: always() && !cancelled()
+    needs: [preparar-enxame, extrator-koch, extrator-fort]
+    if: always() && !cancelled() && needs.preparar-enxame.outputs.modo_camada != 'RADAR'
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Baixar código do projeto

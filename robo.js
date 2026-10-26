@@ -366,7 +366,22 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
 
   const obterRotasPorModo = (modo, base121 = ROTAS_PADRAO_SEQUENCIAIS) => {
     const m = String(modo || "2A").toUpperCase();
-    if (m === "2A") return base121.filter(r => r.tipo === "sub" || r.tipo === "promocoes");
+    if (m === "RADAR" || m === "1" || m === "1A" || m === "OFERTAS") {
+      return base121.filter(r => r.tipo === "promocoes" || r.tipo === "home" ||
+        (r.tipo === "sub" && (
+          r.nome.toLowerCase().includes("bovino") ||
+          r.nome.toLowerCase().includes("frango") ||
+          r.nome.toLowerCase().includes("fruta") ||
+          r.nome.toLowerCase().includes("legume") ||
+          r.nome.toLowerCase().includes("leite") ||
+          r.nome.toLowerCase().includes("cerveja") ||
+          r.nome.toLowerCase().includes("basico") ||
+          r.nome.toLowerCase().includes("graos") ||
+          r.nome.toLowerCase().includes("cafe")
+        ))
+      );
+    }
+    if (m === "2A" || m === "TURNO") return base121.filter(r => r.tipo === "sub" || r.tipo === "promocoes");
     if (m === "2B") return base121.filter(r => r.tipo === "depto" || r.tipo === "promocoes");
     return [...base121];
   };
@@ -579,11 +594,18 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
 
       <!-- ABA 1: FILA SEQUENCIAL DE LINKS / CATEGORIAS -->
       <div id="koch-view-fila" style="display:flex;flex-direction:column;padding:8px;gap:6px;">
+        <!-- SELETOR DAS 3 CAMADAS -->
+        <div style="display:flex;gap:4px;background:#020617;padding:3px;border-radius:6px;border:1px solid #1e293b;">
+          <button id="koch-camada-btn-radar" style="flex:1;background:#1e293b;color:#fde047;border:1px solid #854d0e;border-radius:4px;padding:3px 2px;font-size:9.5px;font-weight:800;">⚡ Radar (~10)</button>
+          <button id="koch-camada-btn-turno" style="flex:1;background:#064e3b;color:#6ee7b7;border:1px solid #059669;border-radius:4px;padding:3px 2px;font-size:9.5px;font-weight:800;">⚖️ Turno 2A</button>
+          <button id="koch-camada-btn-completa" style="flex:1;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:4px;padding:3px 2px;font-size:9.5px;font-weight:800;">🌙 Geral (100%)</button>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-          <span style="color:#94a3b8;font-size:10px;">Clique em qualquer categoria para iniciar/retomar exatamente dela:</span>
+          <span style="color:#94a3b8;font-size:10px;">Clique em qualquer categoria para iniciar/retomar dela:</span>
           <div style="display:flex;gap:4px;">
-            <button id="koch-btn-edit-urls" style="background:#1e293b;color:#38bdf8;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-size:9.5px;font-weight:700;">✏️ Editar Links</button>
-            <button id="koch-btn-reset-checkpoint" title="Zerar progresso e voltar ao Link #1" style="background:#1e293b;color:#fca5a5;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-size:9.5px;font-weight:700;">↺ Resetar Fila</button>
+            <button id="koch-btn-edit-urls" style="background:#1e293b;color:#38bdf8;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-size:9.5px;font-weight:700;">✏️ Editar</button>
+            <button id="koch-btn-reset-checkpoint" title="Zerar progresso e voltar ao Link #1" style="background:#1e293b;color:#fca5a5;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-size:9.5px;font-weight:700;">↺ Resetar</button>
           </div>
         </div>
 
@@ -940,6 +962,58 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
     renderizarListaRotas();
     atualizarUI("↺ Fila reiniciada do #1", "Checkpoint zerado. Pronto para começar do 1º link.", 0);
     registrarLog("OK", "Checkpoint", "Progresso de fila resetado para o link #1.");
+  };
+
+  const btnCamadaRadar = document.getElementById("koch-camada-btn-radar");
+  const btnCamadaTurno = document.getElementById("koch-camada-btn-turno");
+  const btnCamadaCompleta = document.getElementById("koch-camada-btn-completa");
+
+  const atualizarBotoesCamadaUI = (ativa) => {
+    if (btnCamadaRadar) {
+      btnCamadaRadar.style.background = ativa === "RADAR" ? "#854d0e" : "#1e293b";
+      btnCamadaRadar.style.color = ativa === "RADAR" ? "#fef08a" : "#fde047";
+    }
+    if (btnCamadaTurno) {
+      btnCamadaTurno.style.background = ativa === "2A" ? "#064e3b" : "#1e293b";
+      btnCamadaTurno.style.color = ativa === "2A" ? "#6ee7b7" : "#94a3b8";
+    }
+    if (btnCamadaCompleta) {
+      btnCamadaCompleta.style.background = ativa === "COMPLETA" ? "#1e3a8a" : "#1e293b";
+      btnCamadaCompleta.style.color = ativa === "COMPLETA" ? "#93c5fd" : "#94a3b8";
+    }
+  };
+
+  if (btnCamadaRadar) btnCamadaRadar.onclick = () => {
+    config.modoFila = "RADAR";
+    rotasAtivas = obterRotasPorModo("RADAR");
+    limparCheckpointLocal();
+    renderizarListaRotas();
+    atualizarBotoesCamadaUI("RADAR");
+    btnStart.innerText = `▶ Iniciar Radar (${rotasAtivas.length} links)`;
+    atualizarUI("⚡ Camada Radar", `Fila com ${rotasAtivas.length} rotas de ofertas relâmpago (~1-2 min).`, 0);
+    registrarLog("OK", "Camada", `Modo alternado para Camada 1: Radar de Ofertas (${rotasAtivas.length} rotas).`);
+  };
+
+  if (btnCamadaTurno) btnCamadaTurno.onclick = () => {
+    config.modoFila = "2A";
+    rotasAtivas = obterRotasPorModo("2A");
+    limparCheckpointLocal();
+    renderizarListaRotas();
+    atualizarBotoesCamadaUI("2A");
+    btnStart.innerText = `▶ Iniciar Turno (${rotasAtivas.length} links)`;
+    atualizarUI("⚖️ Camada Turno 2A", `Fila com ${rotasAtivas.length} subcategorias sem duplicações.`, 0);
+    registrarLog("OK", "Camada", `Modo alternado para Camada 2: Varredura de Turno (${rotasAtivas.length} rotas).`);
+  };
+
+  if (btnCamadaCompleta) btnCamadaCompleta.onclick = () => {
+    config.modoFila = "COMPLETA";
+    rotasAtivas = obterRotasPorModo("COMPLETA");
+    limparCheckpointLocal();
+    renderizarListaRotas();
+    atualizarBotoesCamadaUI("COMPLETA");
+    btnStart.innerText = `▶ Iniciar Geral (${rotasAtivas.length} links)`;
+    atualizarUI("🌙 Camada Noturna", `Fila com todas as ${rotasAtivas.length} rotas do catálogo 100%.`, 0);
+    registrarLog("OK", "Camada", `Modo alternado para Camada 3: Varredura Geral 100% (${rotasAtivas.length} rotas).`);
   };
 
   // Sistema de Logs
@@ -1609,6 +1683,19 @@ async function roboExtratorInfiltradoV6(fbBaseUrl, mercadoForcado = null, authSe
       const listaSegura = Array.from(mapaProdutos.values());
       if (estado.totalInicialFirebase > 0 && listaSegura.length < estado.totalInicialFirebase) {
         registrarLog("INESPERADO", "Proteção Firebase", `Gravação abortada por segurança: lista atual (${listaSegura.length}) menor que o banco original (${estado.totalInicialFirebase}).`);
+        return;
+      }
+
+      const houveMudancas = estado.novosDesdeUltimoSave > 0 || estado.atualizadosDesdeUltimoSave > 0 || motivo.includes("Final") || motivo.includes("Manual");
+      if (!houveMudancas) {
+        await fetch(comAuth(FIREBASE_ENDPOINT), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            atualizadoEm: new Date().toISOString(),
+            "resumoUltimaSessao/motivoUltimoSave": `${motivo} (Sem alterações)`
+          })
+        }).catch(() => {});
         return;
       }
 
