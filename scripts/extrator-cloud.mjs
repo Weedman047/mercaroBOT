@@ -77,21 +77,78 @@ const CONFIG = {
   modoFila: MODO_CAMADA_BRUTO,
   usarProxy: false,
   listaProxies: [],
-  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || (EH_MODO_RADAR ? 5 : 1)),
-  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || (EH_MODO_RADAR ? 10 : 50)),
-  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || (EH_MODO_RADAR ? 15000 : 25000)),
-  autoSaveEveryDepto: true,
+  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 50),
+  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 200),
+  intervaloSavePeriodicoMs: 30 * 60 * 1000, // Salva a cada 30 minutos se houver alterações pendentes
+  cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000),
+  autoSaveEveryDepto: false,
   startIndex: Math.max(0, (Number(process.env.START_INDEX) || 1) - 1),
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
 };
 
 const ROTAS_PADRAO_SEQUENCIAIS = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
 
+function sincronizarIdsOficiaisNasRotas(rotas = [], htmlSsr = "") {
+  if (!Array.isArray(rotas)) return rotas;
+  const mapaPadraoPorPath = new Map();
+  const mapaPadraoPorNome = new Map();
+  for (const rPad of ROTAS_PADRAO_SEQUENCIAIS) {
+    if (rPad.pathReal && rPad.id) mapaPadraoPorPath.set(rPad.pathReal.toLowerCase(), String(rPad.id));
+    if (rPad.url && rPad.id) mapaPadraoPorPath.set(rPad.url.toLowerCase(), String(rPad.id));
+    if (rPad.nome && rPad.id) mapaPadraoPorNome.set(rPad.nome.toLowerCase(), String(rPad.id));
+  }
+
+  for (const r of rotas) {
+    if (!r || r.tipo === "promocoes" || r.tipo === "promocao" || r.tipo === "home" || r.tipo === "categorias_index") {
+      if (r && (r.tipo === "promocoes" || r.tipo === "promocao") && !EH_FORT) r.id = null;
+      continue;
+    }
+    const idPorPath = (r.pathReal && mapaPadraoPorPath.get(String(r.pathReal).toLowerCase())) ||
+      (r.url && mapaPadraoPorPath.get(String(r.url).toLowerCase())) ||
+      (r.nome && mapaPadraoPorNome.get(String(r.nome).toLowerCase()));
+    if (idPorPath) {
+      r.id = idPorPath;
+    }
+  }
+
+  if (htmlSsr && typeof htmlSsr === "string" && htmlSsr.includes("StorefrontCategory:")) {
+    const regexCat = /"StorefrontCategory:(\d+)"\s*:\s*\{([^}]+)\}/g;
+    const listaSsr = [];
+    let m;
+    while ((m = regexCat.exec(htmlSsr)) !== null) {
+      const idCat = m[1];
+      const corpo = m[2];
+      const mSlug = corpo.match(/"slug"\s*:\s*"([^"]+)"/);
+      if (idCat && mSlug && mSlug[1]) {
+        listaSsr.push({ id: idCat, slug: mSlug[1].toLowerCase() });
+      }
+    }
+    if (listaSsr.length > 0) {
+      // Mapeia slugs únicos diretamente
+      const contagemSlug = new Map();
+      for (const item of listaSsr) {
+        contagemSlug.set(item.slug, (contagemSlug.get(item.slug) || 0) + 1);
+      }
+      for (const r of rotas) {
+        if (!r || !r.pathReal) continue;
+        const partes = String(r.pathReal).toLowerCase().split("/").filter(Boolean);
+        const ultimoSlug = partes[partes.length - 1];
+        if (ultimoSlug && contagemSlug.get(ultimoSlug) === 1) {
+          const achado = listaSsr.find((x) => x.slug === ultimoSlug);
+          if (achado) r.id = achado.id;
+        }
+      }
+    }
+  }
+  return rotas;
+}
+
 // =========================================================================
 // SELETOR DINÂMICO DE FILAS POR CAMADA (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA)
 // =========================================================================
 function obterRotasFiltradasPorModo(modo, filaCustom = null) {
-  return obterRotasPorCamada(MERCADO_ALVO, modo, filaCustom);
+  const selecionadas = obterRotasPorCamada(MERCADO_ALVO, modo, filaCustom);
+  return sincronizarIdsOficiaisNasRotas(selecionadas);
 }
 
 let ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
@@ -754,10 +811,10 @@ async function carregarProtegerFirebaseInicial() {
         sessao.ultimoComandoIdProcessado = Number(cAntigo.id || cAntigo.timestamp || 0);
       }
       if (cAntigo?.config) {
-        if (Number(cAntigo.config.salvarAoAdicionar) >= 1) CONFIG.salvarAoAdicionar = Number(cAntigo.config.salvarAoAdicionar);
-        if (Number(cAntigo.config.salvarAoAtualizar) >= 1) CONFIG.salvarAoAtualizar = Number(cAntigo.config.salvarAoAtualizar);
+        if (Number(cAntigo.config.salvarAoAdicionar) >= 10) CONFIG.salvarAoAdicionar = Number(cAntigo.config.salvarAoAdicionar);
+        if (Number(cAntigo.config.salvarAoAtualizar) >= 25) CONFIG.salvarAoAtualizar = Number(cAntigo.config.salvarAoAtualizar);
         if (Number(cAntigo.config.size) >= 12) CONFIG.size = Math.min(MAX_ALLOWED_SIZE, Number(cAntigo.config.size));
-        if (cAntigo.config.modoFila && !process.env.MODO_FILA) CONFIG.modoFila = String(cAntigo.config.modoFila).toUpperCase();
+        if (cAntigo.config.modoFila && !process.env.MODO_FILA && !process.env.MODO_CAMADA) CONFIG.modoFila = String(cAntigo.config.modoFila).toUpperCase();
         if (typeof cAntigo.config.usarProxy === "boolean") CONFIG.usarProxy = cAntigo.config.usarProxy;
         if (Array.isArray(cAntigo.config.listaProxies)) CONFIG.listaProxies = cAntigo.config.listaProxies.filter(Boolean);
       }
@@ -1080,8 +1137,8 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     // Grava também nó compacto de últimas alterações (alimentação rápida do front-end sem ler 12MB)
     if (houveAlteracoes) {
       const alteracoesRecentes = [
-        ...sessao.ultimosPrecosAlterados.slice(0, 30),
-        ...sessao.ultimosNovos.slice(0, 20)
+        ...(enxame.precosListaCombinada || sessao.ultimosPrecosAlterados).slice(0, 45),
+        ...(enxame.novosListaCombinada || sessao.ultimosNovos).slice(0, 35)
       ];
       await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/ultimas_alteracoes_${EH_FORT ? "fort" : "koch"}.json`), {
         method: "PUT",
@@ -1113,7 +1170,7 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
 
 async function verificarAutoSaveInteligente(contextoCurto = "", fimDeRota = false) {
   if (!SOU_MAESTRO) {
-    if (fimDeRota || sessao.novosDesdeUltimoSave >= 1 || sessao.atualizadosDesdeUltimoSave >= 20) {
+    if (fimDeRota || sessao.novosDesdeUltimoSave >= 5 || sessao.atualizadosDesdeUltimoSave >= 25) {
       await publicarEstadoWorkerNoEnxame();
       sessao.novosDesdeUltimoSave = 0;
       sessao.atualizadosDesdeUltimoSave = 0;
@@ -1125,17 +1182,23 @@ async function verificarAutoSaveInteligente(contextoCurto = "", fimDeRota = fals
     await absorverEnxameNoMaestro();
   }
 
+  const tempoDesdeUltimoSave = Date.now() - sessao.ultimoSaveMs;
   const atingiuMetaNovos = sessao.novosDesdeUltimoSave >= CONFIG.salvarAoAdicionar;
   const atingiuMetaAtualizados = sessao.atualizadosDesdeUltimoSave >= CONFIG.salvarAoAtualizar;
+  const temAlteracaoPendente = sessao.novosDesdeUltimoSave > 0 || sessao.atualizadosDesdeUltimoSave > 0;
+  const atingiuTempoPeriodico = temAlteracaoPendente && tempoDesdeUltimoSave >= CONFIG.intervaloSavePeriodicoMs;
 
-  if (!atingiuMetaNovos && !atingiuMetaAtualizados) return;
+  if (!atingiuMetaNovos && !atingiuMetaAtualizados && !atingiuTempoPeriodico) return;
+  if (!fimDeRota && !atingiuTempoPeriodico && tempoDesdeUltimoSave < CONFIG.cooldownSaveMs) return;
 
-  const tempoDesdeUltimoSave = Date.now() - sessao.ultimoSaveMs;
-  if (!fimDeRota && tempoDesdeUltimoSave < CONFIG.cooldownSaveMs) return;
-
-  const motivoDetalhe = atingiuMetaNovos
-    ? `+${sessao.novosDesdeUltimoSave} novo(s) (${contextoCurto})`
-    : `${sessao.atualizadosDesdeUltimoSave} atualizados (${contextoCurto})`;
+  let motivoDetalhe = "";
+  if (atingiuMetaNovos) {
+    motivoDetalhe = `+${sessao.novosDesdeUltimoSave} novos (Meta ${CONFIG.salvarAoAdicionar} • ${contextoCurto})`;
+  } else if (atingiuMetaAtualizados) {
+    motivoDetalhe = `${sessao.atualizadosDesdeUltimoSave} atualizados (Meta ${CONFIG.salvarAoAtualizar} • ${contextoCurto})`;
+  } else {
+    motivoDetalhe = `Auto-Save 30min (+${sessao.novosDesdeUltimoSave} novos / ${sessao.atualizadosDesdeUltimoSave} atualizados)`;
+  }
 
   await gravarComSegurancaNoFirebase(motivoDetalhe);
 }
@@ -1157,7 +1220,9 @@ function montarUrlOficial({ storePath = DEFAULT_STORE_PATH, promo = false, size 
   q.push("search=");
   q.push("sortField=sales_count");
   q.push("sortOrder=desc");
-  if (categoryId && categoryId !== "PROMO_FORT") q.push(`categoryId=${encodeURIComponent(categoryId)}`);
+  if (categoryId && categoryId !== "PROMO_FORT" && categoryId !== "PROMO_KOCH") {
+    q.push(`categoryId=${encodeURIComponent(categoryId)}`);
+  }
   const urlFinal = `${base}?${q.join("&")}`;
 
   if (CONFIG.usarProxy && Array.isArray(CONFIG.listaProxies) && CONFIG.listaProxies.length > 0) {
@@ -1195,77 +1260,92 @@ async function executarRoboCloud() {
 
   const userAgentNativo = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${129 + (WORKER_ID % 3)}.0.0.0 Safari/537.36`;
 
-  registrarLog("OK", "Navegador", `Iniciando navegador da Máquina #${WORKER_ID}/${TOTAL_WORKERS} (IP: ${WORKER_PUBLIC_IP})...`);
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
-  });
-
-  const context = await browser.newContext({
-    locale: "pt-BR",
-    timezoneId: "America/Sao_Paulo",
-    userAgent: userAgentNativo,
-    viewport: { width: 1366, height: 768 }
-  });
-
-  // INJEÇÃO ANTECIPADA DO COOKIE DA LOJA CORRETA (1644 no Fort ou 1408 no Koch)
-  await context.addCookies([
-    {
-      name: COOKIE_LOJA_NOME,
-      value: COOKIE_LOJA_VALOR,
-      domain: COOKIE_LOJA_DOMINIO,
-      path: "/"
-    }
-  ]);
-
-  const page = await context.newPage();
+  let browser = null;
+  let context = null;
+  let page = null;
   let tokenCapturado = "";
   let storePath = DEFAULT_STORE_PATH;
 
-  page.on("request", (req) => {
-    const url = req.url();
-    if (url.includes("sense.osuper.com.br") && url.includes("/v2/search")) {
-      try {
-        const u = new URL(url);
-        storePath = u.pathname;
-      } catch {}
-    }
-    const tk = req.headers()["x-osuper-identity-token"] || req.headers()["x-osuper-search-token"];
-    if (tk && tk !== tokenCapturado) {
-      tokenCapturado = tk;
-      registrarLog("OK", "Token", `Token de busca capturado via tráfego de rede.`);
-    }
-  });
+  async function garantirNavegadorFallback() {
+    if (page && context && browser) return;
+    registrarLog("OK", "Navegador", `Iniciando navegador auxiliar da Máquina #${WORKER_ID}/${TOTAL_WORKERS} (IP: ${WORKER_PUBLIC_IP})...`);
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+    });
+    context = await browser.newContext({
+      locale: "pt-BR",
+      timezoneId: "America/Sao_Paulo",
+      userAgent: userAgentNativo,
+      viewport: { width: 1366, height: 768 }
+    });
+    await context.addCookies([
+      {
+        name: COOKIE_LOJA_NOME,
+        value: COOKIE_LOJA_VALOR,
+        domain: COOKIE_LOJA_DOMINIO,
+        path: "/"
+      }
+    ]);
+    page = await context.newPage();
+    page.on("request", (req) => {
+      const url = req.url();
+      if (url.includes("sense.osuper.com.br") && url.includes("/v2/search")) {
+        try {
+          const u = new URL(url);
+          storePath = u.pathname;
+        } catch {}
+      }
+      const tk = req.headers()["x-osuper-identity-token"] || req.headers()["x-osuper-search-token"];
+      if (tk && tk !== tokenCapturado) {
+        tokenCapturado = tk;
+        registrarLog("OK", "Token", `Token de busca capturado via tráfego de rede.`);
+      }
+    });
+  }
 
   async function renovarSessaoETokenAutomatico(motivoRenovacao = "Token solicitado") {
     try {
-      registrarLog("AVISO", "Token", `${motivoRenovacao} — Coletando novo token...`);
+      registrarLog("OK", "Sessão HTTP", `${motivoRenovacao} — Sincronizando loja ${LOJA_ID} (${MERCADO_NOME})...`);
       tokenCapturado = "";
 
-      // 1. FAST-PATH HTTP: Extração instantânea sem peso de renderizar navegador (~300ms)
-      if (EH_FORT) {
-        try {
-          const resHome = await fetch(SITE_URL, {
-            headers: {
-              "User-Agent": userAgentNativo,
-              "Cookie": `${COOKIE_LOJA_NOME}=${COOKIE_LOJA_VALOR}`
-            },
-            signal: AbortSignal.timeout(8000)
-          });
-          if (resHome.ok) {
-            const html = await resHome.text();
-            const m = html.match(/"searchEngineToken"\s*:\s*"([^"]+)"/);
-            if (m && m[1] && m[1].startsWith("v1.334.1644.")) {
-              tokenCapturado = m[1];
-              registrarLog("OK", "Token", `Token Fort obtido em 300ms (Loja 1644 confirmada): ${tokenCapturado.slice(0, 24)}...`);
-              return;
+      // 1. FAST-PATH HTTP DIRETO (~300ms para Fort e SuperKoch!)
+      try {
+        const resHome = await fetch(SITE_URL, {
+          headers: {
+            "User-Agent": userAgentNativo,
+            "Cookie": `${COOKIE_LOJA_NOME}=${COOKIE_LOJA_VALOR}`
+          },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (resHome.ok) {
+          const html = await resHome.text();
+          // Sincroniza IDs reais de StorefrontCategory da loja ativa (ex: 1408 no Koch ou 1644 no Fort)
+          sincronizarIdsOficiaisNasRotas(ROTAS_ATIVAS, html);
+
+          const mEngine = html.match(/"searchEngineToken"\s*:\s*"([^"]+)"/);
+          const mIdentity = html.match(/"searchIdentityToken"\s*:\s*"([^"]+)"/);
+
+          if (EH_FORT && mEngine && mEngine[1] && mEngine[1].startsWith("v1.334.1644.")) {
+            tokenCapturado = mEngine[1];
+            registrarLog("OK", "Token", `Token Fort obtido via Fast-Path HTTP (Loja 1644 confirmada): ${tokenCapturado.slice(0, 24)}...`);
+            return;
+          } else if (!EH_FORT) {
+            if (mIdentity && mIdentity[1]) {
+              tokenCapturado = mIdentity[1];
+            } else if (mEngine && mEngine[1]) {
+              tokenCapturado = mEngine[1];
             }
+            registrarLog("OK", "Sessão Koch", `Loja 1408 sincronizada via Fast-Path HTTP (${ROTAS_ATIVAS.length} rotas prontas).`);
+            return;
           }
-        } catch (eHttp) {
-          registrarLog("AVISO", "Token", `Fast-path HTTP oscilou (${eHttp.message}). Recorrendo ao navegador...`);
         }
-      } else {
-        // SuperKoch GraphQL Fast-Path
+      } catch (eHttp) {
+        registrarLog("AVISO", "Token", `Fast-path HTTP oscilou (${eHttp.message}).`);
+      }
+
+      if (!EH_FORT) {
+        // SuperKoch GraphQL opcional
         try {
           const rGql = await fetch("https://api.superkoch.com.br:443/storefront/graphql", {
             method: "POST",
@@ -1279,37 +1359,38 @@ async function executarRoboCloud() {
               variables: {},
               query: "query SearchIdentityTokenQuery { customerViewer { id searchIdentityToken } }"
             }),
-            signal: AbortSignal.timeout(8000)
+            signal: AbortSignal.timeout(6000)
           });
           if (rGql.ok) {
             const jGql = await rGql.json();
             const tkGql = jGql?.data?.customerViewer?.searchIdentityToken;
             if (tkGql) {
               tokenCapturado = tkGql;
-              registrarLog("OK", "Token", `Token Koch obtido via GraphQL em 300ms.`);
+              registrarLog("OK", "Token", `Token Koch obtido via GraphQL.`);
               return;
             }
           }
         } catch {}
       }
 
-      // 2. Fallback Playwright DOM
+      // 2. Fallback Playwright DOM (só abre navegador se realmente precisar)
+      await garantirNavegadorFallback();
       await page.goto(SITE_URL, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
-      await dormirHumano(2500);
+      await dormirHumano(2000);
 
       const tkEval = await page.evaluate(async (ehFort) => {
         try {
           if (ehFort) {
             return window.INITIAL_STATE?.app?.searchEngineToken || "";
           } else {
-            return window.INITIAL_STATE?.auth?.searchIdentityToken || "";
+            return window.INITIAL_STATE?.auth?.searchIdentityToken || window.INITIAL_STATE?.app?.searchEngineToken || "";
           }
         } catch { return ""; }
       }, EH_FORT);
 
       if (tkEval) {
         tokenCapturado = tkEval;
-        registrarLog("OK", "Token", `Token obtido via SSR HTML (${EH_FORT ? "searchEngineToken" : "searchIdentityToken"}).`);
+        registrarLog("OK", "Token", `Token obtido via navegador (${EH_FORT ? "searchEngineToken" : "searchIdentityToken"}).`);
       }
     } catch (e) {
       registrarLog("ERRO", "Token", `Erro ao tentar renovar sessão: ${e.message}`);
@@ -1349,8 +1430,9 @@ async function executarRoboCloud() {
           resultado = { ok: false, status: res.status, error: `HTTP ${res.status}` };
         }
       } catch (errDirect) {
-        // 2. MOTOR SECUNDÁRIO: Playwright context.request (compartilha sessão/cookies HTTP nativos)
+        // 2. MOTOR SECUNDÁRIO: Playwright context.request (inicia navegador sob demanda se necessário)
         try {
+          await garantirNavegadorFallback();
           const respContext = await context.request.get(url, {
             headers: {
               "Accept": "application/json, text/plain, */*",
@@ -1367,6 +1449,7 @@ async function executarRoboCloud() {
         } catch (errContext) {
           // 3. MOTOR TERCIÁRIO: page.evaluate no navegador
           try {
+            await garantirNavegadorFallback();
             resultado = await page.evaluate(async ({ targetUrl, tk, headerName }) => {
               try {
                 const h = { accept: "application/json, text/plain, */*" };
@@ -1637,7 +1720,7 @@ async function executarRoboCloud() {
       }
     }
   } finally {
-    await browser.close();
+    if (browser) await browser.close().catch(() => {});
   }
 }
 

@@ -587,9 +587,12 @@
 
         <!-- ABA 2: PREÇOS ATUALIZADOS (ANTIGO -> NOVO) -->
         <div id="viewRobo-precos" class="hidden space-y-2.5">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <h4 class="text-xs font-black text-amber-400">🔄 Produtos com Preço Atualizado na Sessão</h4>
-            <p class="text-[11px] text-slate-400">Só grava histórico quando o preço realmente muda (salva a cada <span id="lblMetaAtualizar">50</span> atualizados sem parar o robô)</p>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-black text-amber-400">🔄 Produtos com Preço Atualizado na Sessão</h4>
+              <p class="text-[11px] text-slate-400">Grava histórico quando o preço muda (auto-save a cada <span id="lblMetaAtualizar">200</span> atualizados, 50 novos ou 30 min)</p>
+            </div>
+            <span id="lblResumoAbaPrecos" class="text-[10px] font-mono bg-slate-950 text-amber-300 border border-amber-800/60 px-2.5 py-1 rounded-lg shrink-0">0 alterações listadas</span>
           </div>
           <div id="listaPrecosAlteradosRobo" class="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">
@@ -600,9 +603,12 @@
 
         <!-- ABA 3: NOVOS PRODUTOS ADICIONADOS -->
         <div id="viewRobo-novos" class="hidden space-y-2.5">
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-            <h4 class="text-xs font-black text-emerald-400">🟢 Novos Produtos Descobertos e Adicionados</h4>
-            <p class="text-[11px] text-slate-400">Produtos inéditos adicionados ao Firebase (salva ao adicionar <span id="lblMetaAdicionar">1</span> novo sem parar o robô)</p>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 class="text-xs font-black text-emerald-400">🟢 Novos Produtos Descobertos e Adicionados</h4>
+              <p class="text-[11px] text-slate-400">Produtos inéditos adicionados ao catálogo (auto-save a cada <span id="lblMetaAdicionar">50</span> novos, 200 atualizados ou 30 min)</p>
+            </div>
+            <span id="lblResumoAbaNovos" class="text-[10px] font-mono bg-slate-950 text-emerald-300 border border-emerald-800/60 px-2.5 py-1 rounded-lg shrink-0">0 novos listados</span>
           </div>
           <div id="listaNovosAdicionadosRobo" class="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">
@@ -792,22 +798,22 @@
           </div>
 
           <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 space-y-3">
-            <h4 class="text-xs font-black text-emerald-400 uppercase tracking-wide">💾 Regra de Salvamento Inteligente (Nunca Para o Robô)</h4>
+            <h4 class="text-xs font-black text-emerald-400 uppercase tracking-wide">💾 Regra de Salvamento Inteligente (50 Novos • 200 Atualizados • 30 Min • Pausar/Parar/Concluir)</h4>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label class="block text-[11px] text-slate-300 font-bold mb-1">Salvar ao Adicionar X Novos:</label>
-                <input id="inpConfigSalvarNovos" type="number" min="1" max="500" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
-                <span class="text-[10px] text-slate-500">Padrão: 1 produto novo</span>
+                <input id="inpConfigSalvarNovos" type="number" min="1" max="500" value="50" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Padrão: 50 produtos novos</span>
               </div>
               <div>
                 <label class="block text-[11px] text-slate-300 font-bold mb-1">Salvar ao Atualizar X Preços/Est.:</label>
-                <input id="inpConfigSalvarAtualizados" type="number" min="1" max="1000" value="50" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
-                <span class="text-[10px] text-slate-500">Padrão: 50 atualizados</span>
+                <input id="inpConfigSalvarAtualizados" type="number" min="1" max="1000" value="200" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
+                <span class="text-[10px] text-slate-500">Padrão: 200 itens modificados</span>
               </div>
               <div>
-                <label class="block text-[11px] text-slate-300 font-bold mb-1">Respiro Mínimo entre Saves (seg):</label>
+                <label class="block text-[11px] text-slate-300 font-bold mb-1">Save Periódico / Respiro (seg):</label>
                 <input id="inpConfigCooldownSeg" type="number" min="10" max="300" value="25" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-bold">
-                <span class="text-[10px] text-slate-500">Evita lentidão durante rolagem</span>
+                <span class="text-[10px] text-slate-500">+ Auto-save garantido a cada 30 min</span>
               </div>
             </div>
           </div>
@@ -1053,150 +1059,150 @@
 
     const FALLBACK_IMG = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f3f4f6%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%239ca3af%22%20font-family%3D%22sans-serif%22%20font-size%3D%2214%22%20font-weight%3D%22bold%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3ESem%20Foto%3C%2Ftext%3E%3C%2Fsvg%3E";
 
-    // Lista das 121 rotas padrão completas (para exibição e edição da Fila)
+    // Lista das 143 rotas padrão completas da Loja 1408 Itapema (para exibição e edição da Fila)
     const ROTAS_PADRAO_121 = [
       { url: "https://www.superkoch.com.br/", pathReal: "/", tipo: "home", id: null, depto: "Página Inicial", nome: "Página Inicial (Home)" },
       { url: "https://www.superkoch.com.br/categorias", pathReal: "/categorias", tipo: "categorias_index", id: null, depto: "Categorias", nome: "Índice Geral de Categorias" },
-      { url: "https://www.superkoch.com.br/categorias/eletro", pathReal: "/categorias/eletro", tipo: "depto", id: "3660261", depto: "Eletro", nome: "Eletro (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/smart-tv", pathReal: "/categorias/eletro/smart-tv", tipo: "sub", id: "3660262", depto: "Eletro", nome: "Eletro > Smart Tv" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/ar-condicionado", pathReal: "/categorias/eletro/ar-condicionado", tipo: "sub", id: "3660264", depto: "Eletro", nome: "Eletro > Ar Condicionado" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/eletroportateis", pathReal: "/categorias/eletro/eletroportateis", tipo: "sub", id: "3660265", depto: "Eletro", nome: "Eletro > Eletroportáteis" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/forno-e-micro-ondas", pathReal: "/categorias/eletro/forno-e-microondas", tipo: "sub", id: "3660289", depto: "Eletro", nome: "Eletro > Forno e Micro-ondas" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/informatica-e-eletronicos", pathReal: "/categorias/eletro/informatica-e-eletronicos", tipo: "sub", id: "3660291", depto: "Eletro", nome: "Eletro > Informática e Eletrônicos" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/beleza-e-cuidado-pessoais", pathReal: "/categorias/eletro/beleza-e-cuidado-pessoais", tipo: "sub", id: "3660293", depto: "Eletro", nome: "Eletro > Beleza e Cuidado Pessoais" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/cooktop", pathReal: "/categorias/eletro/cooktop", tipo: "sub", id: "3660294", depto: "Eletro", nome: "Eletro > Cooktop" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/adega", pathReal: "/categorias/eletro/adega", tipo: "sub", id: "3660295", depto: "Eletro", nome: "Eletro > Adega" },
-      { url: "https://www.superkoch.com.br/categorias/eletro/centrifuga-e-secadora", pathReal: "/categorias/eletro/centrifuga-e-secadora", tipo: "sub", id: "3660296", depto: "Eletro", nome: "Eletro > Centrifuga e Secadora" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3659965", depto: "Hortifruti", nome: "Hortifruti (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas", pathReal: "/categorias/hortifruti/frutas", tipo: "sub", id: "3659966", depto: "Hortifruti", nome: "Hortifruti > Frutas" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/legumes", pathReal: "/categorias/hortifruti/legumes", tipo: "sub", id: "3660005", depto: "Hortifruti", nome: "Hortifruti > Legumes" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/ovos", pathReal: "/categorias/hortifruti/ovos", tipo: "sub", id: "3660040", depto: "Hortifruti", nome: "Hortifruti > Ovos" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/verduras", pathReal: "/categorias/hortifruti/verduras", tipo: "sub", id: "3660045", depto: "Hortifruti", nome: "Hortifruti > Verduras" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/flores-plantas-e-sementes", pathReal: "/categorias/hortifruti/flores-plantas-e-sementes", tipo: "sub", id: "3660081", depto: "Hortifruti", nome: "Hortifruti > Flores, Plantas e Sementes" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/organicos", pathReal: "/categorias/hortifruti/organicos", tipo: "sub", id: "3660086", depto: "Hortifruti", nome: "Hortifruti > Orgânicos" },
-      { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas-secas", pathReal: "/categorias/hortifruti/frutas-secas", tipo: "sub", id: "3660121", depto: "Hortifruti", nome: "Hortifruti > Frutas Secas" },
-      { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886562", depto: "Açougue", nome: "Açougue (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/carnes-bovinas", pathReal: "/categorias/acougue/carnes-bovinas", tipo: "sub", id: "3886563", depto: "Açougue", nome: "Açougue > Carnes Bovinas" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/frango", pathReal: "/categorias/acougue/frango", tipo: "sub", id: "3886569", depto: "Açougue", nome: "Açougue > Frango" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/carne-suina", pathReal: "/categorias/acougue/carne-suina", tipo: "sub", id: "3886577", depto: "Açougue", nome: "Açougue > Carne Suína" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/linguica", pathReal: "/categorias/acougue/linguica", tipo: "sub", id: "3886580", depto: "Açougue", nome: "Açougue > Linguiça" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/pao-de-alho", pathReal: "/categorias/acougue/pao-de-alho", tipo: "sub", id: "3886592", depto: "Açougue", nome: "Açougue > Pão de Alho" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/peixes-e-frutos-do-mar", pathReal: "/categorias/acougue/peixes-e-frutos-do-mar", tipo: "sub", id: "3886583", depto: "Açougue", nome: "Açougue > Peixes e Frutos do Mar" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/queijo-coalho", pathReal: "/categorias/acougue/queijo-coalho", tipo: "sub", id: "3886586", depto: "Açougue", nome: "Açougue > Queijo Coalho" },
-      { url: "https://www.superkoch.com.br/categorias/acougue/carnes-especiais-e-aves", pathReal: "/categorias/acougue/carnes-especiais-aves-comemo", tipo: "sub", id: "3886588", depto: "Açougue", nome: "Açougue > Carnes Especiais & Aves" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3659907", depto: "Frios & Laticínios", nome: "Frios & Laticínios (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/leite", pathReal: "/categorias/frios-laticinios/leite", tipo: "sub", id: "3659921", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Leite" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/queijos", pathReal: "/categorias/frios-laticinios/queijos", tipo: "sub", id: "3659908", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Queijos" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/iogurte", pathReal: "/categorias/frios-laticinios/iogurte", tipo: "sub", id: "3659928", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Iogurte" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/embutidos", pathReal: "/categorias/frios-laticinios/embutidos", tipo: "sub", id: "3659941", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Embutidos" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/requeijao-e-queijo-cremoso", pathReal: "/categorias/frios-laticinios/requeijao-queijo-cremoso", tipo: "sub", id: "3659952", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Requeijão & Queijo Cremoso" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/defumados", pathReal: "/categorias/frios-laticinios/defumados", tipo: "sub", id: "3659953", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Defumados" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/manteiga-e-nata", pathReal: "/categorias/frios-laticinios/manteiga-nata", tipo: "sub", id: "3659954", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Manteiga & Nata" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/margarina", pathReal: "/categorias/frios-laticinios/margarina", tipo: "sub", id: "3659955", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Margarina" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/achocolatados", pathReal: "/categorias/frios-laticinios/achocolatados", tipo: "sub", id: "3659956", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Achocolatados" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/bebidas-proteicas", pathReal: "/categorias/frios-laticinios/bebidas-proteicas", tipo: "sub", id: "3659957", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Bebidas Proteicas" },
-      { url: "https://www.superkoch.com.br/categorias/frios-e-laticinios/massas-frescas", pathReal: "/categorias/frios-laticinios/massas-frescas", tipo: "sub", id: "3659959", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Massas Frescas" },
-      { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3660359", depto: "Congelados", nome: "Congelados (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/pizza", pathReal: "/categorias/congelados/pizza", tipo: "sub", id: "3660362", depto: "Congelados", nome: "Congelados > Pizza" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/pratos-prontos", pathReal: "/categorias/congelados/pratos-prontos", tipo: "sub", id: "3660363", depto: "Congelados", nome: "Congelados > Pratos Prontos" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/empanados", pathReal: "/categorias/congelados/empanados", tipo: "sub", id: "3660364", depto: "Congelados", nome: "Congelados > Empanados" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/batatas-congeladas", pathReal: "/categorias/congelados/batatas-congeladas", tipo: "sub", id: "3660366", depto: "Congelados", nome: "Congelados > Batatas Congeladas" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/pao-de-queijo", pathReal: "/categorias/congelados/pao-de-queijo", tipo: "sub", id: "3660368", depto: "Congelados", nome: "Congelados > Pão de Queijo" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/legumes-congelados", pathReal: "/categorias/congelados/legumes-congelados", tipo: "sub", id: "3660369", depto: "Congelados", nome: "Congelados > Legumes Congelados" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/hamburguer", pathReal: "/categorias/congelados/hamburguer", tipo: "sub", id: "3660361", depto: "Congelados", nome: "Congelados > Hamburguer" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/waffle", pathReal: "/categorias/congelados/waffle", tipo: "sub", id: "3660370", depto: "Congelados", nome: "Congelados > Waffle" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/salgados", pathReal: "/categorias/congelados/salgados", tipo: "sub", id: "3660371", depto: "Congelados", nome: "Congelados > Salgados" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/paes", pathReal: "/categorias/congelados/paes", tipo: "sub", id: "3660372", depto: "Congelados", nome: "Congelados > Pães" },
-      { url: "https://www.superkoch.com.br/categorias/congelados/outros", pathReal: "/categorias/congelados/outros", tipo: "sub", id: "3660360", depto: "Congelados", nome: "Congelados > Outros" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3659759", depto: "Mercearia", nome: "Mercearia (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/cafes", pathReal: "/categorias/mercearia/cafes", tipo: "sub", id: "3659760", depto: "Mercearia", nome: "Mercearia > Cafés" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/alimentos-basicos", pathReal: "/categorias/mercearia/alimentos-basicos", tipo: "sub", id: "3659766", depto: "Mercearia", nome: "Mercearia > Alimentos Básicos" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/azeite-oleo-e-vinagre", pathReal: "/categorias/mercearia/azeite-oleo-e-vinagre", tipo: "sub", id: "3659773", depto: "Mercearia", nome: "Mercearia > Azeite, Óleo e Vinagre" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/confeitaria", pathReal: "/categorias/mercearia/confeitaria", tipo: "sub", id: "3659778", depto: "Mercearia", nome: "Mercearia > Confeitaria" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/chocolates-e-doces", pathReal: "/categorias/mercearia/chocolates-e-doces", tipo: "sub", id: "3659796", depto: "Mercearia", nome: "Mercearia > Chocolates e Doces" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/biscoitos-e-torradas", pathReal: "/categorias/mercearia/biscoitos-e-torradas", tipo: "sub", id: "3659801", depto: "Mercearia", nome: "Mercearia > Biscoitos e Torradas" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/matinais-chas-e-achocolatados", pathReal: "/categorias/mercearia/matinais-chas-e-achocolatados", tipo: "sub", id: "3659809", depto: "Mercearia", nome: "Mercearia > Matinais, Chás e Achocolatados" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/molhos-e-condimentos", pathReal: "/categorias/mercearia/molhos-e-condimentos", tipo: "sub", id: "3659820", depto: "Mercearia", nome: "Mercearia > Molhos e Condimentos" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/salgadinhos-e-snacks", pathReal: "/categorias/mercearia/salgadinhos-e-snacks", tipo: "sub", id: "3659828", depto: "Mercearia", nome: "Mercearia > Salgadinhos e Snacks" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/massas", pathReal: "/categorias/mercearia/massas", tipo: "sub", id: "3659834", depto: "Mercearia", nome: "Mercearia > Massas" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/conservas-e-enlatados", pathReal: "/categorias/mercearia/conservas-e-enlatados", tipo: "sub", id: "3659843", depto: "Mercearia", nome: "Mercearia > Conservas e Enlatados" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/acucar-e-adocante", pathReal: "/categorias/mercearia/acucar-e-adocante", tipo: "sub", id: "3659852", depto: "Mercearia", nome: "Mercearia > Açúcar e Adoçante" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/maioneses-ketchups-e-mostarda", pathReal: "/categorias/mercearia/maioneses-ketchups-e-mostarda", tipo: "sub", id: "3659855", depto: "Mercearia", nome: "Mercearia > Maioneses, Ketchups e Mostarda" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/doces-e-geleias", pathReal: "/categorias/mercearia/doces-e-geleias", tipo: "sub", id: "3659859", depto: "Mercearia", nome: "Mercearia > Doces e Geleias" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/natal", pathReal: "/categorias/mercearia/natal", tipo: "sub", id: "3659869", depto: "Mercearia", nome: "Mercearia > Natal" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/pratos-prontos", pathReal: "/categorias/mercearia/pratos-prontos", tipo: "sub", id: "3659872", depto: "Mercearia", nome: "Mercearia > Pratos Prontos" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/mel-e-melado", pathReal: "/categorias/mercearia/mel-e-melado", tipo: "sub", id: "3659875", depto: "Mercearia", nome: "Mercearia > Mel e Melado" },
-      { url: "https://www.superkoch.com.br/categorias/mercearia/zero-acucar", pathReal: "/categorias/mercearia/zero-acucar", tipo: "sub", id: "3659877", depto: "Mercearia", nome: "Mercearia > Zero Açúcar" },
-      { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3660140", depto: "Limpeza", nome: "Limpeza (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-roupas", pathReal: "/categorias/limpeza/limpeza-de-roupas", tipo: "sub", id: "3660141", depto: "Limpeza", nome: "Limpeza > Limpeza de Roupas" },
-      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-casa", pathReal: "/categorias/limpeza/limpeza-da-casa", tipo: "sub", id: "3660150", depto: "Limpeza", nome: "Limpeza > Limpeza da Casa" },
-      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-cozinha", pathReal: "/categorias/limpeza/limpeza-da-cozinha", tipo: "sub", id: "3660161", depto: "Limpeza", nome: "Limpeza > Limpeza da Cozinha" },
-      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-banheiro", pathReal: "/categorias/limpeza/limpeza-de-banheiro", tipo: "sub", id: "3660165", depto: "Limpeza", nome: "Limpeza > Limpeza de Banheiro" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3660190", depto: "Higiene & Beleza", nome: "Higiene & Beleza (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/papel-higienico", pathReal: "/categorias/higiene-beleza/papel-higienico", tipo: "sub", id: "3660191", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Papel Higiênico" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/corpo", pathReal: "/categorias/higiene-beleza/corpo", tipo: "sub", id: "3660193", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Corpo" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cabelo", pathReal: "/categorias/higiene-beleza/cabelo", tipo: "sub", id: "3660200", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cabelo" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/higiene-bucal", pathReal: "/categorias/higiene-beleza/higiene-bucal", tipo: "sub", id: "3660211", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Higiene Bucal" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/intimo", pathReal: "/categorias/higiene-beleza/intimo", tipo: "sub", id: "3660216", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Íntimo" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/barba", pathReal: "/categorias/higiene-beleza/barba", tipo: "sub", id: "3660219", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Barba" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/beleza", pathReal: "/categorias/higiene-beleza/beleza", tipo: "sub", id: "3660222", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Beleza" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/farmacia", pathReal: "/categorias/higiene-beleza/farmacia", tipo: "sub", id: "3660225", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Farmácia" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cuidados-solares", pathReal: "/categorias/higiene-beleza/cuidados-solares", tipo: "sub", id: "3660227", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Solares" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/cuidados-geriatricos", pathReal: "/categorias/higiene-beleza/cuidados-geriatricos", tipo: "sub", id: "3660228", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Geriátricos" },
-      { url: "https://www.superkoch.com.br/categorias/higiene-e-beleza/infantil", pathReal: "/categorias/higiene-beleza/infantil", tipo: "sub", id: "3660229", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Infantil" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3660169", depto: "Bebidas", nome: "Bebidas (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/refrigerantes", pathReal: "/categorias/bebidas/refrigerantes", tipo: "sub", id: "3660170", depto: "Bebidas", nome: "Bebidas > Refrigerantes" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/agua", pathReal: "/categorias/bebidas/agua", tipo: "sub", id: "3660173", depto: "Bebidas", nome: "Bebidas > Água" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/sucos-e-refrescos", pathReal: "/categorias/bebidas/sucos-e-refrescos", tipo: "sub", id: "3660176", depto: "Bebidas", nome: "Bebidas > Sucos e Refrescos" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/energetico", pathReal: "/categorias/bebidas/energetico", tipo: "sub", id: "3660183", depto: "Bebidas", nome: "Bebidas > Energético" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/agua-de-coco", pathReal: "/categorias/bebidas/agua-de-coco", tipo: "sub", id: "3660186", depto: "Bebidas", nome: "Bebidas > Água de Coco" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/isotonicos", pathReal: "/categorias/bebidas/isotonicos", tipo: "sub", id: "3660187", depto: "Bebidas", nome: "Bebidas > Isotônicos" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/cha-pronto", pathReal: "/categorias/bebidas/cha-pronto", tipo: "sub", id: "3660188", depto: "Bebidas", nome: "Bebidas > Chá Pronto" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas/bebida-vegetal", pathReal: "/categorias/bebidas/bebida-vegetal", tipo: "sub", id: "3660189", depto: "Bebidas", nome: "Bebidas > Bebida Vegetal" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3660231", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/cervejas", pathReal: "/categorias/bebidas-alcoolicas/cervejas", tipo: "sub", id: "3660232", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Cervejas" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/vinhos", pathReal: "/categorias/bebidas-alcoolicas/vinhos", tipo: "sub", id: "3660237", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Vinhos" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/destilados", pathReal: "/categorias/bebidas-alcoolicas/destilados", tipo: "sub", id: "3660241", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Destilados" },
-      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/champagne-e-espumantes", pathReal: "/categorias/bebidas-alcoolicas/champagne-espumantes", tipo: "sub", id: "3660256", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Champagne & Espumantes" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3995066", depto: "Casa & Utilidades", nome: "Casa & Utilidades (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/textil", pathReal: "/categorias/casa-utilidades/textil", tipo: "sub", id: "3995128", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Têxtil" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/protecao-contra-chuva", pathReal: "/categorias/casa-utilidades/protecao-contra-chuva", tipo: "sub", id: "3995069", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Proteção Contra Chuva" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/acessorios-de-limpeza", pathReal: "/categorias/casa-utilidades/acessorios-de-limpeza", tipo: "sub", id: "3995071", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Acessórios de Limpeza" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/cozinha", pathReal: "/categorias/casa-utilidades/cozinha", tipo: "sub", id: "3995087", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Cozinha" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/chimarrao-e-cafe", pathReal: "/categorias/casa-utilidades/chimarrao-e-cafe", tipo: "sub", id: "3995096", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Chimarrão e Café" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/praia-piscina-e-camping", pathReal: "/categorias/casa-utilidades/praia-piscina-e-camping", tipo: "sub", id: "3995097", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Praia, Piscina e Camping" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/churrasco", pathReal: "/categorias/casa-utilidades/churrasco", tipo: "sub", id: "3995067", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Churrasco" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/eletricos-e-acessorios", pathReal: "/categorias/casa-utilidades/eletricos-e-acessorios", tipo: "sub", id: "3995102", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Elétricos e Acessórios" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/floricultura-e-jardim", pathReal: "/categorias/casa-utilidades/floricultura-e-jardim", tipo: "sub", id: "3995106", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Floricultura e Jardim" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/calcados", pathReal: "/categorias/casa-utilidades/calcados", tipo: "sub", id: "3995112", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Calçados" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/papelaria", pathReal: "/categorias/casa-utilidades/papelaria", tipo: "sub", id: "3995114", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Papelaria" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/duchas-e-torneiras-eletricas", pathReal: "/categorias/casa-utilidades/duchas-e-torneiras-eletricas", tipo: "sub", id: "3995118", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Duchas e Torneiras Elétricas" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/festa", pathReal: "/categorias/casa-utilidades/festa", tipo: "sub", id: "3995119", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Festa" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/decoracao", pathReal: "/categorias/casa-utilidades/decoracao", tipo: "sub", id: "3995121", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Decoração" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/automotivo", pathReal: "/categorias/casa-utilidades/automotivo", tipo: "sub", id: "3995122", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Automotivo" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/brinquedos", pathReal: "/categorias/casa-utilidades/brinquedos", tipo: "sub", id: "3995124", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Brinquedos" },
-      { url: "https://www.superkoch.com.br/categorias/casa-e-utilidades/organizadores", pathReal: "/categorias/casa-utilidades/organizadores", tipo: "sub", id: "3995126", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Organizadores" },
-      { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3660373", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria/padaria", pathReal: "/categorias/padaria-confeitaria/padaria", tipo: "sub", id: "3660374", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Padaria" },
-      { url: "https://www.superkoch.com.br/categorias/padaria-e-confeitaria/confeitaria", pathReal: "/categorias/padaria-confeitaria/confeitaria", tipo: "sub", id: "3660381", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Confeitaria" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3660386", depto: "Mundo Bebê", nome: "Mundo Bebê (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", pathReal: "/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", tipo: "sub", id: "3660387", depto: "Mundo Bebê", nome: "Mundo Bebê > Fraldas e Lenços Umedecidos" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/banho", pathReal: "/categorias/mundo-bebe/banho", tipo: "sub", id: "3660391", depto: "Mundo Bebê", nome: "Mundo Bebê > Banho" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/higiene-oral", pathReal: "/categorias/mundo-bebe/higiene-oral", tipo: "sub", id: "3660396", depto: "Mundo Bebê", nome: "Mundo Bebê > Higiene Oral" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/alimentacao-infantil", pathReal: "/categorias/mundo-bebe/alimentacao-infantil", tipo: "sub", id: "3660397", depto: "Mundo Bebê", nome: "Mundo Bebê > Alimentação Infantil" },
-      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/chupetas-e-bicos", pathReal: "/categorias/mundo-bebe/chupetas-bicos", tipo: "sub", id: "3660402", depto: "Mundo Bebê", nome: "Mundo Bebê > Chupetas / Bicos" },
-      { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3660403", depto: "Pet Care", nome: "Pet Care (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/pet-care/caes", pathReal: "/categorias/pet-care/caes", tipo: "sub", id: "3660404", depto: "Pet Care", nome: "Pet Care > Cães" },
-      { url: "https://www.superkoch.com.br/categorias/pet-care/gatos", pathReal: "/categorias/pet-care/gatos", tipo: "sub", id: "3660408", depto: "Pet Care", nome: "Pet Care > Gatos" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3886594", depto: "Alimentação Especial", nome: "Alimentação Especial (Departamento)" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/suplementos", pathReal: "/categorias/alimentacao-especial/suplementos", tipo: "sub", id: "3886630", depto: "Alimentação Especial", nome: "Alimentação Especial > Suplementos" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/aveia-granola-graos-e-sementes", pathReal: "/categorias/alimentacao-especial/aveia-granola-graos-e-sement", tipo: "sub", id: "3886601", depto: "Alimentação Especial", nome: "Alimentação Especial > Aveia, Granola, Grãos e Sementes" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/fit", pathReal: "/categorias/alimentacao-especial/fit", tipo: "sub", id: "3886595", depto: "Alimentação Especial", nome: "Alimentação Especial > Fit" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/sem-gluten", pathReal: "/categorias/alimentacao-especial/sem-gluten", tipo: "sub", id: "3886605", depto: "Alimentação Especial", nome: "Alimentação Especial > Sem Glúten" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-acucar", pathReal: "/categorias/alimentacao-especial/zero-acucar", tipo: "sub", id: "3886611", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Açúcar" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-lactose", pathReal: "/categorias/alimentacao-especial/zero-lactose", tipo: "sub", id: "3886615", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Lactose" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/doces-e-geleias", pathReal: "/categorias/alimentacao-especial/doces-e-geleias", tipo: "sub", id: "3886621", depto: "Alimentação Especial", nome: "Alimentação Especial > Doces e Geleias" },
-      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/integral", pathReal: "/categorias/alimentacao-especial/integral", tipo: "sub", id: "3886623", depto: "Alimentação Especial", nome: "Alimentação Especial > Integral" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3655065", depto: "Hortifruti", nome: "Hortifruti (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/verduras", pathReal: "/categorias/hortifruti/verduras", tipo: "sub", id: "3655090", depto: "Hortifruti", nome: "Hortifruti > Verduras" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas", pathReal: "/categorias/hortifruti/frutas", tipo: "sub", id: "3655066", depto: "Hortifruti", nome: "Hortifruti > Frutas" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/legumes", pathReal: "/categorias/hortifruti/legumes", tipo: "sub", id: "3655084", depto: "Hortifruti", nome: "Hortifruti > Legumes" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/organicos", pathReal: "/categorias/hortifruti/organicos", tipo: "sub", id: "3655159", depto: "Hortifruti", nome: "Hortifruti > Orgânicos" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/ovos", pathReal: "/categorias/hortifruti/ovos", tipo: "sub", id: "3655089", depto: "Hortifruti", nome: "Hortifruti > Ovos" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/flores-plantas-e-sementes", pathReal: "/categorias/hortifruti/flores-plantas-e-sementes", tipo: "sub", id: "3655143", depto: "Hortifruti", nome: "Hortifruti > Flores, Plantas e Sementes" },
+      { url: "https://www.superkoch.com.br/categorias/hortifruti/frutas-secas", pathReal: "/categorias/hortifruti/frutas-secas", tipo: "sub", id: "3655160", depto: "Hortifruti", nome: "Hortifruti > Frutas Secas" },
+      { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886353", depto: "Açougue", nome: "Açougue (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/carnes-bovinas", pathReal: "/categorias/acougue/carnes-bovinas", tipo: "sub", id: "3886354", depto: "Açougue", nome: "Açougue > Carnes Bovinas" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/frango", pathReal: "/categorias/acougue/frango", tipo: "sub", id: "3886360", depto: "Açougue", nome: "Açougue > Frango" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/carne-suina", pathReal: "/categorias/acougue/carne-suina", tipo: "sub", id: "3886368", depto: "Açougue", nome: "Açougue > Carne Suína" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/linguica", pathReal: "/categorias/acougue/linguica", tipo: "sub", id: "3886371", depto: "Açougue", nome: "Açougue > Linguiça" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/peixes-e-frutos-do-mar", pathReal: "/categorias/acougue/peixes-e-frutos-do-mar", tipo: "sub", id: "3886374", depto: "Açougue", nome: "Açougue > Peixes e Frutos do Mar" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/pao-de-alho", pathReal: "/categorias/acougue/pao-de-alho", tipo: "sub", id: "3886383", depto: "Açougue", nome: "Açougue > Pão de Alho" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/queijo-coalho", pathReal: "/categorias/acougue/queijo-coalho", tipo: "sub", id: "3886377", depto: "Açougue", nome: "Açougue > Queijo Coalho" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/carnes-especiais-aves-comemo", pathReal: "/categorias/acougue/carnes-especiais-aves-comemo", tipo: "sub", id: "3886379", depto: "Açougue", nome: "Açougue > Carnes Especiais & Aves" },
+      { url: "https://www.superkoch.com.br/categorias/acougue/carnes-exoticas", pathReal: "/categorias/acougue/carnes-exoticas", tipo: "sub", id: "3886382", depto: "Açougue", nome: "Açougue > Carnes Exóticas" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3654980", depto: "Frios & Laticínios", nome: "Frios & Laticínios (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/leite", pathReal: "/categorias/frios-laticinios/leite", tipo: "sub", id: "3655008", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Leite" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/queijos", pathReal: "/categorias/frios-laticinios/queijos", tipo: "sub", id: "3654981", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Queijos" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/iogurte", pathReal: "/categorias/frios-laticinios/iogurte", tipo: "sub", id: "3655025", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Iogurte" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/embutidos", pathReal: "/categorias/frios-laticinios/embutidos", tipo: "sub", id: "3655038", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Embutidos" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/requeijao-queijo-cremoso", pathReal: "/categorias/frios-laticinios/requeijao-queijo-cremoso", tipo: "sub", id: "3655049", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Requeijão & Queijo Cremoso" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/defumados", pathReal: "/categorias/frios-laticinios/defumados", tipo: "sub", id: "3655050", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Defumados" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/margarina", pathReal: "/categorias/frios-laticinios/margarina", tipo: "sub", id: "3655052", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Margarina" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/manteiga-nata", pathReal: "/categorias/frios-laticinios/manteiga-nata", tipo: "sub", id: "3655051", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Manteiga & Nata" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/massas-frescas", pathReal: "/categorias/frios-laticinios/massas-frescas", tipo: "sub", id: "3655056", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Massas Frescas" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/bebidas-proteicas", pathReal: "/categorias/frios-laticinios/bebidas-proteicas", tipo: "sub", id: "3655054", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Bebidas Proteicas" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/achocolatados", pathReal: "/categorias/frios-laticinios/achocolatados", tipo: "sub", id: "3655053", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Achocolatados" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/conservas", pathReal: "/categorias/frios-laticinios/conservas", tipo: "sub", id: "3655055", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Conservas" },
+      { url: "https://www.superkoch.com.br/categorias/frios-laticinios/banha", pathReal: "/categorias/frios-laticinios/banha", tipo: "sub", id: "3655057", depto: "Frios & Laticínios", nome: "Frios & Laticínios > Banha" },
+      { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3655391", depto: "Congelados", nome: "Congelados (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/pizza", pathReal: "/categorias/congelados/pizza", tipo: "sub", id: "3655394", depto: "Congelados", nome: "Congelados > Pizza" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/pratos-prontos", pathReal: "/categorias/congelados/pratos-prontos", tipo: "sub", id: "3655395", depto: "Congelados", nome: "Congelados > Pratos Prontos" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/outros", pathReal: "/categorias/congelados/outros", tipo: "sub", id: "3655392", depto: "Congelados", nome: "Congelados > Outros" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/empanados", pathReal: "/categorias/congelados/empanados", tipo: "sub", id: "3655396", depto: "Congelados", nome: "Congelados > Empanados" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/hamburguer", pathReal: "/categorias/congelados/hamburguer", tipo: "sub", id: "3655393", depto: "Congelados", nome: "Congelados > Hamburguer" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/legumes-congelados", pathReal: "/categorias/congelados/legumes-congelados", tipo: "sub", id: "3655401", depto: "Congelados", nome: "Congelados > Legumes Congelados" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/batatas-congeladas", pathReal: "/categorias/congelados/batatas-congeladas", tipo: "sub", id: "3655398", depto: "Congelados", nome: "Congelados > Batatas Congeladas" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/pao-de-queijo", pathReal: "/categorias/congelados/pao-de-queijo", tipo: "sub", id: "3655400", depto: "Congelados", nome: "Congelados > Pão de Queijo" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/waffle", pathReal: "/categorias/congelados/waffle", tipo: "sub", id: "3655402", depto: "Congelados", nome: "Congelados > Waffle" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/salgados", pathReal: "/categorias/congelados/salgados", tipo: "sub", id: "3655403", depto: "Congelados", nome: "Congelados > Salgados" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/paes", pathReal: "/categorias/congelados/paes", tipo: "sub", id: "3655404", depto: "Congelados", nome: "Congelados > Pães" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/peixaria", pathReal: "/categorias/congelados/peixaria", tipo: "sub", id: "3655397", depto: "Congelados", nome: "Congelados > Peixaria" },
+      { url: "https://www.superkoch.com.br/categorias/congelados/polpa-de-fruta", pathReal: "/categorias/congelados/polpa-de-fruta", tipo: "sub", id: "3655399", depto: "Congelados", nome: "Congelados > Polpa de Fruta" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3654815", depto: "Mercearia", nome: "Mercearia (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/biscoitos-e-torradas", pathReal: "/categorias/mercearia/biscoitos-e-torradas", tipo: "sub", id: "3654877", depto: "Mercearia", nome: "Mercearia > Biscoitos e Torradas" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/chocolates-e-doces", pathReal: "/categorias/mercearia/chocolates-e-doces", tipo: "sub", id: "3654872", depto: "Mercearia", nome: "Mercearia > Chocolates e Doces" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/alimentos-basicos", pathReal: "/categorias/mercearia/alimentos-basicos", tipo: "sub", id: "3654822", depto: "Mercearia", nome: "Mercearia > Alimentos Básicos" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/matinais-chas-e-achocolatados", pathReal: "/categorias/mercearia/matinais-chas-e-achocolatados", tipo: "sub", id: "3654885", depto: "Mercearia", nome: "Mercearia > Matinais, Chás e Achocolatados" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/molhos-e-condimentos", pathReal: "/categorias/mercearia/molhos-e-condimentos", tipo: "sub", id: "3654896", depto: "Mercearia", nome: "Mercearia > Molhos e Condimentos" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/massas", pathReal: "/categorias/mercearia/massas", tipo: "sub", id: "3654910", depto: "Mercearia", nome: "Mercearia > Massas" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/conservas-e-enlatados", pathReal: "/categorias/mercearia/conservas-e-enlatados", tipo: "sub", id: "3654919", depto: "Mercearia", nome: "Mercearia > Conservas e Enlatados" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/cafes", pathReal: "/categorias/mercearia/cafes", tipo: "sub", id: "3654816", depto: "Mercearia", nome: "Mercearia > Cafés" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/confeitaria", pathReal: "/categorias/mercearia/confeitaria", tipo: "sub", id: "3654834", depto: "Mercearia", nome: "Mercearia > Confeitaria" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/salgadinhos-e-snacks", pathReal: "/categorias/mercearia/salgadinhos-e-snacks", tipo: "sub", id: "3654904", depto: "Mercearia", nome: "Mercearia > Salgadinhos e Snacks" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/azeite-oleo-e-vinagre", pathReal: "/categorias/mercearia/azeite-oleo-e-vinagre", tipo: "sub", id: "3654829", depto: "Mercearia", nome: "Mercearia > Azeite, Óleo e Vinagre" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/doces-e-geleias", pathReal: "/categorias/mercearia/doces-e-geleias", tipo: "sub", id: "3654935", depto: "Mercearia", nome: "Mercearia > Doces e Geleias" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/acucar-e-adocante", pathReal: "/categorias/mercearia/acucar-e-adocante", tipo: "sub", id: "3654928", depto: "Mercearia", nome: "Mercearia > Açúcar e Adoçante" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/maioneses-ketchups-e-mostarda", pathReal: "/categorias/mercearia/maioneses-ketchups-e-mostarda", tipo: "sub", id: "3654931", depto: "Mercearia", nome: "Mercearia > Maioneses, Ketchups e Mostarda" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/natal", pathReal: "/categorias/mercearia/natal", tipo: "sub", id: "3654942", depto: "Mercearia", nome: "Mercearia > Natal" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/mel-e-melado", pathReal: "/categorias/mercearia/mel-e-melado", tipo: "sub", id: "3654948", depto: "Mercearia", nome: "Mercearia > Mel e Melado" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/pratos-prontos", pathReal: "/categorias/mercearia/pratos-prontos", tipo: "sub", id: "3654945", depto: "Mercearia", nome: "Mercearia > Pratos Prontos" },
+      { url: "https://www.superkoch.com.br/categorias/mercearia/zero-acucar", pathReal: "/categorias/mercearia/zero-acucar", tipo: "sub", id: "3654950", depto: "Mercearia", nome: "Mercearia > Zero Açúcar" },
+      { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3655172", depto: "Limpeza", nome: "Limpeza (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-casa", pathReal: "/categorias/limpeza/limpeza-da-casa", tipo: "sub", id: "3655182", depto: "Limpeza", nome: "Limpeza > Limpeza da Casa" },
+      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-roupas", pathReal: "/categorias/limpeza/limpeza-de-roupas", tipo: "sub", id: "3655173", depto: "Limpeza", nome: "Limpeza > Limpeza de Roupas" },
+      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-de-banheiro", pathReal: "/categorias/limpeza/limpeza-de-banheiro", tipo: "sub", id: "3655197", depto: "Limpeza", nome: "Limpeza > Limpeza de Banheiro" },
+      { url: "https://www.superkoch.com.br/categorias/limpeza/limpeza-da-cozinha", pathReal: "/categorias/limpeza/limpeza-da-cozinha", tipo: "sub", id: "3655193", depto: "Limpeza", nome: "Limpeza > Limpeza da Cozinha" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3655222", depto: "Higiene & Beleza", nome: "Higiene & Beleza (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/cabelo", pathReal: "/categorias/higiene-beleza/cabelo", tipo: "sub", id: "3655232", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cabelo" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/corpo", pathReal: "/categorias/higiene-beleza/corpo", tipo: "sub", id: "3655225", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Corpo" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/higiene-bucal", pathReal: "/categorias/higiene-beleza/higiene-bucal", tipo: "sub", id: "3655243", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Higiene Bucal" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/intimo", pathReal: "/categorias/higiene-beleza/intimo", tipo: "sub", id: "3655248", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Íntimo" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/papel-higienico", pathReal: "/categorias/higiene-beleza/papel-higienico", tipo: "sub", id: "3655223", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Papel Higiênico" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/beleza", pathReal: "/categorias/higiene-beleza/beleza", tipo: "sub", id: "3655254", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Beleza" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/barba", pathReal: "/categorias/higiene-beleza/barba", tipo: "sub", id: "3655251", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Barba" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/cuidados-solares", pathReal: "/categorias/higiene-beleza/cuidados-solares", tipo: "sub", id: "3655259", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Solares" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/farmacia", pathReal: "/categorias/higiene-beleza/farmacia", tipo: "sub", id: "3655257", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Farmácia" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/cuidados-geriatricos", pathReal: "/categorias/higiene-beleza/cuidados-geriatricos", tipo: "sub", id: "3655260", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Cuidados Geriátricos" },
+      { url: "https://www.superkoch.com.br/categorias/higiene-beleza/infantil", pathReal: "/categorias/higiene-beleza/infantil", tipo: "sub", id: "3655261", depto: "Higiene & Beleza", nome: "Higiene & Beleza > Infantil" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3655201", depto: "Bebidas", nome: "Bebidas (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/refrigerantes", pathReal: "/categorias/bebidas/refrigerantes", tipo: "sub", id: "3655202", depto: "Bebidas", nome: "Bebidas > Refrigerantes" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/sucos-e-refrescos", pathReal: "/categorias/bebidas/sucos-e-refrescos", tipo: "sub", id: "3655208", depto: "Bebidas", nome: "Bebidas > Sucos e Refrescos" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/energetico", pathReal: "/categorias/bebidas/energetico", tipo: "sub", id: "3655215", depto: "Bebidas", nome: "Bebidas > Energético" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/agua", pathReal: "/categorias/bebidas/agua", tipo: "sub", id: "3655205", depto: "Bebidas", nome: "Bebidas > Água" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/cha-pronto", pathReal: "/categorias/bebidas/cha-pronto", tipo: "sub", id: "3655220", depto: "Bebidas", nome: "Bebidas > Chá Pronto" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/bebida-vegetal", pathReal: "/categorias/bebidas/bebida-vegetal", tipo: "sub", id: "3655221", depto: "Bebidas", nome: "Bebidas > Bebida Vegetal" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/isotonicos", pathReal: "/categorias/bebidas/isotonicos", tipo: "sub", id: "3655219", depto: "Bebidas", nome: "Bebidas > Isotônicos" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas/agua-de-coco", pathReal: "/categorias/bebidas/agua-de-coco", tipo: "sub", id: "3655218", depto: "Bebidas", nome: "Bebidas > Água de Coco" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3655263", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/vinhos", pathReal: "/categorias/bebidas-alcoolicas/vinhos", tipo: "sub", id: "3655269", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Vinhos" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/cervejas", pathReal: "/categorias/bebidas-alcoolicas/cervejas", tipo: "sub", id: "3655264", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Cervejas" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/destilados", pathReal: "/categorias/bebidas-alcoolicas/destilados", tipo: "sub", id: "3655273", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Destilados" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/champagne-espumantes", pathReal: "/categorias/bebidas-alcoolicas/champagne-espumantes", tipo: "sub", id: "3655288", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Champagne & Espumantes" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/sem-alcool", pathReal: "/categorias/bebidas-alcoolicas/sem-alcool", tipo: "sub", id: "3655286", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Sem Álcool" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/licores", pathReal: "/categorias/bebidas-alcoolicas/licores", tipo: "sub", id: "3655287", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Licores" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/ice-drinks-e-coqueteis", pathReal: "/categorias/bebidas-alcoolicas/ice-drinks-e-coqueteis", tipo: "sub", id: "3655289", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Ice, Drinks e Coquetéis" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/sake", pathReal: "/categorias/bebidas-alcoolicas/sake", tipo: "sub", id: "3655290", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Sake" },
+      { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas/xaropes", pathReal: "/categorias/bebidas-alcoolicas/xaropes", tipo: "sub", id: "3655291", depto: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas > Xaropes" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3995220", depto: "Casa & Utilidades", nome: "Casa & Utilidades (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/cozinha", pathReal: "/categorias/casa-utilidades/cozinha", tipo: "sub", id: "3995241", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Cozinha" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/acessorios-de-limpeza", pathReal: "/categorias/casa-utilidades/acessorios-de-limpeza", tipo: "sub", id: "3995225", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Acessórios de Limpeza" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/eletricos-e-acessorios", pathReal: "/categorias/casa-utilidades/eletricos-e-acessorios", tipo: "sub", id: "3995256", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Elétricos e Acessórios" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/churrasco", pathReal: "/categorias/casa-utilidades/churrasco", tipo: "sub", id: "3995221", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Churrasco" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/floricultura-e-jardim", pathReal: "/categorias/casa-utilidades/floricultura-e-jardim", tipo: "sub", id: "3995260", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Floricultura e Jardim" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/papelaria", pathReal: "/categorias/casa-utilidades/papelaria", tipo: "sub", id: "3995268", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Papelaria" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/praia-piscina-e-camping", pathReal: "/categorias/casa-utilidades/praia-piscina-e-camping", tipo: "sub", id: "3995251", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Praia, Piscina e Camping" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/textil", pathReal: "/categorias/casa-utilidades/textil", tipo: "sub", id: "3995282", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Têxtil" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/festa", pathReal: "/categorias/casa-utilidades/festa", tipo: "sub", id: "3995273", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Festa" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/chimarrao-e-cafe", pathReal: "/categorias/casa-utilidades/chimarrao-e-cafe", tipo: "sub", id: "3995250", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Chimarrão e Café" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/brinquedos", pathReal: "/categorias/casa-utilidades/brinquedos", tipo: "sub", id: "3995278", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Brinquedos" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/organizadores", pathReal: "/categorias/casa-utilidades/organizadores", tipo: "sub", id: "3995280", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Organizadores" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/protecao-contra-chuva", pathReal: "/categorias/casa-utilidades/protecao-contra-chuva", tipo: "sub", id: "3995223", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Proteção Contra Chuva" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/calcados", pathReal: "/categorias/casa-utilidades/calcados", tipo: "sub", id: "3995266", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Calçados" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/duchas-e-torneiras-eletricas", pathReal: "/categorias/casa-utilidades/duchas-e-torneiras-eletricas", tipo: "sub", id: "3995272", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Duchas e Torneiras Elétricas" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/decoracao", pathReal: "/categorias/casa-utilidades/decoracao", tipo: "sub", id: "3995275", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Decoração" },
+      { url: "https://www.superkoch.com.br/categorias/casa-utilidades/automotivo", pathReal: "/categorias/casa-utilidades/automotivo", tipo: "sub", id: "3995276", depto: "Casa & Utilidades", nome: "Casa & Utilidades > Automotivo" },
+      { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3655405", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria/padaria", pathReal: "/categorias/padaria-confeitaria/padaria", tipo: "sub", id: "3655406", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Padaria" },
+      { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria/confeitaria", pathReal: "/categorias/padaria-confeitaria/confeitaria", tipo: "sub", id: "3655413", depto: "Padaria & Confeitaria", nome: "Padaria & Confeitaria > Confeitaria" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3655418", depto: "Mundo Bebê", nome: "Mundo Bebê (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", pathReal: "/categorias/mundo-bebe/fraldas-e-lencos-umedecidos", tipo: "sub", id: "3655419", depto: "Mundo Bebê", nome: "Mundo Bebê > Fraldas e Lenços Umedecidos" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/banho", pathReal: "/categorias/mundo-bebe/banho", tipo: "sub", id: "3655423", depto: "Mundo Bebê", nome: "Mundo Bebê > Banho" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/alimentacao-infantil", pathReal: "/categorias/mundo-bebe/alimentacao-infantil", tipo: "sub", id: "3655429", depto: "Mundo Bebê", nome: "Mundo Bebê > Alimentação Infantil" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/higiene-oral", pathReal: "/categorias/mundo-bebe/higiene-oral", tipo: "sub", id: "3655428", depto: "Mundo Bebê", nome: "Mundo Bebê > Higiene Oral" },
+      { url: "https://www.superkoch.com.br/categorias/mundo-bebe/chupetas-bicos", pathReal: "/categorias/mundo-bebe/chupetas-bicos", tipo: "sub", id: "3655434", depto: "Mundo Bebê", nome: "Mundo Bebê > Chupetas / Bicos" },
+      { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3655435", depto: "Pet Care", nome: "Pet Care (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/pet-care/caes", pathReal: "/categorias/pet-care/caes", tipo: "sub", id: "3655436", depto: "Pet Care", nome: "Pet Care > Cães" },
+      { url: "https://www.superkoch.com.br/categorias/pet-care/gatos", pathReal: "/categorias/pet-care/gatos", tipo: "sub", id: "3655440", depto: "Pet Care", nome: "Pet Care > Gatos" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3886385", depto: "Alimentação Especial", nome: "Alimentação Especial (Departamento)" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/suplementos", pathReal: "/categorias/alimentacao-especial/suplementos", tipo: "sub", id: "3886421", depto: "Alimentação Especial", nome: "Alimentação Especial > Suplementos" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-lactose", pathReal: "/categorias/alimentacao-especial/zero-lactose", tipo: "sub", id: "3886406", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Lactose" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/aveia-granola-graos-e-sement", pathReal: "/categorias/alimentacao-especial/aveia-granola-graos-e-sement", tipo: "sub", id: "3886392", depto: "Alimentação Especial", nome: "Alimentação Especial > Aveia, Granola, Grãos e Sementes" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/sem-gluten", pathReal: "/categorias/alimentacao-especial/sem-gluten", tipo: "sub", id: "3886396", depto: "Alimentação Especial", nome: "Alimentação Especial > Sem Glúten" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/zero-acucar", pathReal: "/categorias/alimentacao-especial/zero-acucar", tipo: "sub", id: "3886402", depto: "Alimentação Especial", nome: "Alimentação Especial > Zero Açúcar" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/integral", pathReal: "/categorias/alimentacao-especial/integral", tipo: "sub", id: "3886414", depto: "Alimentação Especial", nome: "Alimentação Especial > Integral" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/doces-e-geleias", pathReal: "/categorias/alimentacao-especial/doces-e-geleias", tipo: "sub", id: "3886412", depto: "Alimentação Especial", nome: "Alimentação Especial > Doces e Geleias" },
+      { url: "https://www.superkoch.com.br/categorias/alimentacao-especial/fit", pathReal: "/categorias/alimentacao-especial/fit", tipo: "sub", id: "3886386", depto: "Alimentação Especial", nome: "Alimentação Especial > Fit" },
       { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", nome: "Promoções (Todas as Ofertas)" }
     ];
 
@@ -1381,20 +1387,22 @@
         if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = mercadoConfigAtual === 'fort' ? '20' : '36';
         if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '1500';
         if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '2400';
-        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '5';
-        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '10';
+        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '50';
+        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '200';
       } else if (camada === '2A' || camada === 'TURNO') {
-        if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '3';
+        if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '5';
         if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = '12';
         if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '2200';
         if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '3800';
-        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '1';
-        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '50';
+        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '50';
+        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '200';
       } else if (camada === 'COMPLETA') {
         if (document.getElementById('inpConfigTotalMaquinas')) document.getElementById('inpConfigTotalMaquinas').value = '5';
         if (document.getElementById('inpConfigBatchSize')) document.getElementById('inpConfigBatchSize').value = '12';
         if (document.getElementById('inpConfigDelayPag')) document.getElementById('inpConfigDelayPag').value = '2200';
         if (document.getElementById('inpConfigDelayRota')) document.getElementById('inpConfigDelayRota').value = '3800';
+        if (document.getElementById('inpConfigSalvarNovos')) document.getElementById('inpConfigSalvarNovos').value = '50';
+        if (document.getElementById('inpConfigSalvarAtualizados')) document.getElementById('inpConfigSalvarAtualizados').value = '200';
       }
       aoMudarModoFilaUI(camada);
       const nomes = { RADAR: '⚡ Radar de Ofertas (1-2 min)', '2A': '⚖️ Varredura de Turno (Subcats 2A)', COMPLETA: '🌙 Varredura Noturna Geral (100%)' };
@@ -1867,6 +1875,11 @@
     // =========================================================================
     // CENTRAL DO ROBÔ AO VIVO (MULTI-ROBÔ KOCH + FORT + CONTROLE REMOTO + VÍNCULOS)
     // =========================================================================
+    let enxameKochBrutoAtual = null;
+    let enxameFortBrutoAtual = null;
+    let ultimasAlteracoesKochCache = null;
+    let ultimasAlteracoesFortCache = null;
+
     function abrirCentralRobo() {
       atualizarUISenhaRobo();
       document.getElementById('modalCentralRobo').classList.remove('hidden');
@@ -1896,6 +1909,8 @@
       });
       if (aba === 'enxame') renderizarEnxameCompleto(telemetriaKochAtual, telemetriaFortAtual);
       if (aba === 'logs') renderizarLogsRobo();
+      if (aba === 'precos') renderizarAbaPrecosRobo(telemetriaKochAtual, telemetriaFortAtual);
+      if (aba === 'novos') renderizarAbaNovosRobo(telemetriaKochAtual, telemetriaFortAtual);
       if (aba === 'vinculos') renderizarAbaVinculosUI();
       if (aba === 'fila') renderizarFilaCategoriasRobo();
     }
@@ -1904,22 +1919,48 @@
       const fbUrl = obterUrlFirebase();
       if (!fbUrl) return;
       try {
-        const [rK, rF] = await Promise.all([
-          fetch(`${fbUrl}/robo_controle/telemetria.json?t=${Date.now()}`).catch(() => null),
-          fetch(`${fbUrl}/robo_controle/telemetria_fort.json?t=${Date.now()}`).catch(() => null)
-        ]);
+        const ts = Date.now();
+        const promessas = [
+          fetch(`${fbUrl}/robo_controle/telemetria.json?t=${ts}`).catch(() => null),
+          fetch(`${fbUrl}/robo_controle/telemetria_fort.json?t=${ts}`).catch(() => null),
+          fetch(`${fbUrl}/robo_controle/enxame_koch.json?t=${ts}`).catch(() => null),
+          fetch(`${fbUrl}/robo_controle/enxame_fort.json?t=${ts}`).catch(() => null)
+        ];
+        if (forcar || !ultimasAlteracoesKochCache || !ultimasAlteracoesFortCache) {
+          promessas.push(
+            fetch(`${fbUrl}/robo_controle/ultimas_alteracoes_koch.json?t=${ts}`).catch(() => null),
+            fetch(`${fbUrl}/robo_controle/ultimas_alteracoes_fort.json?t=${ts}`).catch(() => null)
+          );
+        }
+
+        const [rK, rF, rEnxK, rEnxF, rAltK, rAltF] = await Promise.all(promessas);
 
         const tK = (rK && rK.ok) ? await rK.json() : null;
         const tF = (rF && rF.ok) ? await rF.json() : null;
+        const eK = (rEnxK && rEnxK.ok) ? await rEnxK.json() : null;
+        const eF = (rEnxF && rEnxF.ok) ? await rEnxF.json() : null;
+
+        if (rAltK && rAltK.ok) {
+          const dAltK = await rAltK.json();
+          if (dAltK && typeof dAltK === 'object') ultimasAlteracoesKochCache = dAltK;
+        }
+        if (rAltF && rAltF.ok) {
+          const dAltF = await rAltF.json();
+          if (dAltF && typeof dAltF === 'object') ultimasAlteracoesFortCache = dAltF;
+        }
 
         telemetriaKochAtual = (tK && typeof tK === 'object') ? tK : null;
         telemetriaFortAtual = (tF && typeof tF === 'object') ? tF : null;
+        enxameKochBrutoAtual = (eK && typeof eK === 'object') ? eK : null;
+        enxameFortBrutoAtual = (eF && typeof eF === 'object') ? eF : null;
 
         if (focoMercadoModalRobo === 'fort') telemetriaAtualRobo = telemetriaFortAtual || telemetriaKochAtual;
         else telemetriaAtualRobo = telemetriaKochAtual || telemetriaFortAtual;
 
         atualizarInterfaceCentralRoboMultiMercado(telemetriaKochAtual, telemetriaFortAtual);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Erro ao sincronizar telemetria:', e);
+      }
     }
 
     function formatarSegundosCurto(seg) {
@@ -1932,18 +1973,276 @@
       return `${m}m ${s}s`;
     }
 
+    // Une dados de resumoMaquinas da telemetria com os nós vivos de enxame_koch / enxame_fort
+    function obterMaquinasUnificadasMercado(tMercado, enxBruto, siglaMercado) {
+      const mapa = new Map();
+      const resumo = Array.isArray(tMercado?.enxameAtivo?.resumoMaquinas) ? tMercado.enxameAtivo.resumoMaquinas : [];
+      resumo.forEach(m => {
+        const id = Number(m.id || m.workerId || 1);
+        mapa.set(id, { ...m, id });
+      });
+
+      if (enxBruto && typeof enxBruto === 'object') {
+        for (const [chave, w] of Object.entries(enxBruto)) {
+          if (!w || typeof w !== 'object') continue;
+          const mKey = String(chave).match(/(\d+)/);
+          const id = Number(w.workerId || w.id || (mKey ? mKey[1] : 1));
+          const ant = mapa.get(id) || { id };
+          mapa.set(id, {
+            ...ant,
+            id,
+            ip: w.ipPublico || ant.ip || null,
+            status: w.status || ant.status || 'PARADO',
+            heartbeatMs: Number(w.heartbeatMs || ant.heartbeatMs || tMercado?.heartbeatMs || 0),
+            rota: w.rotaNomeAtual
+              ? `#${w.rotaIndiceAtual || 1} ${w.rotaNomeAtual}`
+              : (ant.rota || 'Inicializando...'),
+            depto: w.deptoAtualNome || ant.depto || 'Geral',
+            pag: w.paginaAtual || ant.pag || 1,
+            offset: w.offsetAtual ?? ant.offset ?? 0,
+            lidos: w.totalLidosNaSessao ?? ant.lidos ?? 0,
+            novos: w.novosNaSessao ?? ant.novos ?? 0,
+            precos: w.precosAlteradosNaSessao ?? ant.precos ?? 0,
+            reqs: w.requisicoesFeitas ?? ant.reqs ?? 0,
+            mensagem: w.mensagem || ant.mensagem || '',
+            ultimosLogs: Array.isArray(w.ultimosLogs) ? w.ultimosLogs : [],
+            ultimosPrecosAlterados: Array.isArray(w.ultimosPrecosAlterados) ? w.ultimosPrecosAlterados : [],
+            ultimosNovos: Array.isArray(w.ultimosNovos) ? w.ultimosNovos : []
+          });
+        }
+      }
+
+      const lista = Array.from(mapa.values()).sort((a, b) => a.id - b.id);
+      const agora = Date.now();
+      return lista.map(m => {
+        const hb = Number(m.heartbeatMs || tMercado?.heartbeatMs || 0);
+        const idadeSeg = hb > 0 ? Math.max(0, Math.round((agora - hb) / 1000)) : 999999;
+        return {
+          ...m,
+          mercado: siglaMercado,
+          mercadoNome: siglaMercado === 'FORT' ? 'Fort Atacadista (1644)' : 'SuperKoch (1408)',
+          heartbeatMs: hb,
+          idadeSeg
+        };
+      });
+    }
+
+    function obterTodosLogsUnificados() {
+      const maqsK = obterMaquinasUnificadasMercado(telemetriaKochAtual, enxameKochBrutoAtual, 'KOCH');
+      const maqsF = obterMaquinasUnificadasMercado(telemetriaFortAtual, enxameFortBrutoAtual, 'FORT');
+      const mapaIpWorker = {};
+      maqsK.forEach(m => { if (m.ip) mapaIpWorker[`KOCH_${m.id}`] = m.ip; });
+      maqsF.forEach(m => { if (m.ip) mapaIpWorker[`FORT_${m.id}`] = m.ip; });
+
+      const vistos = new Set();
+      const saida = [];
+
+      const adicionarLista = (lista, mercadoPadrao, workerPadrao = null) => {
+        if (!Array.isArray(lista)) return;
+        for (const item of lista) {
+          if (!item || typeof item !== 'object') continue;
+          const textoCtx = String(item.contexto || item.etapa || 'Sistema');
+          const mMaq = textoCtx.match(/\[M[^\d]*#?(\d+)\]/i);
+          const workerId = Number(item.workerId || workerPadrao || (mMaq ? mMaq[1] : 1));
+          const mercado = String(item.mercado || mercadoPadrao).toUpperCase().includes('FORT') ? 'FORT' : 'KOCH';
+          const hora = item.hora || '';
+          const msg = item.mensagem || '';
+          const chave = `${mercado}|${workerId}|${hora}|${msg.slice(0, 80)}`;
+          if (vistos.has(chave)) continue;
+          vistos.add(chave);
+
+          const ipReal = (item.ip && item.ip !== 'Detectando...')
+            ? item.ip
+            : (mapaIpWorker[`${mercado}_${workerId}`] || null);
+
+          saida.push({
+            ...item,
+            mercado,
+            workerId,
+            ip: ipReal,
+            contexto: textoCtx,
+            timestamp: Number(item.timestamp || 0)
+          });
+        }
+      };
+
+      adicionarLista(telemetriaKochAtual?.ultimosLogs, 'KOCH');
+      adicionarLista(telemetriaFortAtual?.ultimosLogs, 'FORT');
+      maqsK.forEach(m => adicionarLista(m.ultimosLogs, 'KOCH', m.id));
+      maqsF.forEach(m => adicionarLista(m.ultimosLogs, 'FORT', m.id));
+
+      saida.sort((a, b) => {
+        if (b.timestamp && a.timestamp && b.timestamp !== a.timestamp) return b.timestamp - a.timestamp;
+        return String(b.hora || '').localeCompare(String(a.hora || ''));
+      });
+      return saida;
+    }
+
+    function obterPrecosAlteradosUnificados(tK, tF) {
+      const maqsK = obterMaquinasUnificadasMercado(tK, enxameKochBrutoAtual, 'KOCH');
+      const maqsF = obterMaquinasUnificadasMercado(tF, enxameFortBrutoAtual, 'FORT');
+      const vistos = new Set();
+      const lista = [];
+
+      const add = (arr, mercPadrao) => {
+        if (!Array.isArray(arr)) return;
+        for (const p of arr) {
+          if (!p || !p.nome) continue;
+          const merc = String(p.mercado || mercPadrao).toUpperCase().includes('FORT') ? 'FORT' : 'KOCH';
+          const ch = `${merc}_${p.id || p.nome}_${p.precoNovo}`;
+          if (vistos.has(ch)) continue;
+          vistos.add(ch);
+          lista.push({ ...p, mercado: merc });
+        }
+      };
+
+      add(tK?.ultimosPrecosAlterados, 'KOCH');
+      add(tF?.ultimosPrecosAlterados, 'FORT');
+      maqsK.forEach(m => add(m.ultimosPrecosAlterados, 'KOCH'));
+      maqsF.forEach(m => add(m.ultimosPrecosAlterados, 'FORT'));
+      add(ultimasAlteracoesKochCache?.precosAlterados, 'KOCH');
+      add(ultimasAlteracoesFortCache?.precosAlterados, 'FORT');
+
+      return lista;
+    }
+
+    function obterNovosUnificados(tK, tF) {
+      const maqsK = obterMaquinasUnificadasMercado(tK, enxameKochBrutoAtual, 'KOCH');
+      const maqsF = obterMaquinasUnificadasMercado(tF, enxameFortBrutoAtual, 'FORT');
+      const vistos = new Set();
+      const lista = [];
+
+      const add = (arr, mercPadrao) => {
+        if (!Array.isArray(arr)) return;
+        for (const p of arr) {
+          if (!p || !p.nome) continue;
+          const merc = String(p.mercado || mercPadrao).toUpperCase().includes('FORT') ? 'FORT' : 'KOCH';
+          const ch = `${merc}_${p.id || p.nome}`;
+          if (vistos.has(ch)) continue;
+          vistos.add(ch);
+          lista.push({ ...p, mercado: merc });
+        }
+      };
+
+      add(tK?.ultimosNovos, 'KOCH');
+      add(tF?.ultimosNovos, 'FORT');
+      maqsK.forEach(m => add(m.ultimosNovos, 'KOCH'));
+      maqsF.forEach(m => add(m.ultimosNovos, 'FORT'));
+      add(ultimasAlteracoesKochCache?.novosAdicionados, 'KOCH');
+      add(ultimasAlteracoesFortCache?.novosAdicionados, 'FORT');
+
+      return lista;
+    }
+
+    function renderizarAbaPrecosRobo(tK = telemetriaKochAtual, tF = telemetriaFortAtual) {
+      const container = document.getElementById('listaPrecosAlteradosRobo');
+      if (!container) return;
+      const arrP = obterPrecosAlteradosUnificados(tK, tF);
+      const lblRes = document.getElementById('lblResumoAbaPrecos');
+      if (lblRes) lblRes.textContent = `${arrP.length} alterações detalhadas`;
+
+      if (arrP.length === 0) {
+        container.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">Nenhuma mudança de preço detalhada disponível nesta sessão.</div>`;
+        return;
+      }
+
+      container.innerHTML = arrP.map(p => {
+        const ehFort = String(p.mercado || '').toUpperCase().includes('FORT');
+        const badgeMerc = ehFort
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+        const baixou = Number(p.precoNovo) < Number(p.precoAntigo);
+        const diffAbs = Math.abs(Number(p.diferenca || (p.precoNovo - p.precoAntigo))).toFixed(2).replace('.', ',');
+        const badgeDiff = baixou
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-black px-2 py-0.5 rounded">📉 Baixou -R$ ${diffAbs}</span>`
+          : `<span class="bg-amber-950 text-amber-300 border border-amber-700 text-[10px] font-black px-2 py-0.5 rounded">📈 Subiu +R$ ${diffAbs}</span>`;
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex items-center gap-3">
+            <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  ${badgeMerc}
+                  <span class="text-[10px] font-bold text-slate-400 uppercase truncate">${p.marca || ''}</span>
+                  ${p.categoria ? `<span class="text-[9px] text-slate-500 truncate hidden sm:inline">• ${p.categoria}</span>` : ''}
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
+              </div>
+              <div class="text-xs font-bold text-white truncate mt-0.5">${p.nome}</div>
+              <div class="flex items-center flex-wrap gap-2 mt-1">
+                <span class="text-[11px] text-slate-400 line-through">De R$ ${Number(p.precoAntigo || 0).toFixed(2).replace('.', ',')}</span>
+                <span class="text-xs font-black text-white">➔ Para R$ ${Number(p.precoNovo || 0).toFixed(2).replace('.', ',')}</span>
+                ${badgeDiff}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderizarAbaNovosRobo(tK = telemetriaKochAtual, tF = telemetriaFortAtual) {
+      const container = document.getElementById('listaNovosAdicionadosRobo');
+      if (!container) return;
+      const arrN = obterNovosUnificados(tK, tF);
+      const lblRes = document.getElementById('lblResumoAbaNovos');
+      if (lblRes) lblRes.textContent = `${arrN.length} novos listados`;
+
+      if (arrN.length === 0) {
+        container.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-500">Nenhum produto novo listado nesta sessão.</div>`;
+        return;
+      }
+
+      container.innerHTML = arrN.map(p => {
+        const ehFort = String(p.mercado || '').toUpperCase().includes('FORT');
+        const badgeMerc = ehFort
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+        return `
+          <div class="bg-slate-900 border border-emerald-900/50 rounded-xl p-2.5 flex items-center gap-3">
+            <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  ${badgeMerc}
+                  <span class="text-[10px] font-bold text-emerald-400 uppercase truncate">NOVO • ${p.marca || ''}</span>
+                  ${p.categoria ? `<span class="text-[9px] text-slate-500 truncate hidden sm:inline">• ${p.categoria}</span>` : ''}
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
+              </div>
+              <div class="text-xs font-bold text-white truncate mt-0.5">${p.nome}</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-xs font-black text-emerald-300">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>
+                <span class="text-[10px] text-slate-400">Estoque: ${p.estoque ?? 0} un</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
     function atualizarInterfaceCentralRoboMultiMercado(tK, tF) {
       const agora = Date.now();
+      const maqsK = obterMaquinasUnificadasMercado(tK, enxameKochBrutoAtual, 'KOCH');
+      const maqsF = obterMaquinasUnificadasMercado(tF, enxameFortBrutoAtual, 'FORT');
 
-      // Indicadores do Robô Koch
-      const idadeSegK = tK?.heartbeatMs ? Math.round((agora - Number(tK.heartbeatMs)) / 1000) : 9999;
-      const rodandoK = Boolean(tK && (tK.status === 'RODANDO' || tK.status === 'INICIANDO' || tK.status === 'BLOQUEIO_ESPERA') && idadeSegK < 180);
-      const pausadoK = Boolean(tK && tK.status === 'PAUSADO' && idadeSegK < 3600);
+      // Menor idade de heartbeat entre a telemetria mestre e os workers ativos
+      const menorIdadeWorkersK = maqsK.length > 0 ? Math.min(...maqsK.map(m => m.idadeSeg)) : 999999;
+      const idadeSegK = Math.min(
+        tK?.heartbeatMs ? Math.max(0, Math.round((agora - Number(tK.heartbeatMs)) / 1000)) : 999999,
+        menorIdadeWorkersK
+      );
+      const temWorkerAtivoK = maqsK.some(m => (m.status === 'RODANDO' || m.status === 'INICIANDO' || m.status === 'BLOQUEIO_ESPERA') && m.idadeSeg < 180);
+      const rodandoK = Boolean((tK && (tK.status === 'RODANDO' || tK.status === 'INICIANDO' || tK.status === 'BLOQUEIO_ESPERA') && idadeSegK < 180) || temWorkerAtivoK);
+      const pausadoK = Boolean(!rodandoK && tK && tK.status === 'PAUSADO' && idadeSegK < 3600);
 
-      // Indicadores do Robô Fort
-      const idadeSegF = tF?.heartbeatMs ? Math.round((agora - Number(tF.heartbeatMs)) / 1000) : 9999;
-      const rodandoF = Boolean(tF && (tF.status === 'RODANDO' || tF.status === 'INICIANDO' || tF.status === 'BLOQUEIO_ESPERA') && idadeSegF < 180);
-      const pausadoF = Boolean(tF && tF.status === 'PAUSADO' && idadeSegF < 3600);
+      const menorIdadeWorkersF = maqsF.length > 0 ? Math.min(...maqsF.map(m => m.idadeSeg)) : 999999;
+      const idadeSegF = Math.min(
+        tF?.heartbeatMs ? Math.max(0, Math.round((agora - Number(tF.heartbeatMs)) / 1000)) : 999999,
+        menorIdadeWorkersF
+      );
+      const temWorkerAtivoF = maqsF.some(m => (m.status === 'RODANDO' || m.status === 'INICIANDO' || m.status === 'BLOQUEIO_ESPERA') && m.idadeSeg < 180);
+      const rodandoF = Boolean((tF && (tF.status === 'RODANDO' || tF.status === 'INICIANDO' || tF.status === 'BLOQUEIO_ESPERA') && idadeSegF < 180) || temWorkerAtivoF);
+      const pausadoF = Boolean(!rodandoF && tF && tF.status === 'PAUSADO' && idadeSegF < 3600);
 
       const algumRodando = rodandoK || rodandoF;
       const algumPausado = pausadoK || pausadoF;
@@ -1970,8 +2269,8 @@
         if (barraViva) barraViva.classList.remove('hidden');
 
         const txtBarra = [];
-        if (rodandoK) txtBarra.push(`🔴 Koch: [#${tK.rotaIndiceAtual || 1}/${tK.rotaTotal || 106}] ${tK.rotaNomeAtual || ''}`);
-        if (rodandoF) txtBarra.push(`🟢 Fort: [#${tF.rotaIndiceAtual || 1}/${tF.rotaTotal || 122}] ${tF.rotaNomeAtual || ''}`);
+        if (rodandoK) txtBarra.push(`🔴 Koch: [#${tK?.rotaIndiceAtual || 1}/${tK?.rotaTotal || 126}] ${tK?.rotaNomeAtual || ''}`);
+        if (rodandoF) txtBarra.push(`🟢 Fort: [#${tF?.rotaIndiceAtual || 1}/${tF?.rotaTotal || 123}] ${tF?.rotaNomeAtual || ''}`);
         document.getElementById('textoBarraVivaRobo').textContent = txtBarra.join(' • ');
 
         const somaNovos = (tK?.novosNaSessao || 0) + (tF?.novosNaSessao || 0);
@@ -2017,22 +2316,27 @@
       if (tK) {
         const badgeK = document.getElementById('kochBadgeStatusCard');
         if (badgeK) {
-          let txtK = tK.status || 'PARADO';
+          let txtK = '💤 PARADO';
           let corK = 'bg-slate-950 text-slate-300 border-slate-700';
           if (rodandoK) {
-            txtK = tK.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO';
+            txtK = tK.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO AO VIVO';
             corK = tK.status === 'BLOQUEIO_ESPERA' ? 'bg-amber-950 text-amber-300 border-amber-700' : 'bg-red-950 text-red-300 border-red-700';
           } else if (pausadoK) {
             txtK = '⏸ PAUSADO'; corK = 'bg-amber-950 text-amber-300 border-amber-700';
           } else if (tK.status === 'CONCLUIDO') {
-            txtK = '✅ 100% OK'; corK = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+            txtK = '✅ 100% CONCLUÍDO'; corK = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+          } else if (tK.status === 'CANCELADO') {
+            txtK = '⏹ CANCELADO'; corK = 'bg-slate-800 text-slate-300 border-slate-700';
+          } else {
+            txtK = '💤 PARADO (Sessão Encerrada)';
+            corK = 'bg-slate-800 text-slate-400 border-slate-700';
           }
           badgeK.className = `text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0 ${corK}`;
           badgeK.textContent = txtK;
         }
 
         const idxK = tK.rotaIndiceAtual || 1;
-        const totK = tK.rotaTotal || 106;
+        const totK = tK.rotaTotal || 126;
         const faltamK = tK.categoriasFaltando !== undefined ? tK.categoriasFaltando : Math.max(0, totK - idxK);
         let deptoNomeK = tK.deptoAtualNome || (tK.rotaNomeAtual ? tK.rotaNomeAtual.split('>')[0].replace('(Departamento)', '').trim() : 'Geral');
         let subPosK = tK.subcategoriaPosNoDepto || 1;
@@ -2043,19 +2347,25 @@
         if (!tK.tempoDecorrido && tK.iniciadoEmMs && rodandoK) {
           tempoDecorridoK = formatarSegundosCurto(Math.max(1, Math.round((agora - Number(tK.iniciadoEmMs)) / 1000)));
         }
+        const msgVivaK = rodandoK
+          ? (tK.mensagem || 'Coletando dados do SuperKoch...')
+          : `💤 Sessão encerrada (último sinal há ${formatarSegundosCurto(idadeSegK)}). Pronto para novo disparo.`;
 
         if (document.getElementById('roboRotaAtualTitulo')) document.getElementById('roboRotaAtualTitulo').textContent = `📂 [#${idxK}/${totK}] ${tK.rotaNomeAtual || 'Início'}`;
         if (document.getElementById('roboSubcategoriaBadge')) document.getElementById('roboSubcategoriaBadge').textContent = `🌿 ${deptoNomeK}: ${subPosK}/${subTotK} (faltam ${subFaltamK})`;
-        if (document.getElementById('roboMensagemViva')) document.getElementById('roboMensagemViva').textContent = tK.mensagem || 'Coletando dados do Koch...';
+        if (document.getElementById('roboMensagemViva')) document.getElementById('roboMensagemViva').textContent = msgVivaK;
         if (document.getElementById('roboBarraProgresso')) document.getElementById('roboBarraProgresso').style.width = `${Math.min(100, Math.max(0, tK.progressoPct || 0))}%`;
         if (document.getElementById('roboTempoDecorrido')) document.getElementById('roboTempoDecorrido').textContent = tempoDecorridoK;
-        if (document.getElementById('roboTempoRestante')) document.getElementById('roboTempoRestante').textContent = tK.tempoRestante || '--';
+        if (document.getElementById('roboTempoRestante')) document.getElementById('roboTempoRestante').textContent = rodandoK ? (tK.tempoRestante || '--') : 'Encerrado';
         if (document.getElementById('roboDetalheFaltam')) document.getElementById('roboDetalheFaltam').textContent = `${faltamK} restantes`;
         if (document.getElementById('roboDetalheSubcategorias')) document.getElementById('roboDetalheSubcategorias').textContent = `${subPosK} de ${subTotK} (faltam ${subFaltamK})`;
-        if (document.getElementById('kochDetalheLidos')) document.getElementById('kochDetalheLidos').textContent = `${tK.totalLidosNaSessao || 0} lidos (+${tK.novosNaSessao || 0})`;
 
-        const maqTotalK = tK.enxameAtivo?.totalMaquinas || tK.configAtiva?.totalMaquinas || 1;
-        const maqAtivasK = tK.enxameAtivo?.maquinasAtivas || 1;
+        const lidosK = maqsK.length > 0 ? maqsK.reduce((s, m) => s + (m.lidos || 0), 0) : (tK.totalLidosNaSessao || 0);
+        const novosK = maqsK.length > 0 ? maqsK.reduce((s, m) => s + (m.novos || 0), 0) : (tK.novosNaSessao || 0);
+        if (document.getElementById('kochDetalheLidos')) document.getElementById('kochDetalheLidos').textContent = `${lidosK} lidos (+${novosK})`;
+
+        const maqTotalK = Math.max(maqsK.length, tK.enxameAtivo?.totalMaquinas || tK.configAtiva?.totalMaquinas || 1);
+        const maqAtivasK = rodandoK ? maqsK.filter(m => m.status === 'RODANDO' || m.status === 'INICIANDO' || m.status === 'BLOQUEIO_ESPERA').length : 0;
         if (document.getElementById('roboDetalhePosicao')) {
           document.getElementById('roboDetalhePosicao').textContent = maqTotalK > 1
             ? `⚡ ${maqAtivasK}/${maqTotalK} Máqs • Pág ${tK.paginaAtual || 1}`
@@ -2065,19 +2375,21 @@
         const boxEnxameK = document.getElementById('boxResumoEnxameAoVivo');
         const listaMaqK = document.getElementById('listaMaquinasEnxameAoVivo');
         if (boxEnxameK && listaMaqK) {
-          const resumoMaqK = Array.isArray(tK.enxameAtivo?.resumoMaquinas) ? tK.enxameAtivo.resumoMaquinas : [];
-          if (resumoMaqK.length > 0) {
+          if (maqsK.length > 0) {
             boxEnxameK.classList.remove('hidden');
-            listaMaqK.innerHTML = resumoMaqK.map(m => `
-              <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
-                <div class="flex items-center justify-between gap-1">
-                  <span class="font-black text-red-300">🖥️ Máq #${m.id}</span>
-                  <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[110px]" title="IP: ${m.ip || 'Ativo'}">🌐 ${m.ip || 'IP Ativo'}</span>
-                  <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+            listaMaqK.innerHTML = maqsK.map(m => {
+              const stCurto = !rodandoK ? '💤 Inativo' : (m.status === 'CONCLUIDO' ? '✅ OK' : `Pág ${m.pag || 1}`);
+              return `
+                <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="font-black text-red-300">🖥️ Máq #${m.id}</span>
+                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">🌐 ${m.ip || 'IP Nuvem'}</span>
+                    <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+                  </div>
+                  <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (${stCurto})</div>
                 </div>
-                <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (Pág ${m.pag || 1})</div>
-              </div>
-            `).join('');
+              `;
+            }).join('');
           } else {
             boxEnxameK.classList.add('hidden');
           }
@@ -2090,22 +2402,27 @@
       if (tF) {
         const badgeF = document.getElementById('fortBadgeStatusCard');
         if (badgeF) {
-          let txtF = tF.status || 'PARADO';
+          let txtF = '💤 PARADO';
           let corF = 'bg-slate-950 text-slate-300 border-slate-700';
           if (rodandoF) {
-            txtF = tF.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO';
+            txtF = tF.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO AO VIVO';
             corF = tF.status === 'BLOQUEIO_ESPERA' ? 'bg-amber-950 text-amber-300 border-amber-700' : 'bg-emerald-950 text-emerald-300 border-emerald-700';
           } else if (pausadoF) {
             txtF = '⏸ PAUSADO'; corF = 'bg-amber-950 text-amber-300 border-amber-700';
           } else if (tF.status === 'CONCLUIDO') {
-            txtF = '✅ 100% OK'; corF = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+            txtF = '✅ 100% CONCLUÍDO'; corF = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+          } else if (tF.status === 'CANCELADO') {
+            txtF = '⏹ CANCELADO'; corF = 'bg-slate-800 text-slate-300 border-slate-700';
+          } else {
+            txtF = '💤 PARADO (Sessão Encerrada)';
+            corF = 'bg-slate-800 text-slate-400 border-slate-700';
           }
           badgeF.className = `text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0 ${corF}`;
           badgeF.textContent = txtF;
         }
 
         const idxF = tF.rotaIndiceAtual || 1;
-        const totF = tF.rotaTotal || 122;
+        const totF = tF.rotaTotal || 123;
         const faltamF = tF.categoriasFaltando !== undefined ? tF.categoriasFaltando : Math.max(0, totF - idxF);
         let deptoNomeF = tF.deptoAtualNome || (tF.rotaNomeAtual ? tF.rotaNomeAtual.split('>')[0].replace('(Departamento)', '').trim() : 'Geral');
         let subPosF = tF.subcategoriaPosNoDepto || 1;
@@ -2116,19 +2433,25 @@
         if (!tF.tempoDecorrido && tF.iniciadoEmMs && rodandoF) {
           tempoDecorridoF = formatarSegundosCurto(Math.max(1, Math.round((agora - Number(tF.iniciadoEmMs)) / 1000)));
         }
+        const msgVivaF = rodandoF
+          ? (tF.mensagem || 'Coletando dados do Fort Atacadista...')
+          : `💤 Sessão encerrada (último sinal há ${formatarSegundosCurto(idadeSegF)}). Pronto para novo disparo.`;
 
         if (document.getElementById('fortRotaAtualTitulo')) document.getElementById('fortRotaAtualTitulo').textContent = `📂 [#${idxF}/${totF}] ${tF.rotaNomeAtual || 'Início'}`;
         if (document.getElementById('fortSubcategoriaBadge')) document.getElementById('fortSubcategoriaBadge').textContent = `🌿 ${deptoNomeF}: ${subPosF}/${subTotF} (faltam ${subFaltamF})`;
-        if (document.getElementById('fortMensagemViva')) document.getElementById('fortMensagemViva').textContent = tF.mensagem || 'Coletando dados do Fort...';
+        if (document.getElementById('fortMensagemViva')) document.getElementById('fortMensagemViva').textContent = msgVivaF;
         if (document.getElementById('fortBarraProgresso')) document.getElementById('fortBarraProgresso').style.width = `${Math.min(100, Math.max(0, tF.progressoPct || 0))}%`;
         if (document.getElementById('fortTempoDecorrido')) document.getElementById('fortTempoDecorrido').textContent = tempoDecorridoF;
-        if (document.getElementById('fortTempoRestante')) document.getElementById('fortTempoRestante').textContent = tF.tempoRestante || '--';
+        if (document.getElementById('fortTempoRestante')) document.getElementById('fortTempoRestante').textContent = rodandoF ? (tF.tempoRestante || '--') : 'Encerrado';
         if (document.getElementById('fortDetalheFaltam')) document.getElementById('fortDetalheFaltam').textContent = `${faltamF} restantes`;
         if (document.getElementById('fortDetalheSubcategorias')) document.getElementById('fortDetalheSubcategorias').textContent = `${subPosF} de ${subTotF} (faltam ${subFaltamF})`;
-        if (document.getElementById('fortDetalheLidos')) document.getElementById('fortDetalheLidos').textContent = `${tF.totalLidosNaSessao || 0} lidos (+${tF.novosNaSessao || 0})`;
 
-        const maqTotalF = tF.enxameAtivo?.totalMaquinas || tF.configAtiva?.totalMaquinas || 1;
-        const maqAtivasF = tF.enxameAtivo?.maquinasAtivas || 1;
+        const lidosF = maqsF.length > 0 ? maqsF.reduce((s, m) => s + (m.lidos || 0), 0) : (tF.totalLidosNaSessao || 0);
+        const novosF = maqsF.length > 0 ? maqsF.reduce((s, m) => s + (m.novos || 0), 0) : (tF.novosNaSessao || 0);
+        if (document.getElementById('fortDetalheLidos')) document.getElementById('fortDetalheLidos').textContent = `${lidosF} lidos (+${novosF})`;
+
+        const maqTotalF = Math.max(maqsF.length, tF.enxameAtivo?.totalMaquinas || tF.configAtiva?.totalMaquinas || 1);
+        const maqAtivasF = rodandoF ? maqsF.filter(m => m.status === 'RODANDO' || m.status === 'INICIANDO' || m.status === 'BLOQUEIO_ESPERA').length : 0;
         if (document.getElementById('fortDetalhePosicao')) {
           document.getElementById('fortDetalhePosicao').textContent = maqTotalF > 1
             ? `⚡ ${maqAtivasF}/${maqTotalF} Máqs • Pág ${tF.paginaAtual || 1}`
@@ -2138,19 +2461,21 @@
         const boxEnxameF = document.getElementById('boxResumoEnxameFort');
         const listaMaqF = document.getElementById('listaMaquinasEnxameFort');
         if (boxEnxameF && listaMaqF) {
-          const resumoMaqF = Array.isArray(tF.enxameAtivo?.resumoMaquinas) ? tF.enxameAtivo.resumoMaquinas : [];
-          if (resumoMaqF.length > 0) {
+          if (maqsF.length > 0) {
             boxEnxameF.classList.remove('hidden');
-            listaMaqF.innerHTML = resumoMaqF.map(m => `
-              <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
-                <div class="flex items-center justify-between gap-1">
-                  <span class="font-black text-emerald-400">🖥️ Máq #${m.id}</span>
-                  <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[110px]" title="IP: ${m.ip || 'Ativo'}">🌐 ${m.ip || 'IP Ativo'}</span>
-                  <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+            listaMaqF.innerHTML = maqsF.map(m => {
+              const stCurto = !rodandoF ? '💤 Inativo' : (m.status === 'CONCLUIDO' ? '✅ OK' : `Pág ${m.pag || 1}`);
+              return `
+                <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="font-black text-emerald-400">🖥️ Máq #${m.id}</span>
+                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">🌐 ${m.ip || 'IP Nuvem'}</span>
+                    <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
+                  </div>
+                  <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (${stCurto})</div>
                 </div>
-                <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (Pág ${m.pag || 1})</div>
-              </div>
-            `).join('');
+              `;
+            }).join('');
           } else {
             boxEnxameF.classList.add('hidden');
           }
@@ -2163,12 +2488,23 @@
       // -------------------------------------------------------------
       // PLACAR COMBINADO DE KPIS
       // -------------------------------------------------------------
-      const totLidos = (tK?.totalLidosNaSessao || 0) + (tF?.totalLidosNaSessao || 0);
-      const totNovos = (tK?.novosNaSessao || 0) + (tF?.novosNaSessao || 0);
-      const totPrecos = (tK?.precosAlteradosNaSessao || 0) + (tF?.precosAlteradosNaSessao || 0);
+      const lidosSomaK = maqsK.length > 0 ? Math.max(tK?.totalLidosNaSessao || 0, maqsK.reduce((s, m) => s + (m.lidos || 0), 0)) : (tK?.totalLidosNaSessao || 0);
+      const lidosSomaF = maqsF.length > 0 ? Math.max(tF?.totalLidosNaSessao || 0, maqsF.reduce((s, m) => s + (m.lidos || 0), 0)) : (tF?.totalLidosNaSessao || 0);
+      const totLidos = lidosSomaK + lidosSomaF;
+
+      const novosSomaK = maqsK.length > 0 ? Math.max(tK?.novosNaSessao || 0, maqsK.reduce((s, m) => s + (m.novos || 0), 0)) : (tK?.novosNaSessao || 0);
+      const novosSomaF = maqsF.length > 0 ? Math.max(tF?.novosNaSessao || 0, maqsF.reduce((s, m) => s + (m.novos || 0), 0)) : (tF?.novosNaSessao || 0);
+      const totNovos = novosSomaK + novosSomaF;
+
+      const precosSomaK = maqsK.length > 0 ? Math.max(tK?.precosAlteradosNaSessao || 0, maqsK.reduce((s, m) => s + (m.precos || 0), 0)) : (tK?.precosAlteradosNaSessao || 0);
+      const precosSomaF = maqsF.length > 0 ? Math.max(tF?.precosAlteradosNaSessao || 0, maqsF.reduce((s, m) => s + (m.precos || 0), 0)) : (tF?.precosAlteradosNaSessao || 0);
+      const totPrecos = precosSomaK + precosSomaF;
+
       const totEstoques = (tK?.estoquesAlteradosNaSessao || 0) + (tF?.estoquesAlteradosNaSessao || 0);
       const totSaves = (tK?.savesRealizados || 0) + (tF?.savesRealizados || 0);
-      const totReqs = (tK?.requisicoesFeitas || 0) + (tF?.requisicoesFeitas || 0);
+      const reqsSomaK = maqsK.length > 0 ? Math.max(tK?.requisicoesFeitas || 0, maqsK.reduce((s, m) => s + (m.reqs || 0), 0)) : (tK?.requisicoesFeitas || 0);
+      const reqsSomaF = maqsF.length > 0 ? Math.max(tF?.requisicoesFeitas || 0, maqsF.reduce((s, m) => s + (m.reqs || 0), 0)) : (tF?.requisicoesFeitas || 0);
+      const totReqs = reqsSomaK + reqsSomaF;
 
       if (document.getElementById('kpiLidosSessao')) document.getElementById('kpiLidosSessao').textContent = `${totLidos.toLocaleString('pt-BR')} lidos`;
       if (document.getElementById('kpiTotalBanco')) document.getElementById('kpiTotalBanco').textContent = `${catalogoGlobal.length.toLocaleString('pt-BR')} no catálogo`;
@@ -2178,9 +2514,11 @@
       if (document.getElementById('kpiSavesRealizados')) document.getElementById('kpiSavesRealizados').textContent = `${totSaves}`;
       if (document.getElementById('roboRequisicoesCount')) document.getElementById('roboRequisicoesCount').textContent = `${totReqs} requisições`;
 
-      // Atualiza Badges das Abas
-      if (document.getElementById('tabCountPrecos')) document.getElementById('tabCountPrecos').textContent = totPrecos;
-      if (document.getElementById('tabCountNovos')) document.getElementById('tabCountNovos').textContent = totNovos;
+      // Atualiza SEMPRE os Badges de TODAS as Abas (incluindo Logs!)
+      const todosLogsUnificados = obterTodosLogsUnificados();
+      if (document.getElementById('tabCountLogs')) document.getElementById('tabCountLogs').textContent = todosLogsUnificados.length;
+      if (document.getElementById('tabCountPrecos')) document.getElementById('tabCountPrecos').textContent = totPrecos || obterPrecosAlteradosUnificados(tK, tF).length;
+      if (document.getElementById('tabCountNovos')) document.getElementById('tabCountNovos').textContent = totNovos || obterNovosUnificados(tK, tF).length;
       if (document.getElementById('tabCountVinculos')) document.getElementById('tabCountVinculos').textContent = Object.keys(mapaVinculosProdutos).length;
 
       // Últimos lidos combinados
@@ -2194,58 +2532,8 @@
       }
 
       // Renderiza abas ativas
-      if (abaAtualRobo === 'precos') {
-        const arrP = [...(Array.isArray(tK?.ultimosPrecosAlterados) ? tK.ultimosPrecosAlterados : []), ...(Array.isArray(tF?.ultimosPrecosAlterados) ? tF.ultimosPrecosAlterados : [])];
-        if (arrP.length > 0) {
-          document.getElementById('listaPrecosAlteradosRobo').innerHTML = arrP.map(p => {
-            const baixou = Number(p.precoNovo) < Number(p.precoAntigo);
-            const diffAbs = Math.abs(Number(p.diferenca || (p.precoNovo - p.precoAntigo))).toFixed(2).replace('.', ',');
-            const badgeDiff = baixou
-              ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-black px-2 py-0.5 rounded">📉 Baixou -R$ ${diffAbs}</span>`
-              : `<span class="bg-amber-950 text-amber-300 border border-amber-700 text-[10px] font-black px-2 py-0.5 rounded">📈 Subiu +R$ ${diffAbs}</span>`;
-            return `
-              <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 flex items-center gap-3">
-                <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase truncate">${p.marca || ''}</span>
-                    <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
-                  </div>
-                  <div class="text-xs font-bold text-white truncate">${p.nome}</div>
-                  <div class="flex items-center flex-wrap gap-2 mt-1">
-                    <span class="text-[11px] text-slate-400 line-through">De R$ ${Number(p.precoAntigo).toFixed(2).replace('.', ',')}</span>
-                    <span class="text-xs font-black text-white">➔ Para R$ ${Number(p.precoNovo).toFixed(2).replace('.', ',')}</span>
-                    ${badgeDiff}
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-
-      if (abaAtualRobo === 'novos') {
-        const arrN = [...(Array.isArray(tK?.ultimosNovos) ? tK.ultimosNovos : []), ...(Array.isArray(tF?.ultimosNovos) ? tF.ultimosNovos : [])];
-        if (arrN.length > 0) {
-          document.getElementById('listaNovosAdicionadosRobo').innerHTML = arrN.map(p => `
-            <div class="bg-slate-900 border border-emerald-900/50 rounded-xl p-2.5 flex items-center gap-3">
-              <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between gap-1">
-                  <span class="text-[10px] font-bold text-emerald-400 uppercase truncate">🟢 NOVO • ${p.marca || ''}</span>
-                  <span class="text-[10px] text-slate-500 font-mono shrink-0">${p.hora || ''}</span>
-                </div>
-                <div class="text-xs font-bold text-white truncate">${p.nome}</div>
-                <div class="flex items-center gap-2 mt-1">
-                  <span class="text-xs font-black text-emerald-300">R$ ${Number(p.preco || 0).toFixed(2).replace('.', ',')}</span>
-                  <span class="text-[10px] text-slate-400">Estoque: ${p.estoque ?? 0} un</span>
-                </div>
-              </div>
-            </div>
-          `).join('');
-        }
-      }
-
+      if (abaAtualRobo === 'precos') renderizarAbaPrecosRobo(tK, tF);
+      if (abaAtualRobo === 'novos') renderizarAbaNovosRobo(tK, tF);
       if (abaAtualRobo === 'fila') renderizarFilaCategoriasRobo();
       if (abaAtualRobo === 'logs') renderizarLogsRobo();
     }
@@ -2273,8 +2561,8 @@
       const grid = document.getElementById('gridClusterMaquinas');
       if (!grid) return;
 
-      const maqsK = (Array.isArray(tK?.enxameAtivo?.resumoMaquinas) ? tK.enxameAtivo.resumoMaquinas : []).map(m => ({ ...m, mercado: 'KOCH', mercadoNome: 'SuperKoch (1408)' }));
-      const maqsF = (Array.isArray(tF?.enxameAtivo?.resumoMaquinas) ? tF.enxameAtivo.resumoMaquinas : []).map(m => ({ ...m, mercado: 'FORT', mercadoNome: 'Fort Atacadista (1644)' }));
+      const maqsK = obterMaquinasUnificadasMercado(tK, enxameKochBrutoAtual, 'KOCH');
+      const maqsF = obterMaquinasUnificadasMercado(tF, enxameFortBrutoAtual, 'FORT');
 
       let todasMaqs = [];
       if (filtroVisaoEnxame === 'KOCH') todasMaqs = maqsK;
@@ -2283,8 +2571,9 @@
 
       const badgeGlobal = document.getElementById('badgeEnxameStatusGlobal');
       if (badgeGlobal) {
+        const maqsAtivas = todasMaqs.filter(m => m.idadeSeg < 180 && (m.status === 'RODANDO' || m.status === 'INICIANDO' || m.status === 'BLOQUEIO_ESPERA')).length;
         const ipsUnicos = new Set(todasMaqs.map(m => m.ip).filter(Boolean)).size;
-        badgeGlobal.textContent = `${todasMaqs.length} Servidores • ${ipsUnicos || todasMaqs.length} IPs Ativos`;
+        badgeGlobal.textContent = `${todasMaqs.length} Servidores (${maqsAtivas} ativos • ${ipsUnicos || todasMaqs.length} IPs)`;
       }
 
       if (todasMaqs.length === 0) {
@@ -2297,11 +2586,26 @@
         const corBorder = ehFort ? 'border-emerald-700/60 bg-emerald-950/10' : 'border-red-700/60 bg-red-950/10';
         const corTag = ehFort ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-red-950 text-red-300 border-red-700';
 
-        const agora = Date.now();
-        const pingMs = m.heartbeatMs ? (agora - Number(m.heartbeatMs)) : 0;
-        let pingTexto = "🟢 Vivo (há 1s)";
-        if (pingMs > 120000) pingTexto = "⚠️ Sem resposta (+2m)";
-        else if (pingMs > 25000) pingTexto = `⏳ Ping há ${Math.round(pingMs / 1000)}s`;
+        const sessaoExpirada = m.idadeSeg >= 180;
+        let pingTexto = `🟢 Vivo (há ${Math.max(1, m.idadeSeg)}s)`;
+        let statusExibido = m.status || 'RODANDO';
+        let corStatus = 'bg-slate-950 text-emerald-400 border-slate-800';
+
+        if (m.status === 'CONCLUIDO') {
+          pingTexto = `✅ Concluído (há ${formatarSegundosCurto(m.idadeSeg)})`;
+          statusExibido = '✅ CONCLUÍDO';
+          corStatus = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+        } else if (sessaoExpirada || m.status === 'PARADO' || m.status === 'CANCELADO') {
+          pingTexto = `💤 Encerrado (há ${formatarSegundosCurto(m.idadeSeg)})`;
+          statusExibido = '💤 INATIVO (ENCERRADO)';
+          corStatus = 'bg-slate-800 text-slate-400 border-slate-700';
+        } else if (m.status === 'BLOQUEIO_ESPERA') {
+          pingTexto = `⏳ Aguardando rede (${m.idadeSeg}s)`;
+          statusExibido = '⏳ REDE / ESPERA';
+          corStatus = 'bg-amber-950 text-amber-300 border-amber-700';
+        } else if (m.idadeSeg > 25) {
+          pingTexto = `⏳ Ping há ${m.idadeSeg}s`;
+        }
 
         return `
           <div class="bg-slate-900/90 border ${corBorder} rounded-xl p-3.5 space-y-2.5 shadow-lg">
@@ -2317,9 +2621,9 @@
             <div class="flex items-center justify-between gap-2 text-xs">
               <div class="flex items-center gap-1 min-w-0 font-mono">
                 <span class="text-slate-400 text-[10px]">🌐 IP:</span>
-                <span class="font-bold text-sky-300 truncate" title="IP Público da Máquina">${m.ip || 'Descobrindo IP...'}</span>
+                <span class="font-bold text-sky-300 truncate" title="IP Público da Máquina">${m.ip || 'IP Nuvem GitHub'}</span>
               </div>
-              <span class="text-[10px] font-black px-2 py-0.5 rounded bg-slate-950 text-emerald-400 border border-slate-800 uppercase shrink-0">${m.status || 'RODANDO'}</span>
+              <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase shrink-0 ${corStatus}">${statusExibido}</span>
             </div>
 
             <!-- Rota e Posição Atual -->
@@ -2328,7 +2632,7 @@
               <div class="text-xs font-bold text-white truncate" title="${m.rota || ''}">${m.rota || 'Inicializando...'}</div>
               <div class="text-[10px] text-slate-400 flex items-center justify-between">
                 <span>Pág: <strong class="text-slate-200">${m.pag || 1}</strong> (off ${m.offset || 0})</span>
-                <span class="text-amber-400">${m.depto || 'Geral'}</span>
+                <span class="text-amber-400 truncate max-w-[140px]">${m.depto || 'Geral'}</span>
               </div>
             </div>
 
@@ -2418,15 +2722,22 @@
       renderizarLogsRobo();
     }
 
+    function resetarFiltrosLogsRobo() {
+      filtroLogMercado = 'AMBOS';
+      filtroLogAtual = 'TODOS';
+      filtroLogMaquina = 'TODAS';
+      filtroLogTexto = '';
+      if (document.getElementById('inpBuscaLogsRobo')) document.getElementById('inpBuscaLogsRobo').value = '';
+      if (document.getElementById('selFiltroMaquinaLog')) document.getElementById('selFiltroMaquinaLog').value = 'TODAS';
+      filtrarLogsMercado('AMBOS');
+      filtrarLogsRobo('TODOS');
+    }
+
     function renderizarLogsRobo() {
       const container = document.getElementById('listaLogsRobo');
       if (!container) return;
 
-      const logsK = Array.isArray(telemetriaKochAtual?.ultimosLogs) ? telemetriaKochAtual.ultimosLogs : [];
-      const logsF = Array.isArray(telemetriaFortAtual?.ultimosLogs) ? telemetriaFortAtual.ultimosLogs : [];
-
-      const todosLogs = [...logsK, ...logsF];
-      todosLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const todosLogs = obterTodosLogsUnificados();
 
       const qtdErro = todosLogs.filter(l => l.tipo === 'INESPERADO' || l.tipo === 'ERRO').length;
       const qtdAviso = todosLogs.filter(l => l.tipo === 'ESPERADO' || l.tipo === 'AVISO').length;
@@ -2437,26 +2748,25 @@
       const elTabCount = document.getElementById('tabCountLogs');
       if (elTabCount) elTabCount.textContent = todosLogs.length;
 
-      // Popula select de máquinas disponíveis
+      // Popula select de máquinas disponíveis preservando seleção válida
       const selMaq = document.getElementById('selFiltroMaquinaLog');
       if (selMaq) {
         const maqs = Array.from(new Set(todosLogs.map(l => l.workerId || 1).filter(Boolean))).sort((a, b) => a - b);
-        const valorAtual = selMaq.value;
         const opcoes = ['<option value="TODAS">🖥️ Todas as Máqs</option>'];
         maqs.forEach(m => opcoes.push(`<option value="${m}">🖥️ Máquina #${m}</option>`));
         selMaq.innerHTML = opcoes.join('');
-        selMaq.value = valorAtual || 'TODAS';
+        if (filtroLogMaquina !== 'TODAS' && maqs.includes(Number(filtroLogMaquina))) {
+          selMaq.value = String(filtroLogMaquina);
+        } else {
+          filtroLogMaquina = 'TODAS';
+          selMaq.value = 'TODAS';
+        }
       }
 
       // Filtra por Mercado, Nível, Máquina e Busca
       const filtrados = todosLogs.filter(l => {
-        if (filtroLogMercado === 'KOCH') {
-          const ehK = l.mercado === 'KOCH' || (l.etapa && l.etapa.includes('KOCH')) || (!l.mercado && logsK.includes(l));
-          if (!ehK) return false;
-        } else if (filtroLogMercado === 'FORT') {
-          const ehF = l.mercado === 'FORT' || (l.etapa && l.etapa.includes('FORT')) || (!l.mercado && logsF.includes(l));
-          if (!ehF) return false;
-        }
+        if (filtroLogMercado === 'KOCH' && l.mercado !== 'KOCH') return false;
+        if (filtroLogMercado === 'FORT' && l.mercado !== 'FORT') return false;
 
         if (filtroLogAtual === 'INESPERADO' && !(l.tipo === 'INESPERADO' || l.tipo === 'ERRO')) return false;
         if (filtroLogAtual === 'ESPERADO' && !(l.tipo === 'ESPERADO' || l.tipo === 'AVISO')) return false;
@@ -2475,15 +2785,20 @@
       });
 
       const elTotalExib = document.getElementById('lblTotalLogsExibidos');
-      if (elTotalExib) elTotalExib.textContent = `${filtrados.length} eventos`;
+      if (elTotalExib) elTotalExib.textContent = `${filtrados.length} de ${todosLogs.length} eventos`;
 
       if (filtrados.length === 0) {
-        container.innerHTML = `<div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-500 font-sans">Nenhum evento corresponde aos filtros selecionados.</div>`;
+        container.innerHTML = `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-8 text-center text-xs text-slate-400 font-sans space-y-2">
+            <div>Nenhum evento corresponde aos filtros ativos (${todosLogs.length} logs disponíveis no total).</div>
+            ${todosLogs.length > 0 ? `<button onclick="resetarFiltrosLogsRobo()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs">↺ Mostrar Todos os ${todosLogs.length} Eventos</button>` : ''}
+          </div>
+        `;
         return;
       }
 
-      container.innerHTML = filtrados.slice(0, 250).map(l => {
-        const ehFort = l.mercado === 'FORT' || (l.etapa && l.etapa.includes('FORT'));
+      container.innerHTML = filtrados.slice(0, 300).map(l => {
+        const ehFort = l.mercado === 'FORT';
         const badgeMercado = ehFort
           ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
           : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
@@ -2525,10 +2840,7 @@
     }
 
     function copiarLogsRobo() {
-      const logsK = Array.isArray(telemetriaKochAtual?.ultimosLogs) ? telemetriaKochAtual.ultimosLogs : [];
-      const logsF = Array.isArray(telemetriaFortAtual?.ultimosLogs) ? telemetriaFortAtual.ultimosLogs : [];
-      const todos = [...logsK, ...logsF];
-      todos.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const todos = obterTodosLogsUnificados();
       const txt = JSON.stringify(todos, null, 2);
       try { navigator.clipboard.writeText(txt); } catch (e) {}
       alert('📋 Todos os logs do SuperKoch e Fort Atacadista foram copiados para a área de transferência!');
@@ -2549,7 +2861,17 @@
         if (rK && rK.ok) {
           const dK = await rK.json();
           if (dK && Array.isArray(dK.rotas) && dK.rotas.length > 0) {
-            filaKochEditavel = dK.rotas;
+            const mapaOficialK = new Map();
+            ROTAS_PADRAO_KOCH_121.forEach(r => {
+              if (r.id) {
+                if (r.pathReal) mapaOficialK.set(r.pathReal.toLowerCase(), r);
+                if (r.nome) mapaOficialK.set(r.nome.toLowerCase(), r);
+              }
+            });
+            filaKochEditavel = dK.rotas.map(r => {
+              const ref = mapaOficialK.get(String(r.pathReal || '').toLowerCase()) || mapaOficialK.get(String(r.nome || '').toLowerCase());
+              return ref ? { ...r, id: ref.id, url: ref.url, pathReal: ref.pathReal } : r;
+            });
           }
         }
         if (rF && rF.ok) {
@@ -2828,8 +3150,8 @@
         size,
         usarProxy,
         listaProxies,
-        salvarAoAdicionar: Math.max(1, Number(document.getElementById('inpConfigSalvarNovos').value) || 1),
-        salvarAoAtualizar: Math.max(1, Number(document.getElementById('inpConfigSalvarAtualizados').value) || 50),
+        salvarAoAdicionar: Math.max(1, Number(document.getElementById('inpConfigSalvarNovos').value) || 50),
+        salvarAoAtualizar: Math.max(1, Number(document.getElementById('inpConfigSalvarAtualizados').value) || 200),
         cooldownSaveMs: Math.max(10, Number(document.getElementById('inpConfigCooldownSeg').value) || 25) * 1000,
         delayMs: Math.max(800, Number(document.getElementById('inpConfigDelayPag').value) || 2200),
         delayTrocaRotaMs: Math.max(1500, Number(document.getElementById('inpConfigDelayRota').value) || 3800)
@@ -2863,19 +3185,34 @@
       let batchSize = String(document.getElementById('inpConfigBatchSize')?.value || '12');
       let delayPag = String(document.getElementById('inpConfigDelayPag')?.value || '2200');
       let delayRota = String(document.getElementById('inpConfigDelayRota')?.value || '3800');
-      let salvarAdd = String(document.getElementById('inpConfigSalvarNovos')?.value || '1');
-      let salvarUpd = String(document.getElementById('inpConfigSalvarAtualizados')?.value || '50');
+      let salvarAdd = String(document.getElementById('inpConfigSalvarNovos')?.value || '50');
+      let salvarUpd = String(document.getElementById('inpConfigSalvarAtualizados')?.value || '200');
 
       if (camadaEscolhida === 'RADAR') {
         totalMaquinas = '1';
         batchSize = mercadoAlvo === 'fort' ? '20' : '36';
         delayPag = '1500';
         delayRota = '2400';
-        salvarAdd = '5';
-        salvarUpd = '10';
+        salvarAdd = '50';
+        salvarUpd = '200';
       }
 
       const rotaInicial = String(document.getElementById('inpConfigRotaInicial')?.value || '1');
+
+      // Limpa histórico de máquinas antigas antes de novo disparo
+      const fbUrl = obterUrlFirebase();
+      if (fbUrl && obterFirebaseSecret()) {
+        try {
+          const limpezas = [];
+          if (mercadoAlvo === 'koch' || mercadoAlvo === 'ambos') {
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_koch.json`), { method: 'DELETE' }).catch(() => null));
+          }
+          if (mercadoAlvo === 'fort' || mercadoAlvo === 'ambos') {
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_fort.json`), { method: 'DELETE' }).catch(() => null));
+          }
+          await Promise.all(limpezas);
+        } catch (_) {}
+      }
 
       if (token) {
         try {

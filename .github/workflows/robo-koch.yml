@@ -33,13 +33,13 @@ on:
         required: false
         default: "1"
       salvar_ao_adicionar:
-        description: "Salvar no Firebase ao adicionar X produtos novos (Padrão: 1)"
-        required: false
-        default: "1"
-      salvar_ao_atualizar:
-        description: "Salvar no Firebase ao atualizar X preços/estoques (Padrão: 50)"
+        description: "Salvar no Firebase ao adicionar X produtos novos (Padrão: 50)"
         required: false
         default: "50"
+      salvar_ao_atualizar:
+        description: "Salvar no Firebase ao atualizar X preços/estoques (Padrão: 200)"
+        required: false
+        default: "200"
       modo_teste_sem_gravar:
         description: "Modo Teste (true = NÃO grava no Firebase, false = Grava normalmente)"
         required: false
@@ -140,8 +140,8 @@ jobs:
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
-          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '1' }}
-          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '50' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '50' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '200' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
 
@@ -192,8 +192,8 @@ jobs:
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
-          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '1' }}
-          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '50' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '50' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '200' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
 
