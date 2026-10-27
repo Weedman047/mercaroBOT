@@ -303,15 +303,15 @@ export const ROTAS_PADRAO_FORT = [
 // =========================================================================
 export const ROTAS_RADAR_KOCH = [
   { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", hierarquia: "", nome: "⚡ Radar > Promoções Ativas" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3660166", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "⚡ Radar > Hortifruti (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3891053", depto: "Açougue", hierarquia: "Açougue", nome: "⚡ Radar > Açougue (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3660081", depto: "Frios & Laticínios", hierarquia: "Frios & Laticínios", nome: "⚡ Radar > Frios & Laticínios (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3660506", depto: "Padaria & Confeitaria", hierarquia: "Padaria & Confeitaria", nome: "⚡ Radar > Padaria & Confeitaria (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3660302", depto: "Bebidas", hierarquia: "Bebidas", nome: "⚡ Radar > Bebidas (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3660364", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "⚡ Radar > Bebidas Alcoólicas (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3659916", depto: "Mercearia", hierarquia: "Mercearia", nome: "⚡ Radar > Mercearia (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3660273", depto: "Limpeza", hierarquia: "Limpeza", nome: "⚡ Radar > Limpeza (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3660323", depto: "Higiene & Beleza", hierarquia: "Higiene & Beleza", nome: "⚡ Radar > Higiene & Beleza (Categoria Inteira)" }
+  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3655065", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "⚡ Radar > Hortifruti (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886346", depto: "Açougue", hierarquia: "Açougue", nome: "⚡ Radar > Açougue (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3655007", depto: "Frios & Laticínios", hierarquia: "Frios & Laticínios", nome: "⚡ Radar > Frios & Laticínios (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3655473", depto: "Padaria & Confeitaria", hierarquia: "Padaria & Confeitaria", nome: "⚡ Radar > Padaria & Confeitaria (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3655269", depto: "Bebidas", hierarquia: "Bebidas", nome: "⚡ Radar > Bebidas (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3655331", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "⚡ Radar > Bebidas Alcoólicas (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3654859", depto: "Mercearia", hierarquia: "Mercearia", nome: "⚡ Radar > Mercearia (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3655240", depto: "Limpeza", hierarquia: "Limpeza", nome: "⚡ Radar > Limpeza (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3655290", depto: "Higiene & Beleza", hierarquia: "Higiene & Beleza", nome: "⚡ Radar > Higiene & Beleza (Categoria Inteira)" }
 ];
 
 export const ROTAS_RADAR_FORT = [
@@ -332,48 +332,48 @@ export const ROTAS_RADAR_FORT = [
 // (Garante que as 5 máquinas terminem quase juntas em ~5 minutos pegando 100% do mercado!)
 // =========================================================================
 export const ROTAS_DEPTOS_BALANCEADAS_KOCH = [
-  // Fatia Máquina #1 (~3.410 itens)
-  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3659916", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/eletro", pathReal: "/categorias/eletro", tipo: "depto", id: "3660452", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3660519", depto: "Mundo Bebê", hierarquia: "Mundo Bebê", nome: "Mundo Bebê (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3660506", depto: "Padaria & Confeitaria", hierarquia: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Categoria Inteira)" },
-  // Fatia Máquina #2 (~2.277 itens)
-  { url: "https://www.superkoch.com.br/categorias/casa-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3998889", depto: "Casa & Utilidades", hierarquia: "Casa & Utilidades", nome: "Casa & Utilidades (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3660166", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3660492", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Categoria Inteira)" },
-  // Fatia Máquina #3 (~2.210 itens)
-  { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3660323", depto: "Higiene & Beleza", hierarquia: "Higiene & Beleza", nome: "Higiene & Beleza (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3660302", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3891053", depto: "Açougue", hierarquia: "Açougue", nome: "Açougue (Categoria Inteira)" },
-  // Fatia Máquina #4 (~2.343 itens)
+  // Fatia Máquina #1 (~3.505 itens)
+  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3654859", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/eletro", pathReal: "/categorias/eletro", tipo: "depto", id: "3655361", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3655486", depto: "Mundo Bebê", hierarquia: "Mundo Bebê", nome: "Mundo Bebê (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3655473", depto: "Padaria & Confeitaria", hierarquia: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Categoria Inteira)" },
+  // Fatia Máquina #2 (~1.800 itens)
+  { url: "https://www.superkoch.com.br/categorias/casa-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3995264", depto: "Casa & Utilidades", hierarquia: "Casa & Utilidades", nome: "Casa & Utilidades (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3655065", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3655459", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Categoria Inteira)" },
+  // Fatia Máquina #3 (~2.115 itens)
+  { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3655290", depto: "Higiene & Beleza", hierarquia: "Higiene & Beleza", nome: "Higiene & Beleza (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3655269", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886346", depto: "Açougue", hierarquia: "Açougue", nome: "Açougue (Categoria Inteira)" },
+  // Fatia Máquina #4 (~2.417 itens)
   { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", hierarquia: "", nome: "Promoções (Todas as Ofertas)" },
-  { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3660081", depto: "Frios & Laticínios", hierarquia: "Frios & Laticínios", nome: "Frios & Laticínios (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3660536", depto: "Pet Care", hierarquia: "Pet Care", nome: "Pet Care (Categoria Inteira)" },
-  // Fatia Máquina #5 (~1.941 itens)
-  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3660273", depto: "Limpeza", hierarquia: "Limpeza", nome: "Limpeza (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3660364", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Categoria Inteira)" },
-  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3891085", depto: "Alimentação Especial", hierarquia: "Alimentação Especial", nome: "Alimentação Especial (Categoria Inteira)" }
+  { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3655007", depto: "Frios & Laticínios", hierarquia: "Frios & Laticínios", nome: "Frios & Laticínios (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3655503", depto: "Pet Care", hierarquia: "Pet Care", nome: "Pet Care (Categoria Inteira)" },
+  // Fatia Máquina #5 (~2.344 itens)
+  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3655240", depto: "Limpeza", hierarquia: "Limpeza", nome: "Limpeza (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3655331", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Categoria Inteira)" },
+  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3886378", depto: "Alimentação Especial", hierarquia: "Alimentação Especial", nome: "Alimentação Especial (Categoria Inteira)" }
 ];
 
 export const ROTAS_DEPTOS_BALANCEADAS_FORT = [
-  // Fatia Máquina #1 (~2.700 itens)
+  // Fatia Máquina #1 (~3.650 itens)
   { url: "https://www.fortatacadista.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "1812721", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/suplementos-esportivos", pathReal: "/categorias/suplementos-esportivos", tipo: "depto", id: "5180817", depto: "Suplementos Esportivos", hierarquia: "Suplementos Esportivos", nome: "Suplementos Esportivos (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/peixes-e-frutos-do-mar", pathReal: "/categorias/peixes-e-frutos-do-mar", tipo: "depto", id: "1812707", depto: "Peixes e Frutos do Mar", hierarquia: "Peixes e Frutos do Mar", nome: "Peixes e Frutos do Mar (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "1812709", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Categoria Inteira)" },
-  // Fatia Máquina #2 (~2.156 itens)
+  // Fatia Máquina #2 (~1.386 itens)
   { url: "https://www.fortatacadista.com.br/categorias/bazar-e-utilidades", pathReal: "/categorias/bazar-e-utilidades", tipo: "depto", id: "1812715", depto: "Bazar e Utilidades", hierarquia: "Bazar e Utilidades", nome: "Bazar e Utilidades (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/carnes-e-aves", pathReal: "/categorias/carnes-e-aves", tipo: "depto", id: "1812708", depto: "Carnes e Aves", hierarquia: "Carnes e Aves", nome: "Carnes e Aves (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/infantil", pathReal: "/categorias/infantil", tipo: "depto", id: "1812717", depto: "Infantil", hierarquia: "Infantil", nome: "Infantil (Categoria Inteira)" },
-  // Fatia Máquina #3 (~2.330 itens)
+  // Fatia Máquina #3 (~2.292 itens)
   { url: "https://www.fortatacadista.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: "PROMO_FORT", depto: "Promoções", hierarquia: "", nome: "Promoções (Todas as Ofertas)" },
   { url: "https://www.fortatacadista.com.br/categorias/padaria-e-confeitaria", pathReal: "/categorias/padaria-e-confeitaria", tipo: "depto", id: "1812712", depto: "Padaria e Confeitaria", hierarquia: "Padaria e Confeitaria", nome: "Padaria e Confeitaria (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "1812718", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Categoria Inteira)" },
-  // Fatia Máquina #4 (~2.136 itens)
+  // Fatia Máquina #4 (~2.038 itens)
   { url: "https://www.fortatacadista.com.br/categorias/higiene-e-beleza", pathReal: "/categorias/higiene-e-beleza", tipo: "depto", id: "1812714", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "Higiene e Beleza (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/bebidas-nao-alcoolicas", pathReal: "/categorias/bebidas-nao-alcoolicas", tipo: "depto", id: "1812710", depto: "Bebidas não Alcoólicas", hierarquia: "Bebidas não Alcoólicas", nome: "Bebidas não Alcoólicas (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/petshop", pathReal: "/categorias/petshop", tipo: "depto", id: "1812713", depto: "Petshop", hierarquia: "Petshop", nome: "Petshop (Categoria Inteira)" },
-  // Fatia Máquina #5 (~2.217 itens)
+  // Fatia Máquina #5 (~2.173 itens)
   { url: "https://www.fortatacadista.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "1812719", depto: "Limpeza", hierarquia: "Limpeza", nome: "Limpeza (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/laticinios-e-frios", pathReal: "/categorias/laticinios-e-frios", tipo: "depto", id: "1812720", depto: "Laticínios e Frios", hierarquia: "Laticínios e Frios", nome: "Laticínios e Frios (Categoria Inteira)" },
   { url: "https://www.fortatacadista.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "1812716", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Categoria Inteira)" }
