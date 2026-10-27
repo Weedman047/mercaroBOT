@@ -17,9 +17,9 @@ on:
         required: false
         default: "2A"
       tamanho_lote_size:
-        description: "📦 Produtos por Requisição (12 = Padrão pré-selecionado; Fort máximo 20, Koch até 48)"
+        description: "📦 Produtos por Requisição (20 = Teto Oficial OSuper p/ Koch e Fort • 12 = Furtivo)"
         required: false
-        default: "12"
+        default: "20"
       delay_paginas_ms:
         description: "Tempo de espera entre páginas em ms (Recomendado: 2200)"
         required: false
@@ -136,7 +136,7 @@ jobs:
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
           SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
           MODO_FILA: ${{ needs.preparar-enxame.outputs.modo_camada }}
-          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '12' }}
+          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '20' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
@@ -188,7 +188,7 @@ jobs:
           TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
           SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
           MODO_FILA: ${{ needs.preparar-enxame.outputs.modo_camada }}
-          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '12' }}
+          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '20' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
