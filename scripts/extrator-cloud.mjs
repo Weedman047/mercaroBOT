@@ -1,4 +1,3 @@
-import { chromium } from "playwright";
 import fs from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -1322,14 +1321,19 @@ async function executarRoboCloud() {
   let browser = null;
   let context = null;
   let page = null;
+  let browserPronto = false;
   let tokenCapturado = "";
   let storePath = DEFAULT_STORE_PATH;
   let motorPreferido = "playwright_eval"; // Inicia priorizando o navegador real (bypassa Cloudflare TLS JA3/JA4)
   let filaRespostasInterceptadas = [];
 
   async function garantirNavegadorFallback() {
-    if (page && context && browser) return;
+    if (page && context && browser) {
+      browserPronto = true;
+      return;
+    }
     registrarLog("OK", "Navegador", `Iniciando navegador Chromium furtivo na Máquina #${WORKER_ID}/${TOTAL_WORKERS} (IP: ${WORKER_PUBLIC_IP})...`);
+    const { chromium } = await import("playwright");
     browser = await chromium.launch({
       headless: true,
       args: [
@@ -1361,6 +1365,7 @@ async function executarRoboCloud() {
       }
     ]);
     page = await context.newPage();
+    browserPronto = true;
 
     page.on("request", (req) => {
       const url = req.url();
