@@ -39,7 +39,7 @@ const FIREBASE_VINCULOS_ENDPOINT = `${FIREBASE_BASE}/vinculos_produtos.json`;
 
 // Identificação desta Máquina no Enxame (1 a 10 Máquinas com IPs diferentes)
 const WORKER_ID = Math.max(1, Number(process.env.WORKER_ID) || 1);
-const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS) || 1));
+const TOTAL_WORKERS = Math.max(1, Math.min(10, Number(process.env.TOTAL_WORKERS) || 10));
 const SWARM_RUN_ID = process.env.SWARM_RUN_ID || `swarm_${Date.now()}`;
 const SOU_MAESTRO = WORKER_ID === 1;
 
@@ -81,8 +81,8 @@ const CONFIG = {
   modoFila: MODO_CAMADA_BRUTO,
   usarProxy: false,
   listaProxies: [],
-  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 50),
-  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 200),
+  salvarAoAdicionar: Math.max(1, Number(process.env.SALVAR_AO_ADICIONAR) || 300),
+  salvarAoAtualizar: Math.max(1, Number(process.env.SALVAR_AO_ATUALIZAR) || 100),
   intervaloSavePeriodicoMs: 30 * 60 * 1000, // Salva a cada 30 minutos se houver alterações pendentes
   cooldownSaveMs: Math.max(10000, Number(process.env.COOLDOWN_SAVE_MS) || 25000),
   autoSaveEveryDepto: false,

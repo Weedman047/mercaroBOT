@@ -9,11 +9,11 @@ on:
         required: false
         default: "ambos"
       total_maquinas:
-        description: "🚀 Nº de Máquinas / IPs simultâneos por Mercado (1 a 10)"
+        description: "🚀 Nº de Máquinas / IPs simultâneos por Mercado (Padrão: 10)"
         required: false
-        default: "5"
+        default: "10"
       modo_fila:
-        description: "⚡ Camada de Rastreamento (RADAR = ⚡ Ofertas Relâmpago 1-2 min, 2A = ⚖️ Varredura Turno Subcategorias, COMPLETA = 🌙 Noturna Geral 100%)"
+        description: "⚡ Camada de Rastreamento (RADAR = Busca Básica, 2A = Busca Média 1h, COMPLETA = Busca Total 2x/dia)"
         required: false
         default: "2A"
       tamanho_lote_size:
@@ -33,27 +33,28 @@ on:
         required: false
         default: "1"
       salvar_ao_adicionar:
-        description: "Salvar no Firebase ao adicionar X produtos novos (Padrão: 50)"
+        description: "Salvar no Firebase ao adicionar X produtos novos (Padrão: 300)"
         required: false
-        default: "50"
+        default: "300"
       salvar_ao_atualizar:
-        description: "Salvar no Firebase ao atualizar X preços/estoques (Padrão: 200)"
+        description: "Salvar no Firebase ao atualizar/salvar X preços/estoques (Padrão: 100)"
         required: false
-        default: "200"
+        default: "100"
       modo_teste_sem_gravar:
         description: "Modo Teste (true = NÃO grava no Firebase, false = Grava normalmente)"
         required: false
         default: "false"
 
-  # 2. Execução automática contínua em 3 Camadas:
-  # - Noturna Geral 100% às 03:00 BRT (06:00 UTC)
-  # - Varredura de Turno 2A às 09:00 BRT (12:00 UTC) e 17:00 BRT (20:00 UTC)
-  # - Radar de Ofertas a cada 2h durante o dia (11h, 13h, 15h, 19h, 21h BRT -> 14h, 16h, 18h, 22h, 00h UTC)
+  # 2. Execução automática contínua (Sempre com 10 máquinas | Salva a cada 100 atualizados e 300 adicionados):
+  # - 2x ao dia Busca Total (COMPLETA): 03:00 BRT (06:00 UTC) e 15:00 BRT (18:00 UTC)
+  # - A cada 1 hora Busca Média (2A): Todas as demais horas cheias (minuto 0)
+  # - Toda hora Busca Básica (RADAR): A cada hora no minuto 30
   schedule:
-    - cron: "0 0,6,12,14,16,18,20,22 * * *"
+    - cron: "0 * * * *"
+    - cron: "30 * * * *"
 
 jobs:
-  # Etapa 1: Prepara a lista de máquinas do enxame (1 a 10 servidores com IPs independentes)
+  # Etapa 1: Prepara a lista de máquinas do enxame (Padrão: 10 servidores com IPs independentes)
   preparar-enxame:
     runs-on: ubuntu-latest
     outputs:
@@ -68,27 +69,26 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             HORA_UTC=$(date -u +%H)
-            if [ "$HORA_UTC" = "06" ]; then
-              MODO_CAMADA="COMPLETA"
-              RAW_N="5"
-            elif [ "$HORA_UTC" = "12" ] || [ "$HORA_UTC" = "20" ]; then
-              MODO_CAMADA="2A"
-              RAW_N="3"
-            else
+            MIN_UTC=$(date -u +%M)
+            if [ "$MIN_UTC" -ge 20 ] && [ "$MIN_UTC" -le 45 ]; then
               MODO_CAMADA="RADAR"
-              RAW_N="1"
+            elif [ "$HORA_UTC" = "06" ] || [ "$HORA_UTC" = "18" ]; then
+              MODO_CAMADA="COMPLETA"
+            else
+              MODO_CAMADA="2A"
             fi
+            RAW_N="10"
             MERCADO="ambos"
           else
             MODO_CAMADA="${{ github.event.inputs.modo_fila || '2A' }}"
-            RAW_N="${{ github.event.inputs.total_maquinas }}"
+            RAW_N="${{ github.event.inputs.total_maquinas || '10' }}"
             if [ -z "$RAW_N" ]; then
-              if [ "$MODO_CAMADA" = "RADAR" ]; then RAW_N="1"; else RAW_N="5"; fi
+              RAW_N="10"
             fi
             MERCADO="${{ github.event.inputs.mercado || 'ambos' }}"
           fi
 
-          if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="3"; fi
+          if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="10"; fi
           if [ "$RAW_N" -lt 1 ]; then RAW_N=1; fi
           if [ "$RAW_N" -gt 10 ]; then RAW_N=10; fi
           JSON_ARR=$(seq -s, 1 "$RAW_N" | sed 's/^/[/;s/$/]/')
@@ -140,8 +140,8 @@ jobs:
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
-          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '50' }}
-          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '200' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '300' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '100' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
 
@@ -192,8 +192,8 @@ jobs:
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
           START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
-          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '50' }}
-          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '200' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '300' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '100' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
         run: node scripts/extrator-cloud.mjs
 
