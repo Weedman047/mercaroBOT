@@ -2066,8 +2066,8 @@ async function executarRoboCloud() {
     registrarLog("OK", "Finalizado", sessao.mensagem);
     await enviarTelemetriaAoVivo(true);
 
-    // Se ambos os bancos existirem e não for um radar relâmpago, executa a vinculação inteligente
-    if (SOU_MAESTRO && !EH_MODO_RADAR) {
+    // Se ambos os bancos existirem, executa a vinculação inteligente para manter vínculos sempre atualizados
+    if (SOU_MAESTRO) {
       try {
         await executarVinculacaoInteligente();
       } catch (eLink) {
@@ -2236,8 +2236,34 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
 
   console.log(`📊 Cruzando ${prodsKoch.length} itens do Koch com ${prodsFort.length} itens do Fort...`);
 
-  const manuaisExistentes = dadosVinc?.manuais || {};
-  const rejeitadosExistentes = dadosVinc?.rejeitados || {};
+  const manuaisExistentes = { ...(dadosVinc?.manuais || {}) };
+  const rejeitadosExistentes = { ...(dadosVinc?.rejeitados || {}) };
+  const vinculosPreviosMap = new Map();
+
+  if (dadosVinc && typeof dadosVinc === "object") {
+    if (Array.isArray(dadosVinc.vinculos)) {
+      for (const v of dadosVinc.vinculos) {
+        if (v && v.idKoch && v.idFort) {
+          const kId = String(v.idKoch);
+          const fId = String(v.idFort);
+          if (!rejeitadosExistentes[`${kId}__${fId}`]) {
+            vinculosPreviosMap.set(`${kId}_${fId}`, v);
+            if (v.manual) manuaisExistentes[kId] = fId;
+          }
+        }
+      }
+    }
+    for (const [ch, v] of Object.entries(dadosVinc)) {
+      if (ch.startsWith("vinc_") && v && v.idKoch && v.idFort) {
+        const kId = String(v.idKoch);
+        const fId = String(v.idFort);
+        if (!rejeitadosExistentes[`${kId}__${fId}`]) {
+          vinculosPreviosMap.set(`${kId}_${fId}`, v);
+          if (v.manual) manuaisExistentes[kId] = fId;
+        }
+      }
+    }
+  }
 
   const mapaFortPorAsset = new Map();
   const mapaFortPorMarca = new Map();
@@ -2257,22 +2283,42 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
   }
 
   const vinculosFinais = [];
+  const mapaFlatVinculos = {};
   const mapaKochParaFort = {};
   const mapaFortParaKoch = {};
   const fortJaCasados = new Set();
 
-  for (const [idK, idF] of Object.entries(manuaisExistentes)) {
+  const registrarParVinculo = (objVinc) => {
+    const idK = String(objVinc.idKoch);
+    const idF = String(objVinc.idFort);
+    if (mapaKochParaFort[idK] || fortJaCasados.has(idF)) return;
     mapaKochParaFort[idK] = idF;
     mapaFortParaKoch[idF] = idK;
-    fortJaCasados.add(String(idF));
-    vinculosFinais.push({
+    fortJaCasados.add(idF);
+    const item = {
+      idKoch: idK,
+      idFort: idF,
+      score: objVinc.score || 100,
+      motivo: objVinc.motivo || "Vínculo Automático",
+      manual: Boolean(objVinc.manual),
+      data: objVinc.data || new Date().toISOString()
+    };
+    vinculosFinais.push(item);
+    mapaFlatVinculos[`vinc_${idK}_${idF}`] = item;
+  };
+
+  for (const [idK, idF] of Object.entries(manuaisExistentes)) {
+    registrarParVinculo({
       idKoch: String(idK),
       idFort: String(idF),
       score: 100,
       motivo: "Vínculo Manual Confirmado",
-      manual: true,
-      data: new Date().toISOString()
+      manual: true
     });
+  }
+
+  for (const v of vinculosPreviosMap.values()) {
+    registrarParVinculo(v);
   }
 
   for (const k of prodsKoch) {
@@ -2322,12 +2368,9 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       }
     }
 
-    if (melhorScore >= 70 && melhorFort) {
+    if (melhorScore >= 65 && melhorFort) {
       const idF = String(melhorFort.id);
-      mapaKochParaFort[idK] = idF;
-      mapaFortParaKoch[idF] = idK;
-      fortJaCasados.add(idF);
-      vinculosFinais.push({
+      registrarParVinculo({
         idKoch: idK,
         idFort: idF,
         score: melhorScore,
@@ -2339,6 +2382,7 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
   }
 
   const payload = {
+    ...mapaFlatVinculos,
     atualizadoEm: new Date().toISOString(),
     totalVinculos: vinculosFinais.length,
     vinculos: vinculosFinais,
