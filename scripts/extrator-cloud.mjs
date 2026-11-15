@@ -2080,12 +2080,47 @@ async function executarRoboCloud() {
 }
 
 // =========================================================================
-// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT
+// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT (ALTA COBERTURA)
 // =========================================================================
 const STOPWORDS = new Set([
   "de", "da", "do", "das", "dos", "com", "para", "em", "sem", "ao", "aos",
-  "a", "o", "as", "os", "um", "uma", "uns", "umas", "e", "ou", "por", "sobre"
+  "a", "o", "as", "os", "um", "uma", "uns", "umas", "e", "ou", "por", "sobre",
+  "no", "na", "nos", "nas", "tipo", "sabor", "pacote", "pct", "pc", "unidade",
+  "unid", "un", "cx", "caixa", "pote", "pt", "garrafa", "gf", "lata", "lt",
+  "fardo", "fd", "sache", "sc", "bandeja", "bdj", "vidro", "vd", "pet", "tp",
+  "tetra", "pak", "embalagem", "emb", "oferta", "leve", "pague"
 ]);
+
+const ABREVIACOES_MAP = [
+  [/\brefrig\.?\b|\brefri\b/g, "refrigerante"],
+  [/\bcerv\.?\b/g, "cerveja"],
+  [/\bchoc\.?\b/g, "chocolate"],
+  [/\bbisc\.?\b/g, "biscoito"],
+  [/\bmac\.?\b/g, "macarrao"],
+  [/\bmarg\.?\b/g, "margarina"],
+  [/\bdeterg\.?\b/g, "detergente"],
+  [/\bamac\.?\b/g, "amaciante"],
+  [/\bdesinf\.?\b/g, "desinfetante"],
+  [/\bdesod\.?\b/g, "desodorante"],
+  [/\bcondic\.?\b|\bcond\.?\b/g, "condicionador"],
+  [/\bshamp\.?\b/g, "shampoo"],
+  [/\bhig\.?\b/g, "higienico"],
+  [/\btrad\.?\b/g, "tradicional"],
+  [/\borig\.?\b/g, "original"],
+  [/\bdesn\.?\b/g, "desnatado"],
+  [/\bsemidesn\.?\b/g, "semidesnatado"],
+  [/\bc\/\s*/g, "com "],
+  [/\bs\/\s*/g, "sem "],
+  [/\b3\s+coracoes\b/g, "tres coracoes"]
+];
+
+const GRUPOS_CONFLITO_SABOR = [
+  ["uva", "laranja", "limao", "morango", "maracuja", "abacaxi", "pessego", "manga", "guarana", "caju", " maca ", "frutas vermelhas", "tutti frutti", "baunilha", "flocos", "coco"],
+  ["bovino", "bovina", "frango", "suino", "suina", "peixe", "tilapia", "salmao", "peru", "bacalhau"],
+  ["integral", "desnatado", "semidesnatado"],
+  ["carioca", "preto", "branco", "vermelho", "fradinho"],
+  ["parboilizado", "branco", "integral", "arboreo"]
+];
 
 function normalizarTexto(str) {
   return String(str || "")
@@ -2097,6 +2132,26 @@ function normalizarTexto(str) {
     .trim();
 }
 
+function normalizarTextoVinculo(str) {
+  let s = normalizarTexto(str)
+    .replace(/[-/.,_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  for (const [rgx, sub] of ABREVIACOES_MAP) {
+    s = s.replace(rgx, sub);
+  }
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function normalizarMarcaVinculo(marca) {
+  const m = normalizarTextoVinculo(marca)
+    .replace(/\b(s\s*a|ltda|brasil|alimentos|industria|comercio|cia)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!m || m === "generico" || m === "outros" || m === "sem marca" || m === "importado") return "";
+  return m;
+}
+
 function extrairAssetHash(urlImg) {
   if (!urlImg || typeof urlImg !== "string") return null;
   const m = urlImg.match(/([0-9a-f]{5,10}-[0-9a-f]{6,16}|[0-9a-f]{20,40})\.(webp|png|jpg|jpeg)/i);
@@ -2106,39 +2161,94 @@ function extrairAssetHash(urlImg) {
 function extrairGramatura(nome) {
   if (!nome) return null;
   const n = normalizarTexto(nome);
-  const mPack = n.match(/(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|l|lt|ml)/i);
+  const mPack = n.match(/(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|l|lt|ml)/i);
   if (mPack) {
     const qtd = parseFloat(mPack[1]);
     const val = parseFloat(mPack[2].replace(",", "."));
     const un = mPack[3].toLowerCase();
-    let totalBase = un.startsWith("k") || un === "l" || un === "lt" ? val * 1000 : val;
+    const totalBase = un.startsWith("k") || un === "l" || un === "lt" ? val * 1000 : val;
     return { valorNorm: Math.round(qtd * totalBase), unidade: un.includes("l") ? "ml" : "g", str: `${qtd}x${val}${un}` };
   }
-  const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml)\b/i);
+  const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/i);
   if (m) {
     const val = parseFloat(m[1].replace(",", "."));
     const un = m[2].toLowerCase();
-    if (un.startsWith("k") || un === "l" || un === "lt") {
-      return { valorNorm: Math.round(val * 1000), unidade: un.includes("l") ? "ml" : "g", str: `${val}${un}` };
+    if (un.startsWith("k") || un.startsWith("l")) {
+      return { valorNorm: Math.round(val * 1000), unidade: un.startsWith("l") ? "ml" : "g", str: `${val}${un}` };
     }
-    return { valorNorm: Math.round(val), unidade: un.includes("l") ? "ml" : "g", str: `${val}${un}` };
+    return { valorNorm: Math.round(val), unidade: un === "ml" ? "ml" : "g", str: `${val}${un}` };
+  }
+  const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps|ovos)\b/i);
+  if (mUn) {
+    const val = parseInt(mUn[1], 10);
+    if (val > 1 && val <= 200) {
+      return { valorNorm: val, unidade: "unid", str: `${val}un` };
+    }
   }
   return null;
+}
+
+function temConflitoVariante(nomeK, nomeF) {
+  const nk = ` ${normalizarTextoVinculo(nomeK)} `;
+  const nf = ` ${normalizarTextoVinculo(nomeF)} `;
+
+  const zeroK = /\b(zero|diet|light|sem acucar)\b/.test(nk);
+  const zeroF = /\b(zero|diet|light|sem acucar)\b/.test(nf);
+  if (zeroK !== zeroF) return true;
+
+  const lacK = /\b(sem lactose|zero lactose|nolac|lacfree)\b/.test(nk);
+  const lacF = /\b(sem lactose|zero lactose|nolac|lacfree)\b/.test(nf);
+  if (lacK !== lacF) return true;
+
+  const gasK = /\bcom gas\b/.test(nk) ? 1 : (/\bsem gas\b/.test(nk) ? -1 : 0);
+  const gasF = /\bcom gas\b/.test(nf) ? 1 : (/\bsem gas\b/.test(nf) ? -1 : 0);
+  if (gasK !== 0 && gasF !== 0 && gasK !== gasF) return true;
+
+  for (const grupo of GRUPOS_CONFLITO_SABOR) {
+    let achouK = null;
+    let achouF = null;
+    for (const termo of grupo) {
+      if (nk.includes(` ${termo.trim()} `)) achouK = termo.trim();
+      if (nf.includes(` ${termo.trim()} `)) achouF = termo.trim();
+    }
+    if (achouK && achouF && achouK !== achouF) return true;
+  }
+  return false;
+}
+
+function extrairTokensNucleo(nome, marcaNorm) {
+  const texto = normalizarTextoVinculo(nome)
+    .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|un|unid|unidades|rolos|rolo|m|cm|mm)\b/gi, " ");
+  const marcaTokens = new Set((marcaNorm || "").split(/\s+/).filter((w) => w.length >= 3));
+  const tokens = [];
+  for (const w of texto.split(/\s+/)) {
+    if (w.length < 3) continue;
+    if (STOPWORDS.has(w)) continue;
+    if (/^\d+$/.test(w)) continue;
+    if (marcaTokens.has(w)) continue;
+    tokens.push(w);
+  }
+  return tokens;
 }
 
 function calcularScoreCasamento(prodK, prodF) {
   let score = 0;
   const motivos = [];
 
-  // 1. Gramatura (Eliminatória!)
+  if (temConflitoVariante(prodK.nome, prodF.nome)) {
+    return { score: 0, motivo: "Variante/sabor conflitante" };
+  }
+
+  // 1. Gramatura / Medida (Eliminatória se ambos tiverem e forem diferentes)
   const gramK = extrairGramatura(prodK.nome);
   const gramF = extrairGramatura(prodF.nome);
 
   if (gramK && gramF) {
     if (gramK.unidade === gramF.unidade) {
-      if (Math.abs(gramK.valorNorm - gramF.valorNorm) <= 1) {
-        score += 30;
-        motivos.push(`Gramatura idêntica (${gramK.str})`);
+      const tol = Math.max(2, Math.round(Math.max(gramK.valorNorm, gramF.valorNorm) * 0.02));
+      if (Math.abs(gramK.valorNorm - gramF.valorNorm) <= tol) {
+        score += 28;
+        motivos.push(`Medida (${gramK.str})`);
       } else {
         return { score: 0, motivo: "Gramaturas incompatíveis" };
       }
@@ -2149,53 +2259,105 @@ function calcularScoreCasamento(prodK, prodF) {
     const unK = String(prodK.unidade || "UN").toUpperCase();
     const unF = String(prodF.unidade || "UN").toUpperCase();
     if (unK === unF) {
-      score += 15;
+      score += unK === "KG" ? 22 : 14;
+    } else {
+      return { score: 0, motivo: "Unidades de venda diferentes" };
     }
   } else {
-    score += 5;
+    score += 4;
   }
 
   // 2. Hash da Imagem no Catálogo OSuper
   const hashK = extrairAssetHash(prodK.imagem);
   const hashF = extrairAssetHash(prodF.imagem);
   if (hashK && hashF && hashK === hashF) {
-    score += 45;
-    motivos.push("Foto idêntica no catálogo OSuper");
+    score += 55;
+    motivos.push("Foto OSuper idêntica");
   }
 
-  // 3. Marca
-  const marcaK = normalizarTexto(prodK.marca);
-  const marcaF = normalizarTexto(prodF.marca);
-  if (marcaK && marcaF && marcaK !== "generico" && marcaF !== "generico") {
-    if (marcaK === marcaF) {
-      score += 20;
-      motivos.push(`Marca idêntica (${prodK.marca})`);
+  // 3. Marca (com detecção cruzada no nome do produto)
+  const marcaK = normalizarMarcaVinculo(prodK.marca);
+  const marcaF = normalizarMarcaVinculo(prodF.marca);
+  const nomeNormK = normalizarTextoVinculo(prodK.nome);
+  const nomeNormF = normalizarTextoVinculo(prodF.nome);
+
+  if (marcaK && marcaF) {
+    if (
+      marcaK === marcaF ||
+      marcaK.includes(marcaF) ||
+      marcaF.includes(marcaK) ||
+      nomeNormF.includes(marcaK) ||
+      nomeNormK.includes(marcaF)
+    ) {
+      score += 22;
+      motivos.push(`Marca (${prodF.marca || prodK.marca})`);
     } else {
-      score -= 25;
+      score -= 28;
     }
+  } else if (marcaK && nomeNormF.includes(marcaK)) {
+    score += 20;
+    motivos.push(`Marca no nome (${prodK.marca})`);
+  } else if (marcaF && nomeNormK.includes(marcaF)) {
+    score += 20;
+    motivos.push(`Marca no nome (${prodF.marca})`);
   }
 
-  // 4. Tokens do Nome (Jaccard)
-  const tokensK = new Set(normalizarTexto(prodK.nome).split(/\s+/).filter((w) => w.length >= 3 && !STOPWORDS.has(w)));
-  const tokensF = new Set(normalizarTexto(prodF.nome).split(/\s+/).filter((w) => w.length >= 3 && !STOPWORDS.has(w)));
+  // 4. Tokens de Produto (Dice + Jaccard + Palavra-chave Principal)
+  const listK = extrairTokensNucleo(prodK.nome, marcaK || marcaF);
+  const listF = extrairTokensNucleo(prodF.nome, marcaF || marcaK);
+  const tokensK = new Set(listK);
+  const tokensF = new Set(listF);
 
   if (tokensK.size > 0 && tokensF.size > 0) {
     let intersecao = 0;
-    for (const t of tokensK) {
-      if (tokensF.has(t)) intersecao++;
+    for (const tk of tokensK) {
+      if (tokensF.has(tk)) {
+        intersecao++;
+      } else if (tk.length >= 5) {
+        const rad = tk.slice(0, -1);
+        for (const tf of tokensF) {
+          if (tf.length >= 5 && (tf === rad || tf.slice(0, -1) === tk || tf.slice(0, -1) === rad)) {
+            intersecao += 0.85;
+            break;
+          }
+        }
+      }
     }
     const uniao = new Set([...tokensK, ...tokensF]).size;
     const jaccard = uniao > 0 ? intersecao / uniao : 0;
-    const ptsTokens = Math.round(jaccard * 25);
+    const dice = (tokensK.size + tokensF.size) > 0 ? (2 * intersecao) / (tokensK.size + tokensF.size) : 0;
+    const combinado = dice * 0.65 + jaccard * 0.35;
+    const ptsTokens = Math.round(combinado * 42);
     score += ptsTokens;
-    if (jaccard >= 0.5) {
-      motivos.push(`Nomes similares (${Math.round(jaccard * 100)}%)`);
+
+    if (listK[0] && listF[0] && (listK[0] === listF[0] || listK[0].slice(0, 5) === listF[0].slice(0, 5))) {
+      score += 10;
+    } else if (intersecao === 0 && (!hashK || hashK !== hashF)) {
+      return { score: 0, motivo: "Sem palavras em comum" };
+    }
+
+    if (combinado >= 0.55) {
+      motivos.push(`Similaridade (${Math.round(combinado * 100)}%)`);
+    }
+  }
+
+  // 5. Coerência de Preço (evita casar unidade avulsa com caixa fechada)
+  const pK = Number(prodK.preco || 0);
+  const pF = Number(prodF.preco || 0);
+  if (pK > 0 && pF > 0) {
+    const razao = Math.max(pK, pF) / Math.min(pK, pF);
+    if (razao > 3.1 && (!hashK || hashK !== hashF)) {
+      score -= 40;
+    } else if (razao <= 1.35) {
+      score += 6;
+    } else if (razao <= 1.65) {
+      score += 3;
     }
   }
 
   return {
-    score: Math.min(100, Math.max(0, score)),
-    motivo: motivos.join(" + ") || "Similaridade geral"
+    score: Math.min(100, Math.max(0, Math.round(score))),
+    motivo: motivos.join(" + ") || "Similaridade de catálogo"
   };
 }
 
@@ -2267,6 +2429,7 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
 
   const mapaFortPorAsset = new Map();
   const mapaFortPorMarca = new Map();
+  const mapaFortPorToken = new Map();
 
   for (const f of prodsFort) {
     if (!f || !f.id) continue;
@@ -2275,10 +2438,16 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       if (!mapaFortPorAsset.has(asset)) mapaFortPorAsset.set(asset, []);
       mapaFortPorAsset.get(asset).push(f);
     }
-    const marcaNorm = normalizarTexto(f.marca);
-    if (marcaNorm && marcaNorm.length > 2 && marcaNorm !== "generico") {
+    const marcaNorm = normalizarMarcaVinculo(f.marca);
+    if (marcaNorm && marcaNorm.length >= 2) {
       if (!mapaFortPorMarca.has(marcaNorm)) mapaFortPorMarca.set(marcaNorm, []);
       mapaFortPorMarca.get(marcaNorm).push(f);
+    }
+    const tokens = extrairTokensNucleo(f.nome, "");
+    for (let i = 0; i < Math.min(4, tokens.length); i++) {
+      const tk = tokens[i];
+      if (!mapaFortPorToken.has(tk)) mapaFortPorToken.set(tk, []);
+      mapaFortPorToken.get(tk).push(f);
     }
   }
 
@@ -2321,17 +2490,17 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     registrarParVinculo(v);
   }
 
+  // Coleta pares candidatos e ordena pelos maiores scores globais primeiro
+  const paresCandidatos = [];
+
   for (const k of prodsKoch) {
     if (!k || !k.id) continue;
     const idK = String(k.id);
     if (mapaKochParaFort[idK]) continue;
 
-    let melhorFort = null;
-    let melhorScore = 0;
-    let melhorMotivo = "";
-
     const assetK = extrairAssetHash(k.imagem);
-    const marcaK = normalizarTexto(k.marca);
+    const marcaK = normalizarMarcaVinculo(k.marca);
+    const tokensK = extrairTokensNucleo(k.nome, "");
 
     const candidatos = new Set();
     if (assetK && mapaFortPorAsset.has(assetK)) {
@@ -2340,25 +2509,21 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     if (marcaK && mapaFortPorMarca.has(marcaK)) {
       for (const f of mapaFortPorMarca.get(marcaK)) candidatos.add(f);
     }
-
-    if (candidatos.size === 0) {
-      const palavrasFortes = normalizarTexto(k.nome).split(/\s+/).filter((w) => w.length >= 4 && !STOPWORDS.has(w));
-      if (palavrasFortes.length > 0) {
-        const primeiraPalavra = palavrasFortes[0];
-        for (const f of prodsFort) {
-          if (f && f.nome && f.nome.toLowerCase().includes(primeiraPalavra)) {
-            candidatos.add(f);
-            if (candidatos.size > 30) break;
-          }
-        }
+    for (let i = 0; i < Math.min(3, tokensK.length); i++) {
+      const listaTk = mapaFortPorToken.get(tokensK[i]);
+      if (listaTk && listaTk.length <= 250) {
+        for (const f of listaTk) candidatos.add(f);
       }
     }
+
+    let melhorFort = null;
+    let melhorScore = 0;
+    let melhorMotivo = "";
 
     for (const f of candidatos) {
       const idF = String(f.id);
       if (fortJaCasados.has(idF)) continue;
-      const chavePar = `${idK}__${idF}`;
-      if (rejeitadosExistentes[chavePar]) continue;
+      if (rejeitadosExistentes[`${idK}__${idF}`]) continue;
 
       const res = calcularScoreCasamento(k, f);
       if (res.score > melhorScore) {
@@ -2368,17 +2533,23 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       }
     }
 
-    if (melhorScore >= 65 && melhorFort) {
-      const idF = String(melhorFort.id);
-      registrarParVinculo({
+    if (melhorScore >= 62 && melhorFort) {
+      paresCandidatos.push({
         idKoch: idK,
-        idFort: idF,
+        idFort: String(melhorFort.id),
         score: melhorScore,
-        motivo: melhorMotivo,
-        manual: false,
-        data: new Date().toISOString()
+        motivo: melhorMotivo
       });
     }
+  }
+
+  paresCandidatos.sort((a, b) => b.score - a.score);
+  for (const par of paresCandidatos) {
+    registrarParVinculo({
+      ...par,
+      manual: false,
+      data: new Date().toISOString()
+    });
   }
 
   const payload = {
