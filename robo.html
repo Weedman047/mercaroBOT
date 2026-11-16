@@ -150,11 +150,11 @@
       </div>
     </div>
 
-    <!-- NAVEGAÇÃO DE DEPARTAMENTOS MINIMALISTA COM ÍCONES -->
+    <!-- NAVEGAÇÃO DE DEPARTAMENTOS MINIMALISTA COM ÍCONES (NO PC CABEM TODOS NA TELA SEM ROLAR) -->
     <div class="bg-white text-slate-800 border-t border-slate-200/80 w-full overflow-hidden">
-      <div id="containerDepartamentos" class="max-w-7xl mx-auto px-3 sm:px-5 py-2 flex gap-1.5 overflow-x-auto no-scrollbar items-center w-full"></div>
-      <div id="containerSubcategorias" class="hidden bg-slate-50 border-t border-slate-200/70 px-3 sm:px-5 py-1.5 w-full overflow-hidden">
-        <div id="listaSubcategorias" class="max-w-7xl mx-auto flex gap-1.5 overflow-x-auto no-scrollbar items-center w-full"></div>
+      <div id="containerDepartamentos" class="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex gap-1 sm:gap-1.5 overflow-x-auto lg:overflow-visible lg:flex-wrap lg:justify-center items-center w-full no-scrollbar"></div>
+      <div id="containerSubcategorias" class="hidden bg-slate-50 border-t border-slate-200/70 px-2 sm:px-4 py-1.5 w-full overflow-hidden">
+        <div id="listaSubcategorias" class="max-w-7xl mx-auto flex gap-1 sm:gap-1.5 overflow-x-auto lg:overflow-visible lg:flex-wrap lg:justify-center items-center w-full no-scrollbar"></div>
       </div>
     </div>
   </header>
@@ -938,6 +938,32 @@
                   <div class="text-[9px] text-slate-400 uppercase">Mesmo Preço / Rejeitados</div>
                   <div id="kpiEmpatesPreco" class="text-sm font-bold text-slate-300 mt-0.5">0 itens</div>
                   <div id="kpiRejeitadosCount" class="text-[10px] text-slate-500">0 bloqueados</div>
+                </div>
+              </div>
+
+              <!-- NOVO: TINDER DE VÍNCULOS (APROVAÇÃO RÁPIDA DE SUGESTÕES) -->
+              <div id="secaoTinderVinculos" class="bg-[#06101f] border border-sky-500/30 rounded-xl p-3.5 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1c355e] pb-2.5">
+                  <div>
+                    <h5 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <svg class="w-4 h-4 text-rose-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                      <span>Tinder de Vínculos (Aprovação Rápida de Pares)</span>
+                    </h5>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Sugestões de produtos com marcas e gramaturas semelhantes. Aprove para vincular permanentemente ou rejeite para nunca mais sugerir.</p>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span id="badgeContadorTinder" class="bg-[#0a192f] text-sky-300 border border-[#234876] font-mono text-[10px] px-2 py-0.5 rounded">Calculando...</span>
+                    <button onclick="carregarSugestoesTinder(true)" title="Recalcular pares candidatos" class="bg-[#112645] hover:bg-[#19355e] text-slate-300 hover:text-white p-1 rounded-lg border border-[#234876] transition">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="containerCardTinder" class="min-h-[160px] flex items-center justify-center">
+                  <div class="text-center py-6 text-slate-400 text-xs flex flex-col items-center gap-2">
+                    <div class="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Carregando sugestões de vínculos...</span>
+                  </div>
                 </div>
               </div>
 
@@ -2658,6 +2684,7 @@
       if (sub === 'vinculos') {
         sincronizarInputsConfigVinculosUI();
         renderizarAbaVinculosUI();
+        carregarSugestoesTinder(false);
       } else if (sub === 'fila') {
         renderizarFilaCategoriasRobo();
       }
@@ -4805,6 +4832,373 @@
     }
 
     // =========================================================================
+    // TINDER DE VÍNCULOS: APROVAÇÃO RÁPIDA DE SUGESTÕES PENDENTES
+    // =========================================================================
+    let listaSugestoesTinder = [];
+    let indiceTinderAtual = 0;
+    let tinderCarregadoUmaVez = false;
+
+    function carregarSugestoesTinder(forcar = false) {
+      if (tinderCarregadoUmaVez && !forcar && listaSugestoesTinder.length > 0) {
+        renderizarCardTinderUI();
+        return;
+      }
+      tinderCarregadoUmaVez = true;
+
+      const container = document.getElementById('containerCardTinder');
+      const badgeCont = document.getElementById('badgeContadorTinder');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-slate-400 text-xs flex flex-col items-center gap-2">
+            <div class="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Analisando produtos não vinculados e calculando similaridades...</span>
+          </div>
+        `;
+      }
+
+      setTimeout(() => {
+        try {
+          const fortJaCasados = new Set();
+          const kochJaCasados = new Set();
+
+          for (const v of Object.values(mapaVinculosProdutos || {})) {
+            if (v && v.idKoch && v.idFort) {
+              kochJaCasados.add(String(v.idKoch));
+              fortJaCasados.add(String(v.idFort));
+            }
+          }
+
+          const pares = [];
+          const fortDisponiveis = (catalogoFortOriginal || []).filter(f => !fortJaCasados.has(String(f.idOriginal)));
+
+          // Mapeamento auxiliar do Fort para acelerar o pareamento
+          const fortPorMarca = new Map();
+          const fortPorGram = new Map();
+          fortDisponiveis.forEach(f => {
+            const m = f._marcaNorm || normalizarTexto(f.marca || '');
+            if (m) {
+              if (!fortPorMarca.has(m)) fortPorMarca.set(m, []);
+              fortPorMarca.get(m).push(f);
+            }
+            const g = f._gramCache !== undefined ? f._gramCache : (typeof extrairGramatura === 'function' ? extrairGramatura(f.nome) : null);
+            f._gramCache = g;
+            if (g && g.valorBase) {
+              const kGram = `${g.unidade}_${g.valorBase}`;
+              if (!fortPorGram.has(kGram)) fortPorGram.set(kGram, []);
+              fortPorGram.get(kGram).push(f);
+            }
+          });
+
+          for (const k of (catalogoKochOriginal || [])) {
+            const sK = String(k.idOriginal);
+            if (kochJaCasados.has(sK)) continue;
+
+            const mK = k._marcaNorm || normalizarTexto(k.marca || '');
+            const gK = k._gramCache !== undefined ? k._gramCache : (typeof extrairGramatura === 'function' ? extrairGramatura(k.nome) : null);
+            k._gramCache = gK;
+
+            // Conjunto de candidatos do Fort
+            const candidatosFort = new Set();
+            if (mK && fortPorMarca.has(mK)) {
+              fortPorMarca.get(mK).forEach(f => candidatosFort.add(f));
+            }
+            if (gK && gK.valorBase) {
+              const kGram = `${gK.unidade}_${gK.valorBase}`;
+              if (fortPorGram.has(kGram)) {
+                fortPorGram.get(kGram).forEach(f => candidatosFort.add(f));
+              }
+            }
+
+            if (candidatosFort.size === 0) continue;
+
+            let melhorFort = null;
+            let melhorScore = 0;
+            let melhorMotivo = '';
+
+            for (const f of candidatosFort) {
+              const sF = String(f.idOriginal);
+              const chaveRej = `${sK}__${sF}`;
+              if (rejeitadosVinculosGlobal && rejeitadosVinculosGlobal[chaveRej]) continue;
+
+              let score = 0;
+              let motivos = [];
+
+              // 1. Marca compatível
+              const mF = f._marcaNorm || normalizarTexto(f.marca || '');
+              if (mK && mF && mK === mF) {
+                score += 35;
+                motivos.push('Marca idêntica');
+              }
+
+              // 2. Gramatura compatível
+              const gF = f._gramCache;
+              if (gK && gF && gK.unidade === gF.unidade) {
+                const dif = Math.abs(gK.valorBase - gF.valorBase);
+                if (dif === 0) {
+                  score += 35;
+                  motivos.push(`Gramatura exata (${gK.str})`);
+                } else if (dif / gK.valorBase <= 0.05) {
+                  score += 20;
+                  motivos.push(`Gramatura similar (${gK.str} vs ${gF.str})`);
+                }
+              }
+
+              // 3. Similaridade de tokens do nome
+              const tokensK = typeof extrairTokensNucleo === 'function' ? extrairTokensNucleo(k.nome, k.marca) : [];
+              const tokensF = typeof extrairTokensNucleo === 'function' ? extrairTokensNucleo(f.nome, f.marca) : [];
+              const tokensFSet = new Set(tokensF);
+              let comuns = 0;
+              for (const t of tokensK) {
+                if (tokensFSet.has(t)) comuns++;
+              }
+              const totalToks = Math.max(tokensK.length, tokensF.length, 1);
+              const pctTokens = Math.round((comuns / totalToks) * 30);
+              score += pctTokens;
+              if (comuns >= 2) motivos.push(`${comuns} termos em comum`);
+
+              if (score > melhorScore && score >= 45) {
+                melhorScore = score;
+                melhorFort = f;
+                melhorMotivo = motivos.join(' • ');
+              }
+            }
+
+            if (melhorFort) {
+              pares.push({
+                koch: k,
+                fort: melhorFort,
+                score: Math.min(melhorScore, 98),
+                motivo: melhorMotivo || 'Similaridade de atributos'
+              });
+              if (pares.length >= 80) break;
+            }
+          }
+
+          listaSugestoesTinder = pares;
+          indiceTinderAtual = 0;
+          renderizarCardTinderUI();
+        } catch (e) {
+          console.error('Erro ao gerar sugestões Tinder:', e);
+          if (container) {
+            container.innerHTML = `<div class="text-rose-400 text-xs p-4 text-center">Erro ao calcular sugestões: ${e.message}</div>`;
+          }
+        }
+      }, 50);
+    }
+
+    function renderizarCardTinderUI() {
+      const container = document.getElementById('containerCardTinder');
+      const badgeCont = document.getElementById('badgeContadorTinder');
+      if (!container) return;
+
+      if (!listaSugestoesTinder || listaSugestoesTinder.length === 0 || indiceTinderAtual >= listaSugestoesTinder.length) {
+        if (badgeCont) badgeCont.textContent = '0 pendentes';
+        container.innerHTML = `
+          <div class="text-center py-6 text-slate-400 text-xs flex flex-col items-center gap-2">
+            <svg class="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="font-bold text-white text-xs sm:text-sm">Nenhuma sugestão pendente no momento!</div>
+            <p class="text-slate-400 text-[11px] max-w-sm">Todos os pares sugeridos foram avaliados ou não há mais correspondências elegíveis.</p>
+            <button onclick="carregarSugestoesTinder(true)" class="mt-1 bg-[#112645] hover:bg-[#19355e] text-sky-300 border border-[#234876] px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+              Verificar Novamente
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      const parAtual = listaSugestoesTinder[indiceTinderAtual];
+      const { koch, fort, score, motivo } = parAtual;
+      const restante = listaSugestoesTinder.length - indiceTinderAtual;
+      if (badgeCont) badgeCont.textContent = `${indiceTinderAtual + 1} de ${listaSugestoesTinder.length} (${restante} restantes)`;
+
+      const corScore = score >= 70 ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10' : 'text-sky-400 border-sky-500/40 bg-sky-500/10';
+
+      container.innerHTML = `
+        <div class="w-full space-y-3">
+          <!-- PAINEL COMPARATIVO LADO A LADO -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
+            
+            <!-- CARD SUPERKOCH -->
+            <div class="md:col-span-5 bg-[#0a192f] border border-[#1c355e] rounded-xl p-3 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span class="bg-blue-950/90 text-blue-300 border border-blue-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">SuperKoch</span>
+                  <span class="text-[10px] text-slate-400 font-mono">#${koch.idOriginal}</span>
+                </div>
+                <div class="w-full h-28 bg-[#06101f] rounded-lg p-2 flex items-center justify-center mb-2 border border-[#1c355e]/50">
+                  <img src="${koch.imagem || FALLBACK_IMG}" class="max-h-full max-w-full object-contain" onerror="this.src='${FALLBACK_IMG}'">
+                </div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">${koch.marca || 'GENÉRICO'}</div>
+                <h5 class="text-xs font-bold text-white line-clamp-2 mt-0.5" title="${koch.nome}">${koch.nome}</h5>
+              </div>
+              <div class="pt-2 mt-2 border-t border-[#1c355e]/60 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-slate-400">Preço:</span>
+                  <span class="text-sm font-black text-white ml-1">R$ ${koch.preco.toFixed(2).replace('.', ',')}</span>
+                  <span class="text-[10px] text-slate-400">/${koch.unidade}</span>
+                </div>
+                <a href="${koch.url || `https://www.superkoch.com.br/produtos/${koch.idOriginal}`}" target="_blank" rel="noopener" class="text-[11px] text-sky-400 hover:text-sky-300 underline flex items-center gap-0.5">
+                  <span>Site</span>
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+
+            <!-- DIVISOR COM SCORE DE SIMILARIDADE -->
+            <div class="md:col-span-2 flex flex-col items-center justify-center py-2 px-1 text-center">
+              <div class="px-3 py-1 rounded-full border ${corScore} font-mono font-bold text-xs tracking-wider mb-1 shadow-sm">
+                ${score}% MATCH
+              </div>
+              <div class="text-[10px] text-slate-400 leading-tight px-1 font-medium">${motivo}</div>
+              <div class="w-full my-2 border-t border-[#1c355e] hidden md:block"></div>
+              <div class="text-[9px] text-slate-500 uppercase font-semibold">Par Sugerido</div>
+            </div>
+
+            <!-- CARD FORT ATACADISTA -->
+            <div class="md:col-span-5 bg-[#0a192f] border border-[#1c355e] rounded-xl p-3 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                  <span class="bg-emerald-950/90 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Fort Atacadista</span>
+                  <span class="text-[10px] text-slate-400 font-mono">#${fort.idOriginal}</span>
+                </div>
+                <div class="w-full h-28 bg-[#06101f] rounded-lg p-2 flex items-center justify-center mb-2 border border-[#1c355e]/50">
+                  <img src="${fort.imagem || FALLBACK_IMG}" class="max-h-full max-w-full object-contain" onerror="this.src='${FALLBACK_IMG}'">
+                </div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">${fort.marca || 'GENÉRICO'}</div>
+                <h5 class="text-xs font-bold text-white line-clamp-2 mt-0.5" title="${fort.nome}">${fort.nome}</h5>
+              </div>
+              <div class="pt-2 mt-2 border-t border-[#1c355e]/60 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] text-slate-400">Preço:</span>
+                  <span class="text-sm font-black text-white ml-1">R$ ${fort.preco.toFixed(2).replace('.', ',')}</span>
+                  <span class="text-[10px] text-slate-400">/${fort.unidade}</span>
+                </div>
+                <a href="${fort.url || `https://www.fortatacadista.com.br/produtos/${fort.idOriginal}`}" target="_blank" rel="noopener" class="text-[11px] text-emerald-400 hover:text-emerald-300 underline flex items-center gap-0.5">
+                  <span>Site</span>
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- BOTÕES DE AÇÃO: REJEITAR | PULAR | BUSCAR OUTRO | APROVAR -->
+          <div class="bg-[#0a192f] border border-[#1c355e] rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <button onclick="rejeitarParTinder('${koch.idOriginal}', '${fort.idOriginal}')" class="bg-rose-950/60 hover:bg-rose-900 text-rose-200 border border-rose-800/80 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <span>Rejeitar Par</span>
+              </button>
+              <button onclick="pularParTinder()" class="bg-[#112645] hover:bg-[#19355e] text-slate-300 hover:text-white border border-[#234876] font-medium px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 transition">
+                <span>Pular</span>
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button onclick="abrirBuscaOutroFortTinder('${koch.idOriginal}')" class="bg-[#112645] hover:bg-[#19355e] text-sky-300 border border-[#234876] font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <span>Buscar Outro Fort</span>
+              </button>
+              <button onclick="aprovarParTinder('${koch.idOriginal}', '${fort.idOriginal}')" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-4 py-1.5 rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Aprovar Vínculo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- SELETOR DINÂMICO SE O USUÁRIO QUISER ESCOLHER OUTRO FORT -->
+          <div id="boxBuscaOutroFortTinder" class="hidden bg-[#06101f] border border-sky-500/50 rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-sky-300">Escolha outro produto do Fort Atacadista para este item:</span>
+              <button onclick="document.getElementById('boxBuscaOutroFortTinder').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs">✕ Fechar</button>
+            </div>
+            <input id="inpBuscaOutroFortTinder" type="text" placeholder="Pesquisar por nome ou código no Fort..." oninput="filtrarOutroFortTinder(this.value)" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white">
+            <select id="selOutroFortTinder" size="4" class="w-full bg-[#0a192f] border border-[#1c355e] rounded-lg p-1 text-xs text-slate-200"></select>
+            <div class="flex justify-end pt-1">
+              <button onclick="confirmarOutroFortTinder('${koch.idOriginal}')" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs">Confirmar Vínculo com Este Fort</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function aprovarParTinder(idKoch, idFort) {
+      const sK = String(idKoch);
+      const sF = String(idFort);
+      const chave = `vinc_${sK}_${sF}`;
+
+      if (rejeitadosVinculosGlobal) delete rejeitadosVinculosGlobal[`${sK}__${sF}`];
+      mapaVinculosProdutos[chave] = {
+        idKoch: sK,
+        idFort: sF,
+        score: 100,
+        motivo: 'Aprovado via Tinder de Vínculos',
+        manual: true,
+        data: new Date().toISOString()
+      };
+
+      mostrarToast(`Vínculo #${sK} ↔ #${sF} aprovado e salvo permanentemente!`);
+      indiceTinderAtual++;
+      renderizarCardTinderUI();
+      renderizarAbaVinculosUI();
+      persistirVinculosNoFirebaseSilencioso();
+    }
+
+    async function rejeitarParTinder(idKoch, idFort) {
+      const sK = String(idKoch);
+      const sF = String(idFort);
+      const chaveRej = `${sK}__${sF}`;
+      const chaveVinc = `vinc_${sK}_${sF}`;
+
+      delete mapaVinculosProdutos[chaveVinc];
+      if (!rejeitadosVinculosGlobal) rejeitadosVinculosGlobal = {};
+      rejeitadosVinculosGlobal[chaveRej] = true;
+
+      mostrarToast(`Par rejeitado. Nunca mais será sugerido.`);
+      indiceTinderAtual++;
+      renderizarCardTinderUI();
+      renderizarAbaVinculosUI();
+      persistirVinculosNoFirebaseSilencioso();
+    }
+
+    function pularParTinder() {
+      indiceTinderAtual++;
+      renderizarCardTinderUI();
+    }
+
+    function abrirBuscaOutroFortTinder(idKoch) {
+      const box = document.getElementById('boxBuscaOutroFortTinder');
+      if (!box) return;
+      box.classList.remove('hidden');
+      const inp = document.getElementById('inpBuscaOutroFortTinder');
+      if (inp) inp.value = '';
+      filtrarOutroFortTinder('');
+    }
+
+    function filtrarOutroFortTinder(termo) {
+      const sel = document.getElementById('selOutroFortTinder');
+      if (!sel) return;
+      const tNorm = normalizarTexto(termo);
+      const fortJaCasados = new Set(Object.values(mapaVinculosProdutos || {}).map(v => String(v.idFort)));
+      const filtrados = (catalogoFortOriginal || [])
+        .filter(f => !fortJaCasados.has(String(f.idOriginal)))
+        .filter(f => !tNorm || f._nomeNorm?.includes(tNorm) || f._marcaNorm?.includes(tNorm) || String(f.idOriginal).includes(tNorm))
+        .slice(0, 35);
+
+      sel.innerHTML = filtrados.map(f => `
+        <option value="${f.idOriginal}">R$ ${f.preco.toFixed(2).replace('.', ',')} • ${f.nome} (${f.marca || 'S/M'})</option>
+      `).join('');
+    }
+
+    async function confirmarOutroFortTinder(idKoch) {
+      const sel = document.getElementById('selOutroFortTinder');
+      if (!sel || !sel.value) return alert('Selecione um produto do Fort na lista.');
+      const idFort = sel.value;
+      await aprovarParTinder(idKoch, idFort);
+    }
+
+    // =========================================================================
     // TOAST DE FEEDBACK FLUIDO
     // =========================================================================
     let timerToast = null;
@@ -5152,24 +5546,21 @@
       return `em ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
     }
 
-    async function atualizarPrecoAoVivoSobDemanda(idCatalogo, lojaKey, idOriginal, evt = null, emBackground = false) {
-      if (evt && evt.stopPropagation) evt.stopPropagation();
-      const btn = evt?.currentTarget;
-      const statusBadge = document.getElementById(`badgeStatusLive_${lojaKey}_${idOriginal}`);
+    let mercadoAtivoModalDetalhe = null;
 
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="inline-block animate-spin">⟳</span>`;
-      }
-      if (statusBadge && !emBackground) {
-        statusBadge.innerHTML = `<span class="text-sky-600 animate-pulse font-medium">Sincronizando...</span>`;
-      }
-
+    async function executarPesquisaInvisivelItem(idCatalogo, lojaKey, idOriginal) {
+      if (!idOriginal) return;
       try {
-        const res = await fetch(`/.netlify/functions/consultar-preco?loja=${lojaKey}&id=${encodeURIComponent(idOriginal)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data && data.ok) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`/.netlify/functions/consultar-preco?loja=${lojaKey}&id=${encodeURIComponent(idOriginal)}`, {
+          signal: controller.signal
+        }).catch(() => null);
+        clearTimeout(timeoutId);
+        if (!res || !res.ok) return;
+
+        const data = await res.json().catch(() => null);
+        if (data && data.ok && Number(data.preco) > 0) {
           const prod = buscarProdutoNoCatalogo(idCatalogo);
           if (prod) {
             let mudou = false;
@@ -5209,7 +5600,6 @@
             const opcoes = obterOpcoesMercadosProduto(prod);
             prod.preco = opcoes[0]?.preco || prod.preco;
 
-            // Se o item estiver na sacola e o preço mudou, atualiza a sacola
             const itemSacola = sacolaCompras.find(i => i.idCatalogo === idCatalogo);
             if (itemSacola && mudou) {
               itemSacola.preco = prod.preco;
@@ -5218,35 +5608,28 @@
 
             if (produtoDetalheAtivoId === idCatalogo) {
               renderizarDetalheProdutoModal(prod);
-              const sb = document.getElementById(`badgeStatusLive_${lojaKey}_${idOriginal}`);
-              if (sb) {
-                sb.innerHTML = `<span class="text-emerald-700 font-bold flex items-center gap-1">● Atualizado Hoje às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>`;
-              }
             }
           }
         }
-      } catch (err) {
-        if (statusBadge && !emBackground) {
-          statusBadge.innerHTML = `<span class="text-amber-600 font-medium">Preço mantido</span>`;
-        }
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = `<svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
-        }
-      }
+      } catch (_) {}
+    }
+
+    // Compatibilidade reversa
+    async function atualizarPrecoAoVivoSobDemanda(idCatalogo, lojaKey, idOriginal, evt = null, emBackground = true) {
+      if (evt && evt.stopPropagation) evt.stopPropagation();
+      await executarPesquisaInvisivelItem(idCatalogo, lojaKey, idOriginal);
     }
 
     async function verificarPrecoSobDemandaAoAbrir(prod) {
       if (!prod || !prod.id) return;
       const opcoes = obterOpcoesMercadosProduto(prod);
       const agora = Date.now();
-      const limiteTTLMs = 30 * 60 * 1000; // 30 minutos de validade antes de auto-refresh
+      const limiteTTLMs = 12 * 60 * 60 * 1000; // 12 HORAS (Meio dia solicitado pelo usuário)
 
       for (const op of opcoes) {
         const tsUltimo = op.atualizadoEm ? new Date(op.atualizadoEm).getTime() : 0;
         if (!tsUltimo || (agora - tsUltimo) > limiteTTLMs) {
-          atualizarPrecoAoVivoSobDemanda(prod.id, op.sigla === 'FORT' ? 'fort' : 'koch', op.idOriginal, null, true);
+          executarPesquisaInvisivelItem(prod.id, op.sigla === 'FORT' ? 'fort' : 'koch', op.idOriginal);
         }
       }
     }
@@ -5257,7 +5640,8 @@
       produtoDetalheAtivoId = prod.id;
 
       const opcoes = obterOpcoesMercadosProduto(prod);
-      mercadoHistoricoDetalheAtivo = opcoes[0]?.sigla || 'FORT';
+      mercadoAtivoModalDetalhe = opcoes[0]?.sigla || 'FORT';
+      mercadoHistoricoDetalheAtivo = mercadoAtivoModalDetalhe;
 
       renderizarDetalheProdutoModal(prod);
       verificarPrecoSobDemandaAoAbrir(prod);
@@ -5278,11 +5662,16 @@
     function fecharDetalheProduto() {
       document.getElementById('modalDetalheProduto').classList.add('hidden');
       produtoDetalheAtivoId = null;
+      mercadoAtivoModalDetalhe = null;
     }
 
-    function trocarFotoModalDetalhe(novaUrl) {
-      const img = document.getElementById('imgPrincipalDetalheProduto');
-      if (img && novaUrl) img.src = novaUrl;
+    function selecionarMercadoModalDetalhe(sigla) {
+      mercadoAtivoModalDetalhe = sigla;
+      mercadoHistoricoDetalheAtivo = sigla;
+      if (produtoDetalheAtivoId) {
+        const prod = buscarProdutoNoCatalogo(produtoDetalheAtivoId);
+        if (prod) renderizarDetalheProdutoModal(prod);
+      }
     }
 
     function trocarAbaHistoricoDetalhe(sigla) {
@@ -5302,9 +5691,11 @@
       }
 
       const opcoes = obterOpcoesMercadosProduto(prod);
+      const opAtiva = opcoes.find(o => o.sigla === mercadoAtivoModalDetalhe) || opcoes[0];
       const maisBarato = opcoes[0];
       const segundoMercado = opcoes[1] || null;
       const qtdTotalSacola = obterQtdProdutoNaSacola(prod.id);
+      const qtdAtivaNesteMercado = obterQtdProdutoPorMercadoNaSacola(prod.id, opAtiva.sigla);
       const totalItensGlobalSacola = sacolaCompras.reduce((acc, i) => acc + (i.qtd || 1), 0);
       const badgeModalSac = document.getElementById('badgeSacolaModalDetalhe');
       if (badgeModalSac) badgeModalSac.textContent = String(totalItensGlobalSacola);
@@ -5318,43 +5709,46 @@
         breadcrumbEl.textContent = `${deptosNomes[0] || 'Catálogo'} • ${prod.marca || 'Produto'}`;
       }
 
-      // Controle principal de sacola no topo da aba do item
-      const controlesSacolaTopo = qtdTotalSacola > 0
+      // Controle de sacola sincronizado com o mercado atualmente selecionado no modal
+      const controlesSacolaTopo = qtdAtivaNesteMercado > 0
         ? `
           <div class="flex items-center justify-between gap-3 bg-slate-50 border border-[#0f294d] rounded-xl p-2.5 sm:px-4">
             <div class="flex items-center gap-2.5 min-w-0">
-              <span class="w-8 h-8 rounded-lg bg-[#0f294d] text-white font-bold text-xs flex items-center justify-center shrink-0">${qtdTotalSacola}</span>
+              <span class="w-8 h-8 rounded-lg bg-[#0f294d] text-white font-bold text-xs flex items-center justify-center shrink-0">${qtdAtivaNesteMercado}</span>
               <div class="min-w-0">
-                <div class="text-xs font-bold text-[#0f294d] truncate">${qtdTotalSacola} ${qtdTotalSacola === 1 ? 'unidade na sacola' : 'unidades na sacola'}</div>
-                <div class="text-[11px] text-slate-500 font-medium">Subtotal: R$ ${(qtdTotalSacola * maisBarato.preco).toFixed(2).replace('.', ',')}</div>
+                <div class="text-xs font-bold text-[#0f294d] truncate">${qtdAtivaNesteMercado} ${qtdAtivaNesteMercado === 1 ? 'unidade na sacola' : 'unidades na sacola'} (${opAtiva.nomeMercado})</div>
+                <div class="text-[11px] text-slate-500 font-medium">Subtotal: R$ ${(qtdAtivaNesteMercado * opAtiva.preco).toFixed(2).replace('.', ',')}</div>
               </div>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-              <button onclick="alterarQtdProdutoCatalogo('${prod.id}', -1, null, event)" class="w-9 h-9 rounded-lg bg-white hover:bg-slate-100 text-[#0f294d] border border-slate-300 font-bold text-base flex items-center justify-center transition">−</button>
-              <span class="w-7 text-center font-bold text-sm text-[#0f294d]">${qtdTotalSacola}</span>
-              <button onclick="adicionarNaSacola('${prod.id}', '${maisBarato.sigla}', event)" class="w-9 h-9 rounded-lg bg-[#0f294d] hover:bg-[#163560] text-white font-bold text-base flex items-center justify-center transition">＋</button>
+              <button onclick="alterarQtdProdutoCatalogo('${prod.id}', -1, '${opAtiva.sigla}', event)" class="w-9 h-9 rounded-lg bg-white hover:bg-slate-100 text-[#0f294d] border border-slate-300 font-bold text-base flex items-center justify-center transition">−</button>
+              <span class="w-7 text-center font-bold text-sm text-[#0f294d]">${qtdAtivaNesteMercado}</span>
+              <button onclick="adicionarNaSacola('${prod.id}', '${opAtiva.sigla}', event)" class="w-9 h-9 rounded-lg bg-[#0f294d] hover:bg-[#163560] text-white font-bold text-base flex items-center justify-center transition">＋</button>
             </div>
           </div>
         `
         : `
-          <button onclick="adicionarNaSacola('${prod.id}', '${maisBarato.sigla}', event)" class="w-full bg-[#0f294d] hover:bg-[#163560] text-white font-bold py-3 px-5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
+          <button onclick="adicionarNaSacola('${prod.id}', '${opAtiva.sigla}', event)" class="w-full bg-[#0f294d] hover:bg-[#163560] text-white font-bold py-3 px-5 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
             <svg class="w-4 h-4 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>
-            <span>Adicionar à Sacola (${maisBarato.nomeMercado} • R$ ${maisBarato.preco.toFixed(2).replace('.', ',')})</span>
+            <span>Adicionar à Sacola (${opAtiva.nomeMercado} • R$ ${opAtiva.preco.toFixed(2).replace('.', ',')})</span>
           </button>
         `;
 
-      // Seletor de fotos se houver ambos os mercados
-      const seletorFotosHtml = (prod.ehComparativo && prod.imagemFort && prod.imagemKoch)
+      // Seletor minimalista entre mercados no topo da aba do item
+      const seletorMercadosTopoHtml = opcoes.length > 1
         ? `
-          <div class="flex items-center justify-center gap-2 mt-3">
-            <button onclick="trocarFotoModalDetalhe('${prod.imagemFort}')" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition">
-              <img src="${prod.imagemFort}" class="w-4 h-4 object-contain rounded bg-white" onerror="this.src='${FALLBACK_IMG}'">
-              <span>Fort</span>
-            </button>
-            <button onclick="trocarFotoModalDetalhe('${prod.imagemKoch}')" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition">
-              <img src="${prod.imagemKoch}" class="w-4 h-4 object-contain rounded bg-white" onerror="this.src='${FALLBACK_IMG}'">
-              <span>Koch</span>
-            </button>
+          <div class="flex items-center gap-1.5 mt-3 p-1 bg-slate-100 rounded-xl border border-slate-200 w-full">
+            ${opcoes.map(op => {
+              const isSel = op.sigla === opAtiva.sigla;
+              const isLowest = op.sigla === maisBarato.sigla;
+              return `
+                <button onclick="selecionarMercadoModalDetalhe('${op.sigla}')" class="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${isSel ? 'bg-[#0f294d] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 bg-white/70'}">
+                  <img src="${op.imagem || FALLBACK_IMG}" class="w-4 h-4 object-contain rounded bg-white shrink-0" onerror="this.src='${FALLBACK_IMG}'">
+                  <span>${op.sigla === 'FORT' ? 'Fort Atacadista' : 'SuperKoch'}</span>
+                  ${isLowest ? `<span class="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded ml-0.5">Menor R$</span>` : ''}
+                </button>
+              `;
+            }).join('')}
           </div>
         `
         : '';
@@ -5363,9 +5757,10 @@
         ? prod.categorias.slice(0, 6).map(c => `<span class="bg-slate-100 text-slate-700 text-[10px] font-medium px-2 py-0.5 rounded-md border border-slate-200">${c}</span>`).join('')
         : `<span class="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded-md">${deptosNomes.join(', ') || 'Mercearia Geral'}</span>`;
 
-      // 2. OPÇÕES DE MERCADOS DISPONÍVEIS (PRIMEIRO O MAIS BARATO)
+      // 2. OPÇÕES DE MERCADOS DISPONÍVEIS (PRIMEIRO O MAIS BARATO, CLIQUE MUDA PARA ELE)
       const htmlOpcoesMercados = opcoes.map((op, index) => {
         const ehMaisBarato = index === 0;
+        const ehSelecionado = op.sigla === opAtiva.sigla;
         const qtdNesteMercado = obterQtdProdutoPorMercadoNaSacola(prod.id, op.sigla);
         const economiaVsOutro = (ehMaisBarato && segundoMercado && segundoMercado.preco > op.preco)
           ? (segundoMercado.preco - op.preco)
@@ -5378,7 +5773,7 @@
 
         const btnSacolaMercado = qtdNesteMercado > 0
           ? `
-            <div class="flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-lg px-1.5 py-1">
+            <div class="flex items-center gap-1 bg-slate-100 border border-slate-300 rounded-lg px-1.5 py-1" onclick="event.stopPropagation()">
               <button onclick="alterarQtdProdutoCatalogo('${prod.id}', -1, '${op.sigla}', event)" class="w-6 h-6 rounded bg-white hover:bg-slate-200 text-[#0f294d] font-bold text-xs border border-slate-200">−</button>
               <span class="px-2 text-xs font-bold text-[#0f294d]">${qtdNesteMercado}</span>
               <button onclick="adicionarNaSacola('${prod.id}', '${op.sigla}', event)" class="w-6 h-6 rounded bg-[#0f294d] text-white font-bold text-xs">＋</button>
@@ -5392,7 +5787,7 @@
           `;
 
         return `
-          <div class="rounded-xl p-3.5 sm:p-4 border transition ${ehMaisBarato ? 'bg-white border-[#0f294d] shadow-sm' : 'bg-white border-slate-200'} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div onclick="selecionarMercadoModalDetalhe('${op.sigla}')" class="rounded-xl p-3.5 sm:p-4 border transition cursor-pointer ${ehSelecionado ? 'bg-sky-50/20 border-[#0f294d] ring-2 ring-[#0f294d]/80 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div class="flex items-start gap-3 min-w-0 flex-1">
               <img src="${op.imagem || FALLBACK_IMG}" class="w-12 h-12 object-contain rounded-lg bg-white border border-slate-200 p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
               <div class="min-w-0 flex-1">
@@ -5408,7 +5803,7 @@
                   ${op.rotuloUnitario ? `<span>• ${op.rotuloUnitario}</span>` : ''}
                   <span class="font-mono text-[10px] text-slate-400">#${op.idOriginal}</span>
                   <span id="badgeStatusLive_${op.sigla === 'FORT' ? 'fort' : 'koch'}_${op.idOriginal}" class="text-[10px] text-slate-500 font-medium">
-                    • ${formatarDataHoraAtualizacao(op.atualizadoEm)}
+                    • Atualizado: ${formatarDataHoraAtualizacao(op.atualizadoEm)}
                   </span>
                 </div>
                 ${(op.precoVuon || op.precoClube) ? `
@@ -5420,7 +5815,7 @@
               </div>
             </div>
 
-            <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+            <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0" onclick="event.stopPropagation()">
               <div class="text-left sm:text-right">
                 ${descInterno > 0 ? `<div class="text-[11px] text-slate-400 line-through">R$ ${op.precoOriginal.toFixed(2).replace('.', ',')}</div>` : ''}
                 <div class="flex items-baseline gap-1">
@@ -5431,11 +5826,9 @@
               </div>
 
               <div class="flex items-center gap-1.5 flex-wrap justify-end">
-                <button onclick="atualizarPrecoAoVivoSobDemanda('${prod.id}', '${op.sigla === 'FORT' ? 'fort' : 'koch'}', '${op.idOriginal}', event)" title="Atualizar preço deste mercado ao vivo agora" class="bg-sky-50 hover:bg-sky-100 text-[#0f294d] border border-sky-300 font-bold text-xs p-2 rounded-lg flex items-center justify-center transition">
-                  <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                </button>
-                <a href="${op.url}" target="_blank" rel="noopener" title="Abrir produto no site do ${op.nomeMercado}" class="bg-slate-100 hover:bg-slate-200 text-[#0f294d] font-bold text-xs p-2 rounded-lg border border-slate-200 flex items-center justify-center transition">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <a href="${op.url}" target="_blank" rel="noopener" title="Abrir produto no site oficial do ${op.nomeMercado}" class="bg-white hover:bg-slate-100 text-[#0f294d] font-bold text-xs px-3 py-2 rounded-lg border border-slate-300 flex items-center gap-1 shadow-sm transition">
+                  <span>Ir ao ${op.sigla === 'FORT' ? 'Fort' : 'Koch'}</span>
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 </a>
                 ${btnSacolaMercado}
               </div>
@@ -5528,34 +5921,44 @@
           <!-- Coluna da Imagem -->
           <div class="md:col-span-5 flex flex-col items-center justify-center bg-white rounded-xl p-3 border border-slate-100 relative">
             ${prod.desconto > 0 ? `<span class="absolute top-2.5 left-2.5 bg-[#0f294d] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md">-${prod.desconto}%</span>` : ''}
-            <span class="absolute top-2.5 right-2.5 bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-slate-200">${prod.unidade}</span>
-            <img id="imgPrincipalDetalheProduto" src="${prod.imagem || FALLBACK_IMG}" class="w-44 h-44 sm:w-52 sm:h-52 object-contain" onerror="this.src='${FALLBACK_IMG}'">
-            ${seletorFotosHtml}
+            <span class="absolute top-2.5 right-2.5 bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-slate-200">${opAtiva.unidade || prod.unidade}</span>
+            <img id="imgPrincipalDetalheProduto" src="${opAtiva.imagem || prod.imagem || FALLBACK_IMG}" class="w-44 h-44 sm:w-52 sm:h-52 object-contain" onerror="this.src='${FALLBACK_IMG}'">
+            ${seletorMercadosTopoHtml}
           </div>
 
           <!-- Coluna de Descrição e Especificações -->
           <div class="md:col-span-7 flex flex-col gap-3 min-w-0">
             <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="bg-[#0f294d] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-md uppercase">${opAtiva.sigla === 'FORT' ? 'Fort Atacadista' : 'SuperKoch'}</span>
               <span class="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">${prod.marca || 'GENÉRICO'}</span>
-              ${prod.ehComparativo ? `<span class="bg-[#0f294d] text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><svg class="w-3 h-3 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Comparado nos 2 Mercados</span>` : ''}
+              ${prod.ehComparativo ? `<span class="bg-sky-100 text-sky-900 border border-sky-300 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"><svg class="w-3 h-3 text-sky-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Comparado nos 2 Mercados</span>` : ''}
               ${prod.medidaExtraida ? `<span class="bg-slate-100 text-slate-600 text-[10px] font-semibold px-2 py-0.5 rounded-md">${prod.medidaExtraida}</span>` : ''}
             </div>
 
-            <h2 class="text-base sm:text-xl font-black text-[#0f294d] leading-snug">${prod.nome}</h2>
+            <h2 class="text-base sm:text-xl font-black text-[#0f294d] leading-snug">${opAtiva.nomeProdutoNoMercado || prod.nome}</h2>
 
-            <!-- Bloco de Melhor Preço Imediato -->
+            <!-- Bloco de Preço do Mercado Selecionado -->
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div class="text-[10px] font-bold text-slate-500 uppercase">Menor preço no ${maisBarato.nomeMercado}</div>
+                <div class="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                  <span>Preço no ${opAtiva.nomeMercado}</span>
+                  ${opAtiva.sigla === maisBarato.sigla ? `<span class="bg-emerald-100 text-emerald-800 text-[9px] font-extrabold px-1.5 py-0.2 rounded">Menor preço</span>` : (segundoMercado ? `<span class="text-slate-400 text-[10px] font-normal">+R$ ${(opAtiva.preco - maisBarato.preco).toFixed(2).replace('.', ',')} vs menor</span>` : '')}
+                </div>
                 <div class="flex items-baseline gap-1.5 mt-0.5">
                   <span class="text-sm font-bold text-slate-500">R$</span>
-                  <span class="text-2xl sm:text-3xl font-black text-[#0f294d] leading-none">${maisBarato.preco.toFixed(2).replace('.', ',')}</span>
-                  <span class="text-xs text-slate-400 font-medium">/${prod.unidade}</span>
-                  ${prod.rotuloUnitario ? `<span class="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 ml-1">${prod.rotuloUnitario}</span>` : ''}
+                  <span class="text-2xl sm:text-3xl font-black text-[#0f294d] leading-none">${opAtiva.preco.toFixed(2).replace('.', ',')}</span>
+                  <span class="text-xs text-slate-400 font-medium">/${opAtiva.unidade}</span>
+                  ${opAtiva.rotuloUnitario ? `<span class="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 ml-1">${opAtiva.rotuloUnitario}</span>` : ''}
                 </div>
+                ${(opAtiva.precoVuon || opAtiva.precoClube) ? `
+                  <div class="flex items-center gap-2 mt-1 text-[11px]">
+                    ${opAtiva.precoVuon ? `<span class="text-sky-700 font-semibold">Vuon: R$ ${Number(opAtiva.precoVuon).toFixed(2).replace('.', ',')}</span>` : ''}
+                    ${opAtiva.precoClube ? `<span class="text-orange-700 font-semibold">Clube: R$ ${Number(opAtiva.precoClube).toFixed(2).replace('.', ',')}</span>` : ''}
+                  </div>
+                ` : ''}
               </div>
-              <a href="${maisBarato.url}" target="_blank" rel="noopener" title="Abrir no site do ${maisBarato.nomeMercado}" class="bg-white hover:bg-slate-100 text-[#0f294d] border border-slate-300 font-bold text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 shadow-sm transition">
-                <span>${maisBarato.nomeMercado.split(' ')[0]}</span>
+              <a href="${opAtiva.url}" target="_blank" rel="noopener" title="Abrir produto no site oficial do ${opAtiva.nomeMercado}" class="bg-white hover:bg-slate-100 text-[#0f294d] border border-slate-300 font-bold text-xs px-3.5 py-2.5 rounded-lg flex items-center gap-1.5 shadow-sm transition">
+                <span>Ir para o ${opAtiva.sigla === 'FORT' ? 'Fort Atacadista' : 'SuperKoch'}</span>
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </a>
             </div>
@@ -5663,7 +6066,7 @@
     function renderizarCarrosselDepartamentos() {
       const container = document.getElementById('containerDepartamentos');
       if (!container) return;
-      container.innerHTML = DEPARTAMENTOS_IFOOD.map(d => `<button onclick="selecionarDepartamento('${d.id}')" class="px-3 py-1.5 rounded-lg whitespace-nowrap font-semibold text-xs border transition shrink-0 flex items-center gap-1.5 ${departamentoSelecionado === d.id ? 'bg-[#0f294d] text-white border-[#0f294d] shadow-sm' : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'}">${d.svg || ''}<span>${d.nome}</span></button>`).join('');
+      container.innerHTML = DEPARTAMENTOS_IFOOD.map(d => `<button onclick="selecionarDepartamento('${d.id}')" class="px-2.5 py-1.5 lg:px-2 lg:py-1 rounded-lg whitespace-nowrap font-semibold text-[11px] lg:text-xs border transition shrink-0 flex items-center gap-1 lg:gap-1.5 ${departamentoSelecionado === d.id ? 'bg-[#0f294d] text-white border-[#0f294d] shadow-sm' : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'}">${d.svg || ''}<span>${d.nome}</span></button>`).join('');
       renderizarSubcategorias();
     }
 
