@@ -581,7 +581,8 @@ async function absorverEnxameNoMaestro(forcarLeituraRede = false) {
             ...existenteMestre,
             ...prodW,
             categorias: catsUnidas,
-            historicoPrecos: histUnido
+            historicoPrecos: histUnido,
+            atualizadoEm: prodW.atualizadoEm || new Date().toISOString()
           });
           if (mudouRealmente) {
             sessao.atualizadosDesdeUltimoSave++;
@@ -1209,7 +1210,8 @@ function processarHits(hits, rotaContexto = null) {
       slug: item.slug || existente?.slug || "",
       mercado: MERCADO_ALVO,
       lojaId: LOJA_ID,
-      historicoPrecos: historico
+      historicoPrecos: historico,
+      atualizadoEm: new Date().toISOString()
     };
 
     mapaProdutos.set(item.id, objProduto);
@@ -2458,120 +2460,129 @@ function calcularScoreCasamento(prodK, prodF) {
     return { score: 0, motivo: "Variante/sabor conflitante" };
   }
 
-  // 1. Gramatura / Medida (Eliminatória se ambos tiverem e forem diferentes)
+  // 1. Gramas / Litros / Medida: 100% IGUAL OBRIGATÓRIO
   const gramK = prodK._gramCache !== undefined ? prodK._gramCache : extrairGramatura(prodK.nome);
   const gramF = prodF._gramCache !== undefined ? prodF._gramCache : extrairGramatura(prodF.nome);
 
   if (gramK && gramF) {
-    if (gramK.unidade === gramF.unidade) {
-      const tol = Math.max(2, Math.round(Math.max(gramK.valorNorm, gramF.valorNorm) * 0.03));
-      if (Math.abs(gramK.valorNorm - gramF.valorNorm) <= tol) {
-        score += 30;
-        motivos.push(`Medida (${gramK.str})`);
-      } else {
-        return { score: 0, motivo: "Gramaturas incompatíveis" };
-      }
-    } else {
-      return { score: 0, motivo: "Unidades incompatíveis" };
+    if (gramK.unidade !== gramF.unidade || gramK.valorNorm !== gramF.valorNorm) {
+      return { score: 0, motivo: `Gramatura/litragem diferente (${gramK.str} vs ${gramF.str})` };
     }
+    score += 35;
+    motivos.push(`Medida 100% (${gramK.str})`);
   } else if (!gramK && !gramF) {
     const unK = String(prodK.unidade || "UN").toUpperCase();
     const unF = String(prodF.unidade || "UN").toUpperCase();
-    if (unK === unF) {
-      score += unK === "KG" ? 24 : 16;
-    } else {
-      return { score: 0, motivo: "Unidades de venda diferentes" };
+    if (unK !== unF) {
+      return { score: 0, motivo: "Unidades de venda incompatíveis (KG vs UN)" };
     }
+    score += unK === "KG" ? 25 : 15;
   } else {
-    score += 6;
+    // Um tem gramatura e o outro não tem -> Não é 100% igual!
+    return { score: 0, motivo: "Medida ausente em um dos produtos (exige 100% igual)" };
   }
 
   // 2. Hash da Imagem no Catálogo OSuper
   const hashK = prodK._hashCache !== undefined ? prodK._hashCache : extrairAssetHash(prodK.imagem);
   const hashF = prodF._hashCache !== undefined ? prodF._hashCache : extrairAssetHash(prodF.imagem);
   if (hashK && hashF && hashK === hashF) {
-    score += 58;
-    motivos.push("Foto OSuper idêntica");
+    score += 25;
+    motivos.push("Foto idêntica");
   }
 
-  // 3. Marca (com detecção cruzada e suporte a marcas neutras/hortifruti/açougue)
-  const marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
-  const marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
+  // 3. Marca: 100% IGUAL OBRIGATÓRIO
+  let marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
+  let marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
   const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
   const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
 
-  const infoMarca = marcasSaoCompativeis(marcaK, marcaF, nomeNormK, nomeNormF);
-  if (!infoMarca.compativel && (!hashK || hashK !== hashF)) {
-    return { score: 0, motivo: "Marcas diferentes" };
+  // Se a marca veio vazia do cadastro, tenta extrair se estiver presente no título
+  if (!marcaK && marcaF && (` ${nomeNormK} `).includes(` ${marcaF} `)) {
+    marcaK = marcaF;
   }
-  if (infoMarca.confirmada) {
-    score += 24;
-    motivos.push(`Marca (${prodF.marca || prodK.marca})`);
-  } else if (!marcaK && !marcaF) {
-    score += 12; // Itens in natura / granel / hortifruti / açougue
+  if (!marcaF && marcaK && (` ${nomeNormF} `).includes(` ${marcaK} `)) {
+    marcaF = marcaK;
   }
 
-  // 4. Tokens de Produto (Dice + Jaccard + Palavra-chave Principal)
+  const ambasSemMarca = (!marcaK || MARCAS_NEUTRAS_GRANEL.has(marcaK)) && (!marcaF || MARCAS_NEUTRAS_GRANEL.has(marcaF));
+  if (ambasSemMarca) {
+    score += 10;
+  } else {
+    if (!marcaK || !marcaF || marcaK !== marcaF) {
+      // Se tiver imagem idêntica OSuper confirmada, tolera marca abreviada se contiver raiz
+      if (hashK && hashF && hashK === hashF && marcaK && marcaF && (marcaK.includes(marcaF) || marcaF.includes(marcaK))) {
+        score += 25;
+      } else {
+        return { score: 0, motivo: `Marcas diferentes (${marcaK || "Sem marca"} vs ${marcaF || "Sem marca"})` };
+      }
+    } else {
+      score += 30;
+      motivos.push(`Marca 100% (${prodF.marca || prodK.marca})`);
+    }
+  }
+
+  // 4. Tokens de Produto: Nome o mais parecido possível
   const listK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, marcaK || marcaF);
   const listF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, marcaF || marcaK);
   const tokensK = new Set(listK);
   const tokensF = new Set(listF);
 
-  if (tokensK.size > 0 && tokensF.size > 0) {
-    let intersecao = 0;
-    for (const tk of tokensK) {
-      if (tokensF.has(tk)) {
-        intersecao++;
-      } else if (tk.length >= 4) {
-        for (const tf of tokensF) {
-          if (tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) {
-            intersecao += 0.85;
-            break;
-          }
+  if (tokensK.size === 0 || tokensF.size === 0) {
+    return { score: 0, motivo: "Sem termos de produto identificáveis" };
+  }
+
+  let intersecao = 0;
+  for (const tk of tokensK) {
+    if (tokensF.has(tk)) {
+      intersecao++;
+    } else if (tk.length >= 4) {
+      for (const tf of tokensF) {
+        if (tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) {
+          intersecao += 0.85;
+          break;
         }
       }
     }
-    const uniao = new Set([...tokensK, ...tokensF]).size;
-    const jaccard = uniao > 0 ? intersecao / uniao : 0;
-    const minLen = Math.min(tokensK.size, tokensF.size);
-    const containment = minLen > 0 ? intersecao / minLen : 0;
-    const dice = (tokensK.size + tokensF.size) > 0 ? (2 * intersecao) / (tokensK.size + tokensF.size) : 0;
-    const combinado = dice * 0.45 + containment * 0.35 + jaccard * 0.20;
-    const ptsTokens = Math.round(combinado * 42);
-    score += ptsTokens;
-
-    const mesmoTipoInicial = Boolean(listK[0] && listF[0] && (listK[0] === listF[0] || (listK[0].length >= 4 && listF[0].length >= 4 && listK[0].slice(0, 4) === listF[0].slice(0, 4))));
-    if (mesmoTipoInicial) {
-      score += 10;
-    } else if (intersecao === 0 && (!hashK || hashK !== hashF)) {
-      return { score: 0, motivo: "Sem palavras em comum" };
-    }
-
-    const minCombinado = (infoMarca.confirmada && gramK && gramF && mesmoTipoInicial) ? 0.22 : 0.38;
-    if (combinado >= 0.50) {
-      motivos.push(`Similaridade (${Math.round(combinado * 100)}%)`);
-    } else if ((!hashK || hashK !== hashF) && combinado < minCombinado) {
-      return { score: 0, motivo: "Baixa similaridade de nome" };
-    }
   }
 
-  // 5. Coerência de Preço (evita casar unidade avulsa com caixa fechada)
+  const uniao = new Set([...tokensK, ...tokensF]).size;
+  const jaccard = uniao > 0 ? intersecao / uniao : 0;
+  const minLen = Math.min(tokensK.size, tokensF.size);
+  const containment = minLen > 0 ? intersecao / minLen : 0;
+  const dice = (tokensK.size + tokensF.size) > 0 ? (2 * intersecao) / (tokensK.size + tokensF.size) : 0;
+  const combinado = (dice * 0.45) + (containment * 0.35) + (jaccard * 0.20);
+
+  // Tipo básico inicial (ex: arroz, leite, sabonete, etc.)
+  const mesmoTipoInicial = Boolean(listK[0] && listF[0] && (
+    listK[0] === listF[0] ||
+    (listK[0].length >= 4 && listF[0].length >= 4 && (listK[0].startsWith(listF[0]) || listF[0].startsWith(listK[0])))
+  ));
+
+  if (!mesmoTipoInicial && (!hashK || hashK !== hashF)) {
+    return { score: 0, motivo: "Tipo de produto diferente" };
+  }
+
+  if (combinado < 0.35 && (!hashK || hashK !== hashF)) {
+    return { score: 0, motivo: "Baixa similaridade de nome" };
+  }
+
+  const ptsTokens = Math.round(combinado * 35);
+  score += ptsTokens;
+  motivos.push(`Similaridade (${Math.round(combinado * 100)}%)`);
+
+  // 5. Coerência de Preço
   const pK = Number(prodK.preco || 0);
   const pF = Number(prodF.preco || 0);
   if (pK > 0 && pF > 0) {
     const razao = Math.max(pK, pF) / Math.min(pK, pF);
-    if (razao > 2.85 && (!hashK || hashK !== hashF)) {
+    if (razao > 2.5 && (!hashK || hashK !== hashF)) {
       return { score: 0, motivo: "Discrepância extrema de preço" };
-    } else if (razao <= 1.35) {
-      score += 6;
-    } else if (razao <= 1.65) {
-      score += 3;
     }
   }
 
   return {
     score: Math.min(100, Math.max(0, Math.round(score))),
-    motivo: motivos.join(" + ") || "Similaridade de catálogo"
+    motivo: motivos.join(" + ") || "Vínculo 100% compatível"
   };
 }
 

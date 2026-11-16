@@ -2944,8 +2944,8 @@
       container.innerHTML = arrP.map(p => {
         const ehFort = String(p.mercado || '').toUpperCase().includes('FORT');
         const badgeMerc = ehFort
-          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
-          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">KOCH</span>`;
         const baixou = Number(p.precoNovo) < Number(p.precoAntigo);
         const diffAbs = Math.abs(Number(p.diferenca || (p.precoNovo - p.precoAntigo))).toFixed(2).replace('.', ',');
         const badgeDiff = baixou
@@ -2990,8 +2990,8 @@
       container.innerHTML = arrN.map(p => {
         const ehFort = String(p.mercado || '').toUpperCase().includes('FORT');
         const badgeMerc = ehFort
-          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
-          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">KOCH</span>`;
         return `
           <div class="bg-slate-900 border border-emerald-900/50 rounded-xl p-2.5 flex items-center gap-3">
             <img src="${p.imagem || FALLBACK_IMG}" class="w-11 h-11 rounded-lg object-contain bg-white p-1 shrink-0" onerror="this.src='${FALLBACK_IMG}'">
@@ -3064,18 +3064,18 @@
         if (barraViva) barraViva.classList.remove('hidden');
 
         const txtBarra = [];
-        if (rodandoK) txtBarra.push(`🔴 Koch: [#${tK?.rotaIndiceAtual || 1}/${tK?.rotaTotal || 126}] ${tK?.rotaNomeAtual || ''}`);
-        if (rodandoF) txtBarra.push(`🟢 Fort: [#${tF?.rotaIndiceAtual || 1}/${tF?.rotaTotal || 123}] ${tF?.rotaNomeAtual || ''}`);
+        if (rodandoK) txtBarra.push(`Koch: [#${tK?.rotaIndiceAtual || 1}/${tK?.rotaTotal || 126}] ${tK?.rotaNomeAtual || ''}`);
+        if (rodandoF) txtBarra.push(`Fort: [#${tF?.rotaIndiceAtual || 1}/${tF?.rotaTotal || 123}] ${tF?.rotaNomeAtual || ''}`);
         document.getElementById('textoBarraVivaRobo').textContent = txtBarra.join(' • ');
 
         const somaNovos = (tK?.novosNaSessao || 0) + (tF?.novosNaSessao || 0);
         const somaPrecos = (tK?.precosAlteradosNaSessao || 0) + (tF?.precosAlteradosNaSessao || 0);
-        document.getElementById('contadoresBarraVivaRobo').textContent = `+${somaNovos} • 🔄${somaPrecos}`;
+        document.getElementById('contadoresBarraVivaRobo').textContent = `+${somaNovos} novos • ${somaPrecos} preços`;
       } else if (algumPausado) {
         if (dotMob) dotMob.className = "w-2 h-2 rounded-full bg-amber-400 inline-block shrink-0";
         if (dotDesk) dotDesk.className = "w-2.5 h-2.5 rounded-full bg-amber-400 inline-block";
         if (barraViva) barraViva.classList.remove('hidden');
-        document.getElementById('textoBarraVivaRobo').textContent = `⏸ Robô Pausado (Toque para abrir a central)`;
+        document.getElementById('textoBarraVivaRobo').textContent = `Robô Pausado (Toque para abrir a central)`;
       } else {
         if (dotMob) dotMob.className = "w-2 h-2 rounded-full bg-emerald-500/60 inline-block shrink-0";
         if (dotDesk) dotDesk.className = "w-2.5 h-2.5 rounded-full bg-emerald-500/60 inline-block";
@@ -3089,19 +3089,19 @@
       if (elBadgeModal) {
         if (rodandoK && rodandoF) {
           elBadgeModal.className = "text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 bg-emerald-950 text-emerald-300 border-emerald-700";
-          elBadgeModal.textContent = "⚡ AMBOS AO VIVO";
+          elBadgeModal.textContent = "● AMBOS AO VIVO";
         } else if (rodandoK) {
           elBadgeModal.className = "text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 bg-red-950 text-red-300 border-red-700";
-          elBadgeModal.textContent = "🔴 KOCH AO VIVO";
+          elBadgeModal.textContent = "● KOCH AO VIVO";
         } else if (rodandoF) {
           elBadgeModal.className = "text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 bg-emerald-950 text-emerald-300 border-emerald-700";
-          elBadgeModal.textContent = "🟢 FORT AO VIVO";
+          elBadgeModal.textContent = "● FORT AO VIVO";
         } else if (algumPausado) {
           elBadgeModal.className = "text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 bg-amber-950 text-amber-300 border-amber-700";
-          elBadgeModal.textContent = "⏸ PAUSADO";
+          elBadgeModal.textContent = "● PAUSADO";
         } else {
           elBadgeModal.className = "text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 bg-slate-800 text-slate-300 border-slate-700";
-          elBadgeModal.textContent = "💤 PARADO";
+          elBadgeModal.textContent = "● PARADO";
         }
       }
 
@@ -3111,19 +3111,19 @@
       if (tK) {
         const badgeK = document.getElementById('kochBadgeStatusCard');
         if (badgeK) {
-          let txtK = '💤 PARADO';
+          let txtK = '● PARADO';
           let corK = 'bg-slate-950 text-slate-300 border-slate-700';
           if (rodandoK) {
-            txtK = tK.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO AO VIVO';
+            txtK = tK.status === 'BLOQUEIO_ESPERA' ? '● AGUARDANDO REDE' : '● AO VIVO';
             corK = tK.status === 'BLOQUEIO_ESPERA' ? 'bg-amber-950 text-amber-300 border-amber-700' : 'bg-red-950 text-red-300 border-red-700';
           } else if (pausadoK) {
-            txtK = '⏸ PAUSADO'; corK = 'bg-amber-950 text-amber-300 border-amber-700';
+            txtK = '● PAUSADO'; corK = 'bg-amber-950 text-amber-300 border-amber-700';
           } else if (tK.status === 'CONCLUIDO') {
-            txtK = '✅ 100% CONCLUÍDO'; corK = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+            txtK = '● CONCLUÍDO'; corK = 'bg-emerald-950 text-emerald-300 border-emerald-700';
           } else if (tK.status === 'CANCELADO') {
-            txtK = '⏹ CANCELADO'; corK = 'bg-slate-800 text-slate-300 border-slate-700';
+            txtK = '● CANCELADO'; corK = 'bg-slate-800 text-slate-300 border-slate-700';
           } else {
-            txtK = '💤 PARADO (Sessão Encerrada)';
+            txtK = '● PARADO (Aguardando Ciclo)';
             corK = 'bg-slate-800 text-slate-400 border-slate-700';
           }
           badgeK.className = `text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0 ${corK}`;
@@ -3144,10 +3144,10 @@
         }
         const msgVivaK = rodandoK
           ? (tK.mensagem || 'Coletando dados do SuperKoch...')
-          : `💤 Sessão encerrada (último sinal há ${formatarSegundosCurto(idadeSegK)}). Pronto para novo disparo.`;
+          : `Sessão concluída (último sinal há ${formatarSegundosCurto(idadeSegK)}). Pronto para novo ciclo.`;
 
-        if (document.getElementById('roboRotaAtualTitulo')) document.getElementById('roboRotaAtualTitulo').textContent = `📂 [#${idxK}/${totK}] ${tK.rotaNomeAtual || 'Início'}`;
-        if (document.getElementById('roboSubcategoriaBadge')) document.getElementById('roboSubcategoriaBadge').textContent = `🌿 ${deptoNomeK}: ${subPosK}/${subTotK} (faltam ${subFaltamK})`;
+        if (document.getElementById('roboRotaAtualTitulo')) document.getElementById('roboRotaAtualTitulo').textContent = `[#${idxK}/${totK}] ${tK.rotaNomeAtual || 'Início'}`;
+        if (document.getElementById('roboSubcategoriaBadge')) document.getElementById('roboSubcategoriaBadge').textContent = `${deptoNomeK}: ${subPosK}/${subTotK} (faltam ${subFaltamK})`;
         if (document.getElementById('roboMensagemViva')) document.getElementById('roboMensagemViva').textContent = msgVivaK;
         if (document.getElementById('roboBarraProgresso')) document.getElementById('roboBarraProgresso').style.width = `${Math.min(100, Math.max(0, tK.progressoPct || 0))}%`;
         if (document.getElementById('roboTempoDecorrido')) document.getElementById('roboTempoDecorrido').textContent = tempoDecorridoK;
@@ -3173,12 +3173,12 @@
           if (maqsK.length > 0) {
             boxEnxameK.classList.remove('hidden');
             listaMaqK.innerHTML = maqsK.map(m => {
-              const stCurto = !rodandoK ? '💤 Inativo' : (m.status === 'CONCLUIDO' ? '✅ OK' : `Pág ${m.pag || 1}`);
+              const stCurto = !rodandoK ? 'Inativo' : (m.status === 'CONCLUIDO' ? 'OK' : `Pág ${m.pag || 1}`);
               return `
                 <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
                   <div class="flex items-center justify-between gap-1">
-                    <span class="font-black text-red-300">🖥️ Máq #${m.id}</span>
-                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">🌐 ${m.ip || 'IP Nuvem'}</span>
+                    <span class="font-black text-red-300">Máq #${m.id}</span>
+                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">${m.ip || 'IP Nuvem'}</span>
                     <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
                   </div>
                   <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (${stCurto})</div>
@@ -3197,19 +3197,19 @@
       if (tF) {
         const badgeF = document.getElementById('fortBadgeStatusCard');
         if (badgeF) {
-          let txtF = '💤 PARADO';
+          let txtF = '● PARADO';
           let corF = 'bg-slate-950 text-slate-300 border-slate-700';
           if (rodandoF) {
-            txtF = tF.status === 'BLOQUEIO_ESPERA' ? '⏳ AGUARDANDO REDE' : '🟢 RODANDO AO VIVO';
+            txtF = tF.status === 'BLOQUEIO_ESPERA' ? '● AGUARDANDO REDE' : '● AO VIVO';
             corF = tF.status === 'BLOQUEIO_ESPERA' ? 'bg-amber-950 text-amber-300 border-amber-700' : 'bg-emerald-950 text-emerald-300 border-emerald-700';
           } else if (pausadoF) {
-            txtF = '⏸ PAUSADO'; corF = 'bg-amber-950 text-amber-300 border-amber-700';
+            txtF = '● PAUSADO'; corF = 'bg-amber-950 text-amber-300 border-amber-700';
           } else if (tF.status === 'CONCLUIDO') {
-            txtF = '✅ 100% CONCLUÍDO'; corF = 'bg-emerald-950 text-emerald-300 border-emerald-700';
+            txtF = '● CONCLUÍDO'; corF = 'bg-emerald-950 text-emerald-300 border-emerald-700';
           } else if (tF.status === 'CANCELADO') {
-            txtF = '⏹ CANCELADO'; corF = 'bg-slate-800 text-slate-300 border-slate-700';
+            txtF = '● CANCELADO'; corF = 'bg-slate-800 text-slate-300 border-slate-700';
           } else {
-            txtF = '💤 PARADO (Sessão Encerrada)';
+            txtF = '● PARADO (Aguardando Ciclo)';
             corF = 'bg-slate-800 text-slate-400 border-slate-700';
           }
           badgeF.className = `text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0 ${corF}`;
@@ -3230,10 +3230,10 @@
         }
         const msgVivaF = rodandoF
           ? (tF.mensagem || 'Coletando dados do Fort Atacadista...')
-          : `💤 Sessão encerrada (último sinal há ${formatarSegundosCurto(idadeSegF)}). Pronto para novo disparo.`;
+          : `Sessão concluída (último sinal há ${formatarSegundosCurto(idadeSegF)}). Pronto para novo ciclo.`;
 
-        if (document.getElementById('fortRotaAtualTitulo')) document.getElementById('fortRotaAtualTitulo').textContent = `📂 [#${idxF}/${totF}] ${tF.rotaNomeAtual || 'Início'}`;
-        if (document.getElementById('fortSubcategoriaBadge')) document.getElementById('fortSubcategoriaBadge').textContent = `🌿 ${deptoNomeF}: ${subPosF}/${subTotF} (faltam ${subFaltamF})`;
+        if (document.getElementById('fortRotaAtualTitulo')) document.getElementById('fortRotaAtualTitulo').textContent = `[#${idxF}/${totF}] ${tF.rotaNomeAtual || 'Início'}`;
+        if (document.getElementById('fortSubcategoriaBadge')) document.getElementById('fortSubcategoriaBadge').textContent = `${deptoNomeF}: ${subPosF}/${subTotF} (faltam ${subFaltamF})`;
         if (document.getElementById('fortMensagemViva')) document.getElementById('fortMensagemViva').textContent = msgVivaF;
         if (document.getElementById('fortBarraProgresso')) document.getElementById('fortBarraProgresso').style.width = `${Math.min(100, Math.max(0, tF.progressoPct || 0))}%`;
         if (document.getElementById('fortTempoDecorrido')) document.getElementById('fortTempoDecorrido').textContent = tempoDecorridoF;
@@ -3259,12 +3259,12 @@
           if (maqsF.length > 0) {
             boxEnxameF.classList.remove('hidden');
             listaMaqF.innerHTML = maqsF.map(m => {
-              const stCurto = !rodandoF ? '💤 Inativo' : (m.status === 'CONCLUIDO' ? '✅ OK' : `Pág ${m.pag || 1}`);
+              const stCurto = !rodandoF ? 'Inativo' : (m.status === 'CONCLUIDO' ? 'OK' : `Pág ${m.pag || 1}`);
               return `
                 <div class="bg-slate-950/90 border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
                   <div class="flex items-center justify-between gap-1">
-                    <span class="font-black text-emerald-400">🖥️ Máq #${m.id}</span>
-                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">🌐 ${m.ip || 'IP Nuvem'}</span>
+                    <span class="font-black text-emerald-400">Máq #${m.id}</span>
+                    <span class="text-[9px] font-mono text-sky-400 bg-slate-900 px-1 py-0.5 rounded border border-slate-800 truncate max-w-[115px]" title="IP: ${m.ip || 'Nuvem GitHub'}">${m.ip || 'IP Nuvem'}</span>
                     <span class="font-mono text-[9px] text-emerald-400 font-bold shrink-0">${m.lidos || 0} lidos</span>
                   </div>
                   <div class="truncate text-slate-300 font-medium">${m.rota || 'Iniciando'} (${stCurto})</div>
@@ -3391,31 +3391,31 @@
         const corTag = ehFort ? 'bg-emerald-950 text-emerald-300 border-emerald-700' : 'bg-red-950 text-red-300 border-red-700';
 
         const sessaoExpirada = m.idadeSeg >= 180;
-        let pingTexto = `🟢 Vivo (há ${Math.max(1, m.idadeSeg)}s)`;
-        let statusExibido = m.status || 'RODANDO';
+        let pingTexto = `Ativo (há ${Math.max(1, m.idadeSeg)}s)`;
+        let statusExibido = '● AO VIVO';
         let corStatus = 'bg-slate-950 text-emerald-400 border-slate-800';
 
         if (m.status === 'CONCLUIDO') {
-          pingTexto = `✅ Concluído (há ${formatarSegundosCurto(m.idadeSeg)})`;
-          statusExibido = '✅ CONCLUÍDO';
+          pingTexto = `Concluído (há ${formatarSegundosCurto(m.idadeSeg)})`;
+          statusExibido = '● CONCLUÍDO';
           corStatus = 'bg-emerald-950 text-emerald-300 border-emerald-700';
         } else if (sessaoExpirada || m.status === 'PARADO' || m.status === 'CANCELADO') {
-          pingTexto = `💤 Encerrado (há ${formatarSegundosCurto(m.idadeSeg)})`;
-          statusExibido = '💤 INATIVO (ENCERRADO)';
+          pingTexto = `Encerrado (há ${formatarSegundosCurto(m.idadeSeg)})`;
+          statusExibido = '● INATIVO';
           corStatus = 'bg-slate-800 text-slate-400 border-slate-700';
         } else if (m.status === 'BLOQUEIO_ESPERA') {
-          pingTexto = `⏳ Aguardando rede (${m.idadeSeg}s)`;
-          statusExibido = '⏳ REDE / ESPERA';
+          pingTexto = `Aguardando rede (${m.idadeSeg}s)`;
+          statusExibido = '● ESPERA REDE';
           corStatus = 'bg-amber-950 text-amber-300 border-amber-700';
         } else if (m.idadeSeg > 25) {
-          pingTexto = `⏳ Ping há ${m.idadeSeg}s`;
+          pingTexto = `Sinal há ${m.idadeSeg}s`;
         }
 
         return `
           <div class="bg-slate-900/90 border ${corBorder} rounded-xl p-3.5 space-y-2.5 shadow-lg">
             <div class="flex items-center justify-between gap-1 pb-2 border-b border-slate-800">
               <div class="flex items-center gap-1.5 min-w-0">
-                <span class="text-xs font-black text-white shrink-0">🖥️ Máquina #${m.id}</span>
+                <span class="text-xs font-black text-white shrink-0">Máquina #${m.id}</span>
                 <span class="${corTag} text-[9px] font-black px-1.5 py-0.2 rounded border shrink-0">${m.mercado}</span>
               </div>
               <span class="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800 shrink-0">${pingTexto}</span>
@@ -3424,7 +3424,7 @@
             <!-- IP e Status -->
             <div class="flex items-center justify-between gap-2 text-xs">
               <div class="flex items-center gap-1 min-w-0 font-mono">
-                <span class="text-slate-400 text-[10px]">🌐 IP:</span>
+                <span class="text-slate-400 text-[10px]">IP:</span>
                 <span class="font-bold text-sky-300 truncate" title="IP Público da Máquina">${m.ip || 'IP Nuvem GitHub'}</span>
               </div>
               <span class="text-[10px] font-black px-2 py-0.5 rounded border uppercase shrink-0 ${corStatus}">${statusExibido}</span>
@@ -3432,7 +3432,7 @@
 
             <!-- Rota e Posição Atual -->
             <div class="bg-slate-950 border border-slate-800/80 rounded-lg p-2 space-y-1">
-              <div class="text-[9px] font-bold text-slate-400 uppercase">📍 Ocupação Atual:</div>
+              <div class="text-[9px] font-bold text-slate-400 uppercase">Ocupação Atual:</div>
               <div class="text-xs font-bold text-white truncate" title="${m.rota || ''}">${m.rota || 'Inicializando...'}</div>
               <div class="text-[10px] text-slate-400 flex items-center justify-between">
                 <span>Pág: <strong class="text-slate-200">${m.pag || 1}</strong> (off ${m.offset || 0})</span>
@@ -3476,7 +3476,7 @@
       autoScrollLogsAtivo = !autoScrollLogsAtivo;
       const btn = document.getElementById('btnToggleAutoScrollLogs');
       if (btn) {
-        btn.textContent = autoScrollLogsAtivo ? '📌 Auto-Scroll: LIGADO' : '⏸ Auto-Scroll: PAUSADO';
+        btn.textContent = autoScrollLogsAtivo ? 'Auto-Scroll: LIGADO' : 'Auto-Scroll: PAUSADO';
         btn.className = autoScrollLogsAtivo
           ? 'bg-emerald-950 text-emerald-300 border border-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition'
           : 'bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition';
@@ -3556,8 +3556,8 @@
       const selMaq = document.getElementById('selFiltroMaquinaLog');
       if (selMaq) {
         const maqs = Array.from(new Set(todosLogs.map(l => l.workerId || 1).filter(Boolean))).sort((a, b) => a - b);
-        const opcoes = ['<option value="TODAS">🖥️ Todas as Máqs</option>'];
-        maqs.forEach(m => opcoes.push(`<option value="${m}">🖥️ Máquina #${m}</option>`));
+        const opcoes = ['<option value="TODAS">Todas as Máquinas</option>'];
+        maqs.forEach(m => opcoes.push(`<option value="${m}">Máquina #${m}</option>`));
         selMaq.innerHTML = opcoes.join('');
         if (filtroLogMaquina !== 'TODAS' && maqs.includes(Number(filtroLogMaquina))) {
           selMaq.value = String(filtroLogMaquina);
@@ -3604,8 +3604,8 @@
       container.innerHTML = filtrados.slice(0, 300).map(l => {
         const ehFort = l.mercado === 'FORT';
         const badgeMercado = ehFort
-          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🟢 FORT</span>`
-          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">🔴 KOCH</span>`;
+          ? `<span class="bg-emerald-950 text-emerald-300 border border-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">FORT</span>`
+          : `<span class="bg-red-950 text-red-300 border border-red-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">KOCH</span>`;
 
         let badgeTipo = `<span class="bg-slate-800 text-slate-300 border border-slate-700 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">OK</span>`;
         let corBorda = "border-slate-800/80 hover:border-slate-700";
@@ -3618,8 +3618,8 @@
         }
 
         const tagMaq = l.ip
-          ? `<span class="bg-slate-950 text-sky-300 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">🖥️ Máq #${l.workerId || 1} • ${l.ip}</span>`
-          : `<span class="bg-slate-950 text-slate-400 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">🖥️ Máq #${l.workerId || 1}</span>`;
+          ? `<span class="bg-slate-950 text-sky-300 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">Máq #${l.workerId || 1} • ${l.ip}</span>`
+          : `<span class="bg-slate-950 text-slate-400 border border-slate-800 text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0">Máq #${l.workerId || 1}</span>`;
 
         return `
           <div class="bg-slate-950/90 border ${corBorda} rounded-lg p-2.5 space-y-1 transition text-xs font-mono">
@@ -3710,12 +3710,12 @@
         const nome = rota.nome || `Categoria #${idx + 1}`;
         const p = prog[idx];
         const ehAtual = idx === idxAtual && ehRodando;
-        let statusHtml = `<span class="text-[10px] text-slate-500">⏳ Na fila (${rota.pathReal || rota.url || ''})</span>`;
+        let statusHtml = `<span class="text-[10px] text-slate-500">Na fila (${rota.pathReal || rota.url || ''})</span>`;
         let borda = "border-slate-800";
 
         const tagWorker = p?.worker ? `<span class="bg-slate-800 text-sky-300 px-1 py-0.2 rounded text-[9px] font-mono mr-1">Máq #${p.worker}</span>` : '';
         if (p?.st === 'ok') {
-          statusHtml = `${tagWorker}<span class="text-[10px] font-bold text-emerald-400">✅ ${p.lidos || 0} lidos (+${p.novos || 0} / 🔄${p.precos || 0})</span>`;
+          statusHtml = `${tagWorker}<span class="text-[10px] font-bold text-emerald-400">${p.lidos || 0} lidos (+${p.novos || 0} / ${p.precos || 0} preços)</span>`;
           borda = "border-emerald-900/60";
         } else if (ehAtual || p?.st === 'run') {
           statusHtml = `${tagWorker}<span class="text-[10px] font-black text-amber-400">🔄 Rodando Pág ${p?.pags || telemetriaAtualRobo?.paginaAtual || 1}...</span>`;
@@ -3889,7 +3889,7 @@
       if (!await exigirSenhaRobo()) return;
       const fbUrl = obterUrlFirebase();
       const elFeedback = document.getElementById('feedbackComandoRemoto');
-      if (elFeedback) elFeedback.textContent = `⏳ Enviando [${acao}] para ${mercadoAlvo}...`;
+      if (elFeedback) elFeedback.textContent = `Enviando [${acao}] para ${mercadoAlvo}...`;
 
       try {
         const payload = {
@@ -4059,7 +4059,7 @@
           });
           if (resp.status === 204 || resp.ok) {
             const rotuloCamada = camadaEscolhida === 'RADAR' ? 'Verificação Básica (24 Horas)' : (camadaEscolhida === 'COMPLETA' ? 'Verificação Completa (A cada 3h)' : 'Verificação Avançada (A cada 1h)');
-            alert(`🚀 Robô disparado na nuvem!\n\n🛒 Mercado: ${mercadoAlvo.toUpperCase()}\n🛡️ Modo: ${rotuloCamada}\n🖥️ Máquinas: ${totalMaquinas}\n💾 Salvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para RODANDO AO VIVO.`);
+            alert(`[Disparo Nuvem]\nMercado: ${mercadoAlvo.toUpperCase()}\nModo: ${rotuloCamada}\nMáquinas: ${totalMaquinas}\nSalvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para AO VIVO.`);
             return;
           }
         } catch (e) {}
@@ -4358,142 +4358,123 @@
     function calcularScoreCasamento(prodK, prodF) {
       let score = 0;
       const motivos = [];
-      const tolPct = (Number(configVinculosGlobal?.tolGramaturaPct ?? 3) / 100);
-      const maxRatio = Number(configVinculosGlobal?.maxRatioPreco || 2.65);
-      const exigirMarcaOuFoto = configVinculosGlobal?.exigirMarcaOuFoto !== false;
 
-      const hashK = prodK._hashCache !== undefined ? prodK._hashCache : extrairAssetHash(prodK.imagem);
-      const hashF = prodF._hashCache !== undefined ? prodF._hashCache : extrairAssetHash(prodF.imagem);
-      const mesmaFoto = Boolean(hashK && hashF && hashK === hashF);
+      if (temConflitoVariante(prodK.nome, prodF.nome)) {
+        return { score: 0, motivo: "Variante/sabor diferente" };
+      }
 
+      // 1. Gramas / Litros / Medida: 100% IGUAL OBRIGATÓRIO
       const gramK = prodK._gramCache !== undefined ? prodK._gramCache : extrairGramatura(prodK.nome);
       const gramF = prodF._gramCache !== undefined ? prodF._gramCache : extrairGramatura(prodF.nome);
 
       if (gramK && gramF) {
-        const unEquiv = (gramK.unidade === gramF.unidade) ||
-          ((gramK.unidade === "g" && gramF.unidade === "ml" || gramK.unidade === "ml" && gramF.unidade === "g") && Math.abs(gramK.valorNorm - gramF.valorNorm) <= 25);
-        if (!unEquiv) {
-          return { score: 0, motivo: "Unidades incompatíveis" };
+        if (gramK.unidade !== gramF.unidade || gramK.valorNorm !== gramF.valorNorm) {
+          return { score: 0, motivo: `Gramatura/litragem diferente (${gramK.str} vs ${gramF.str})` };
         }
-        const diff = Math.abs(gramK.valorNorm - gramF.valorNorm);
-        const tol = Math.max(2, Math.round(Math.min(gramK.valorNorm, gramF.valorNorm) * tolPct));
-        if (diff <= tol) {
-          score += 32;
-          motivos.push(`Medida (${gramK.str})`);
-        } else {
-          return { score: 0, motivo: "Gramaturas incompatíveis" };
-        }
+        score += 35;
+        motivos.push(`Medida 100% (${gramK.str})`);
       } else if (!gramK && !gramF) {
         const unK = String(prodK.unidade || "UN").toUpperCase();
         const unF = String(prodF.unidade || "UN").toUpperCase();
-        if (unK === unF) {
-          score += 20;
-        } else {
-          return { score: 0, motivo: "Venda KG vs UN incompatível" };
+        if (unK !== unF) {
+          return { score: 0, motivo: "Unidades de venda incompatíveis (KG vs UN)" };
         }
+        score += unK === "KG" ? 25 : 15;
       } else {
-        score += 6;
+        return { score: 0, motivo: "Medida ausente em um dos produtos (exige 100% igual)" };
       }
 
-      if (temConflitoVariante(prodK.nome, prodF.nome, mesmaFoto)) {
-        return { score: 0, motivo: "Variante/sabor diferente" };
+      // 2. Hash da Imagem no Catálogo OSuper
+      const hashK = prodK._hashCache !== undefined ? prodK._hashCache : extrairAssetHash(prodK.imagem);
+      const hashF = prodF._hashCache !== undefined ? prodF._hashCache : extrairAssetHash(prodF.imagem);
+      const mesmaFoto = Boolean(hashK && hashF && hashK === hashF);
+      if (mesmaFoto) {
+        score += 25;
+        motivos.push("Foto idêntica OSuper");
       }
 
+      // 3. Marca: 100% IGUAL OBRIGATÓRIO
+      let marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
+      let marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
+      const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
+      const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
+
+      if (!marcaK && marcaF && (` ${nomeNormK} `).includes(` ${marcaF} `)) {
+        marcaK = marcaF;
+      }
+      if (!marcaF && marcaK && (` ${nomeNormF} `).includes(` ${marcaK} `)) {
+        marcaF = marcaK;
+      }
+
+      const ambasSemMarca = (!marcaK || (typeof MARCAS_NEUTRAS_GRANEL !== 'undefined' && MARCAS_NEUTRAS_GRANEL.has(marcaK))) && (!marcaF || (typeof MARCAS_NEUTRAS_GRANEL !== 'undefined' && MARCAS_NEUTRAS_GRANEL.has(marcaF)));
+      if (ambasSemMarca) {
+        score += 10;
+      } else {
+        if (!marcaK || !marcaF || marcaK !== marcaF) {
+          if (mesmaFoto && marcaK && marcaF && (marcaK.includes(marcaF) || marcaF.includes(marcaK))) {
+            score += 25;
+          } else {
+            return { score: 0, motivo: `Marcas diferentes (${marcaK || "Sem marca"} vs ${marcaF || "Sem marca"})` };
+          }
+        } else {
+          score += 30;
+          motivos.push(`Marca 100% (${prodF.marca || prodK.marca})`);
+        }
+      }
+
+      // 4. Tokens de Produto: Nome o mais parecido possível
+      const arrK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, marcaK || marcaF);
+      const arrF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, marcaF || marcaK);
+
+      if (arrK.length === 0 || arrF.length === 0) {
+        return { score: 0, motivo: "Sem termos de produto identificáveis" };
+      }
+
+      const mesmoTipo = arrK[0] === arrF[0] || (arrK[0].length >= 4 && arrF[0].length >= 4 && (arrK[0].startsWith(arrF[0]) || arrF[0].startsWith(arrK[0])));
+      if (!mesmoTipo && !mesmaFoto) {
+        return { score: 0, motivo: "Tipo base de produto diferente" };
+      }
+
+      const setF = new Set(arrF);
+      let intersecao = 0;
+      for (const tk of arrK) {
+        if (setF.has(tk)) {
+          intersecao++;
+        } else {
+          for (const tf of arrF) {
+            if (tk.length >= 4 && tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) {
+              intersecao += 0.85;
+              break;
+            }
+          }
+        }
+      }
+      const dice = (2 * intersecao) / (arrK.length + arrF.length);
+      const minLen = Math.min(arrK.length, arrF.length);
+      const containment = minLen > 0 ? intersecao / minLen : 0;
+      const uniao = new Set([...arrK, ...arrF]).size;
+      const jaccard = uniao > 0 ? intersecao / uniao : 0;
+      const sim = (dice * 0.45) + (containment * 0.35) + (jaccard * 0.20);
+
+      if (sim < 0.35 && !mesmaFoto) {
+        return { score: 0, motivo: "Baixa similaridade de nome" };
+      }
+
+      const ptsTokens = Math.round(sim * 35);
+      score += ptsTokens;
+      motivos.push(`Similaridade (${Math.round(sim * 100)}%)`);
+
+      // 5. Coerência de Preço
       const pK = Number(prodK.preco || 0);
       const pF = Number(prodF.preco || 0);
       if (pK > 0 && pF > 0) {
         const ratio = Math.max(pK, pF) / Math.min(pK, pF);
-        if (ratio > maxRatio) {
+        if (ratio > 2.5 && !mesmaFoto) {
           return { score: 0, motivo: "Discrepância extrema de preço (fardo vs unidade)" };
         }
-        if (ratio <= 1.35) score += 6;
-        else if (ratio <= 1.65) score += 3;
       }
 
-      if (mesmaFoto) {
-        score += 55;
-        motivos.push("Foto idêntica OSuper");
-      }
-
-      const marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
-      const marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
-      const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
-      const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
-
-      let marcaConfirmada = false;
-      if (marcaK && marcaF) {
-        const pK1 = marcaK.split(" ")[0];
-        const pF1 = marcaF.split(" ")[0];
-        const raizOk = pK1.length >= 3 && pF1.length >= 3 && (pK1 === pF1 || pK1.startsWith(pF1) || pF1.startsWith(pK1));
-        const cruzadaOk = (pK1.length >= 3 && (` ${nomeNormF} `).includes(` ${pK1} `)) || (pF1.length >= 3 && (` ${nomeNormK} `).includes(` ${pF1} `));
-        if (marcaK === marcaF || marcaK.includes(marcaF) || marcaF.includes(marcaK) || raizOk || cruzadaOk) {
-          score += 24;
-          marcaConfirmada = true;
-          motivos.push(`Marca (${prodF.marca || prodK.marca})`);
-        } else if (mesmaFoto) {
-          marcaConfirmada = true;
-        } else {
-          return { score: 0, motivo: "Marcas diferentes" };
-        }
-      } else if (marcaK && !marcaF) {
-        if (nomeNormF.includes(marcaK)) {
-          score += 22;
-          marcaConfirmada = true;
-          motivos.push(`Marca no nome (${prodK.marca})`);
-        }
-      } else if (!marcaK && marcaF) {
-        if (nomeNormK.includes(marcaF)) {
-          score += 22;
-          marcaConfirmada = true;
-          motivos.push(`Marca no nome (${prodF.marca})`);
-        }
-      } else {
-        marcaConfirmada = true;
-      }
-
-      const arrK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, prodK.marca);
-      const arrF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, prodF.marca);
-
-      if (arrK.length > 0 && arrF.length > 0) {
-        const mesmoTipo = arrK[0] === arrF[0] || (arrK[0].length >= 4 && arrF[0].length >= 4 && (arrK[0].startsWith(arrF[0]) || arrF[0].startsWith(arrK[0])));
-        if (mesmoTipo) score += 10;
-        const setF = new Set(arrF);
-        let intersecao = 0;
-        for (const tk of arrK) {
-          if (setF.has(tk)) {
-            intersecao++;
-          } else {
-            for (const tf of arrF) {
-              if (tk.length >= 4 && tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) {
-                intersecao += 0.85;
-                break;
-              }
-            }
-          }
-        }
-        const dice = (2 * intersecao) / (arrK.length + arrF.length);
-        const minLen = Math.min(arrK.length, arrF.length);
-        const containment = minLen > 0 ? intersecao / minLen : 0;
-        const uniao = new Set([...arrK, ...arrF]).size;
-        const jaccard = uniao > 0 ? intersecao / uniao : 0;
-        const sim = (dice * 0.45) + (containment * 0.35) + (jaccard * 0.20);
-
-        const ptsTokens = Math.round(sim * 38);
-        score += ptsTokens;
-
-        const minSim = (marcaConfirmada && gramK && gramF && mesmoTipo) ? 0.22 : 0.38;
-        if (sim >= 0.55) {
-          motivos.push(`Similaridade ${Math.round(sim * 100)}%`);
-        } else if (!mesmaFoto) {
-          if (sim < minSim) return { score: 0, motivo: "Baixa similaridade de nome" };
-        }
-      }
-
-      if (exigirMarcaOuFoto && !marcaConfirmada && !mesmaFoto && score < 60) {
-        return { score: 0, motivo: "Sem marca confirmada e similaridade insuficiente" };
-      }
-
-      return { score: Math.min(100, Math.max(0, Math.round(score))), motivo: motivos.join(" + ") || "Similaridade de catálogo" };
+      return { score: Math.min(100, Math.max(0, Math.round(score))), motivo: motivos.join(" + ") || "Vínculo 100% compatível" };
     }
 
     async function acionarVinculacaoInteligenteUI(recalcularTodosAuto = true) {
@@ -4996,11 +4977,48 @@
       return prod || null;
     }
 
+    function obterDataAtualizacaoProd(p) {
+      if (!p) return null;
+      if (p.atualizadoEm) return p.atualizadoEm;
+      if (p.historicoPrecos && typeof p.historicoPrecos === 'object') {
+        const chaves = Object.keys(p.historicoPrecos).sort();
+        if (chaves.length > 0) {
+          const ult = chaves[chaves.length - 1];
+          return ult.includes('T') ? ult : `${ult}T12:00:00.000Z`;
+        }
+      }
+      return null;
+    }
+
+    function formatarDataHoraAtualizacao(isoOuData) {
+      if (!isoOuData) return 'Hoje (Recém-verificado)';
+      try {
+        const d = new Date(isoOuData);
+        if (isNaN(d.getTime())) return String(isoOuData);
+        const agora = new Date();
+        const diffMs = Math.abs(agora - d);
+        const ehHoje = d.toDateString() === agora.toDateString();
+        const horaStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        if (ehHoje) {
+          if (diffMs < 3 * 60 * 1000) return `Agora há pouco (${horaStr})`;
+          return `Hoje às ${horaStr}`;
+        }
+        const dia = String(d.getDate()).padStart(2, '0');
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        const ano = d.getFullYear();
+        return `${dia}/${mes}/${ano} às ${horaStr}`;
+      } catch (e) {
+        return 'Checado pelo robô';
+      }
+    }
+
     function obterOpcoesMercadosProduto(p) {
       const opcoes = [];
       if (p.ehComparativo) {
         const pf = p.itemFort || {};
         const pk = p.itemKoch || {};
+        const dtFort = pf.atualizadoEm || obterDataAtualizacaoProd(pf) || p.atualizadoEm || null;
+        const dtKoch = pk.atualizadoEm || obterDataAtualizacaoProd(pk) || p.atualizadoEm || null;
         opcoes.push({
           sigla: 'FORT',
           nomeMercado: 'Fort Atacadista',
@@ -5018,6 +5036,7 @@
           rotuloUnitario: pf.rotuloUnitario || p.rotuloUnitario || '',
           imagem: p.imagemFort || pf.imagem || p.imagem,
           url: p.urlFort || pf.urlDireta || `https://www.fortatacadista.com.br/busca/${encodeURIComponent(p.nome)}`,
+          atualizadoEm: dtFort,
           get pontosHistorico() { return obterPontosHistoricoProduto(pf); }
         });
         opcoes.push({
@@ -5037,10 +5056,12 @@
           rotuloUnitario: pk.rotuloUnitario || p.rotuloUnitario || '',
           imagem: p.imagemKoch || pk.imagem || p.imagem,
           url: p.urlKoch || pk.urlDireta || `https://www.superkoch.com.br/busca/${encodeURIComponent(p.nome)}`,
+          atualizadoEm: dtKoch,
           get pontosHistorico() { return obterPontosHistoricoProduto(pk); }
         });
       } else {
         const ehFort = p.mercadoOrigem && p.mercadoOrigem.includes('FORT');
+        const dtItem = p.atualizadoEm || obterDataAtualizacaoProd(p) || null;
         opcoes.push({
           sigla: ehFort ? 'FORT' : 'KOCH',
           nomeMercado: ehFort ? 'Fort Atacadista' : 'SuperKoch',
@@ -5058,6 +5079,7 @@
           rotuloUnitario: p.rotuloUnitario || '',
           imagem: p.imagem,
           url: p.urlDireta || (ehFort ? `https://www.fortatacadista.com.br/busca/${encodeURIComponent(p.nome)}` : `https://www.superkoch.com.br/busca/${encodeURIComponent(p.nome)}`),
+          atualizadoEm: dtItem,
           get pontosHistorico() { return obterPontosHistoricoProduto(p); }
         });
       }
@@ -5151,21 +5173,37 @@
           const prod = buscarProdutoNoCatalogo(idCatalogo);
           if (prod) {
             let mudou = false;
-            if (lojaKey === 'fort' && prod._fort) {
-              if (Math.abs(Number(prod._fort.preco) - Number(data.preco)) >= 0.01) mudou = true;
-              prod._fort.preco = Number(data.preco);
-              prod._fort.precoOriginal = Number(data.precoOriginal || data.preco);
-              prod._fort.precoClube = data.precoClube;
-              prod._fort.precoVuon = data.precoVuon;
-              prod._fort.estoque = data.estoque;
-              prod._fort.atualizadoEm = data.atualizadoEm;
-            } else if (prod._koch) {
-              if (Math.abs(Number(prod._koch.preco) - Number(data.preco)) >= 0.01) mudou = true;
-              prod._koch.preco = Number(data.preco);
-              prod._koch.precoOriginal = Number(data.precoOriginal || data.preco);
-              prod._koch.precoClube = data.precoClube;
-              prod._koch.estoque = data.estoque;
-              prod._koch.atualizadoEm = data.atualizadoEm;
+            const itemAlvo = (lojaKey === 'fort' ? (prod.itemFort || prod._fort) : (prod.itemKoch || prod._koch)) || prod;
+            const agoraIsoStr = data.atualizadoEm || new Date().toISOString();
+            if (itemAlvo) {
+              if (Math.abs(Number(itemAlvo.preco || 0) - Number(data.preco || 0)) >= 0.01) mudou = true;
+              itemAlvo.preco = Number(data.preco || 0);
+              itemAlvo.precoOriginal = Number(data.precoOriginal || data.preco || 0);
+              if (data.precoClube !== undefined) itemAlvo.precoClube = data.precoClube;
+              if (data.precoVuon !== undefined) itemAlvo.precoVuon = data.precoVuon;
+              if (data.estoque !== undefined) itemAlvo.estoque = data.estoque;
+              itemAlvo.atualizadoEm = agoraIsoStr;
+
+              // Registra no histórico de preços local com a data de hoje para atualizar o gráfico
+              const hojeDiaIso = agoraIsoStr.slice(0, 10);
+              if (!itemAlvo.historicoPrecos || typeof itemAlvo.historicoPrecos !== 'object') itemAlvo.historicoPrecos = {};
+              itemAlvo.historicoPrecos[hojeDiaIso] = Number(data.preco);
+              itemAlvo._pontosHistorico = null;
+            }
+
+            if (lojaKey === 'fort' && prod.ehComparativo) {
+              prod.precoFort = Number(data.preco || 0);
+              prod.precoOriginalFort = Number(data.precoOriginal || data.preco || 0);
+              if (data.precoVuon !== undefined) prod.precoVuonFort = data.precoVuon;
+              if (data.precoClube !== undefined) prod.precoClubeFort = data.precoClube;
+            } else if (lojaKey === 'koch' && prod.ehComparativo) {
+              prod.precoKoch = Number(data.preco || 0);
+              prod.precoOriginalKoch = Number(data.precoOriginal || data.preco || 0);
+              if (data.precoClube !== undefined) prod.precoClubeKoch = data.precoClube;
+            } else {
+              prod.preco = Number(data.preco || 0);
+              prod.precoOriginal = Number(data.precoOriginal || data.preco || 0);
+              prod.atualizadoEm = agoraIsoStr;
             }
 
             const opcoes = obterOpcoesMercadosProduto(prod);
@@ -5182,7 +5220,7 @@
               renderizarDetalheProdutoModal(prod);
               const sb = document.getElementById(`badgeStatusLive_${lojaKey}_${idOriginal}`);
               if (sb) {
-                sb.innerHTML = `<span class="text-emerald-700 font-bold flex items-center gap-1">● Atualizado (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})</span>`;
+                sb.innerHTML = `<span class="text-emerald-700 font-bold flex items-center gap-1">● Atualizado Hoje às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>`;
               }
             }
           }
@@ -5369,8 +5407,8 @@
                   <span>${op.estoque > 0 ? `Estoque: ${op.estoque} un` : 'Sem estoque informado'}</span>
                   ${op.rotuloUnitario ? `<span>• ${op.rotuloUnitario}</span>` : ''}
                   <span class="font-mono text-[10px] text-slate-400">#${op.idOriginal}</span>
-                  <span id="badgeStatusLive_${op.sigla === 'FORT' ? 'fort' : 'koch'}_${op.idOriginal}" class="text-[10px] text-slate-400">
-                    ${op.atualizadoEm ? `• ${formatarTempoRelativoCurto(op.atualizadoEm)}` : '• Checado pelo robô'}
+                  <span id="badgeStatusLive_${op.sigla === 'FORT' ? 'fort' : 'koch'}_${op.idOriginal}" class="text-[10px] text-slate-500 font-medium">
+                    • ${formatarDataHoraAtualizacao(op.atualizadoEm)}
                   </span>
                 </div>
                 ${(op.precoVuon || op.precoClube) ? `

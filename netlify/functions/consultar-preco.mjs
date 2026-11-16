@@ -159,7 +159,7 @@ export const handler = async (event) => {
           atualizadoEm: agoraISO
         };
 
-        fetch(buildFirebaseUrl(`/${cfg.tabelaFirebase}/${item.id}.json`), {
+        fetch(buildFirebaseUrl(`/${cfg.tabelaFirebase}/produtos/${item.id}.json`), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patchPayload)
@@ -192,12 +192,15 @@ export const handler = async (event) => {
   // Fallback seguro: lê o cache existente do Firebase para nunca quebrar a interface
   if (idProd) {
     try {
-      const resCache = await fetch(buildFirebaseUrl(`/${cfg.tabelaFirebase}/${idProd}.json`), {
+      const resCache = await fetch(buildFirebaseUrl(`/${cfg.tabelaFirebase}/produtos/${idProd}.json`), {
         signal: AbortSignal.timeout(3000)
       });
       if (resCache.ok) {
         const prod = await resCache.json();
         if (prod) {
+          const ultDataHist = prod.historicoPrecos && typeof prod.historicoPrecos === "object"
+            ? Object.keys(prod.historicoPrecos).sort().pop()
+            : null;
           return {
             statusCode: 200,
             headers: headersCors,
@@ -211,7 +214,7 @@ export const handler = async (event) => {
               precoClube: prod.precoClube ? Number(prod.precoClube) : null,
               precoVuon: prod.precoVuon ? Number(prod.precoVuon) : null,
               estoque: Number(prod.estoque ?? 0),
-              atualizadoEm: prod.atualizadoEm || agoraISO,
+              atualizadoEm: prod.atualizadoEm || (ultDataHist ? (ultDataHist.includes("T") ? ultDataHist : `${ultDataHist}T12:00:00.000Z`) : agoraISO),
               fallback: true,
               fonte: "firebase_cache"
             })
