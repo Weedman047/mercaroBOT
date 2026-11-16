@@ -395,12 +395,12 @@ export function obterRotasPorCamada(mercado = "koch", camada = "2A", filaCustom 
     return ehFort ? ROTAS_RADAR_FORT : ROTAS_RADAR_KOCH;
   }
 
-  // Camada 2 (TURNO / 2A / 2B / DEPTOS): As 16 Categorias Inteiras Diretas + Promoções (Balanceadas p/ 5 Máquinas)
-  if (c === "2A" || c === "TURNO" || c === "2B" || c === "DEPTOS") {
+  // Camada 2 (TURNO / 2A / 2B / DEPTOS / MEDIA): As 16 Categorias Inteiras Diretas + Promoções (Pesquisa Mediana de 1h)
+  if (c === "2A" || c === "TURNO" || c === "2B" || c === "DEPTOS" || c === "MEDIA" || c === "MEDIANA") {
     return ehFort ? [...ROTAS_DEPTOS_BALANCEADAS_FORT] : [...ROTAS_DEPTOS_BALANCEADAS_KOCH];
   }
 
-  // Camada 3 (COMPLETA): Categorias Inteiras (Departamentos) + Todas as Subcategorias + Promoções
+  // Camada 3 (COMPLETA) ou Modo 24H (Varredura Contínua de 100% dos Itens de onde parou)
   const listaBase = ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
   return [...listaBase];
 }

@@ -63,9 +63,10 @@ async function detectarIpPublico() {
   return WORKER_PUBLIC_IP;
 }
 
-// Leitura da Camada de Execução (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA NOTURNA)
+// Leitura da Camada de Execução (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA NOTURNA, 24H = CONTÍNUO 100% DE ONDE PAROU)
 const argCamada = process.argv.find((a) => a.startsWith("--camada=") || a.startsWith("--modo="))?.split("=")[1];
 const MODO_CAMADA_BRUTO = String(argCamada || process.env.MODO_CAMADA || process.env.MODO_FILA || "2A").toUpperCase();
+const EH_MODO_24H = MODO_CAMADA_BRUTO === "24H" || MODO_CAMADA_BRUTO === "CONTINUO" || MODO_CAMADA_BRUTO === "CONTINUO_24H" || MODO_CAMADA_BRUTO === "RADAR" || MODO_CAMADA_BRUTO === "1";
 const EH_MODO_RADAR = MODO_CAMADA_BRUTO === "RADAR" || MODO_CAMADA_BRUTO === "1" || MODO_CAMADA_BRUTO === "1A" || MODO_CAMADA_BRUTO === "OFERTAS";
 
 // Configurações Furtivas, Jitter e Otimizações de Rede
@@ -836,6 +837,59 @@ async function aguardarSePausadoRemoto() {
   }
 }
 
+async function persistirTokenFirebase(tk) {
+  if (!tk || !FIREBASE_BASE) return;
+  try {
+    const payload = {
+      token: tk,
+      atualizadoEm: new Date().toISOString(),
+      mercado: MERCADO_ALVO,
+      lojaId: LOJA_ID
+    };
+    await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/tokens/${MERCADO_ALVO}.json`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch {}
+}
+
+async function salvarCursor24hRemoto(rIdx, offset = 0) {
+  if (!FIREBASE_BASE || WORKER_ID !== 1) return;
+  try {
+    const total = ROTAS_ATIVAS.length || 1;
+    const prox = (rIdx + 1) >= total ? 0 : (rIdx + 1);
+    const payload = {
+      rotaIndice: prox,
+      rotaNome: ROTAS_ATIVAS[prox]?.nome || "Início",
+      rotaConcluida: ROTAS_ATIVAS[rIdx]?.nome || "",
+      offset: Number(offset || 0),
+      totalRotas: total,
+      atualizadoEm: new Date().toISOString()
+    };
+    await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/cursor_24h_${MERCADO_ALVO}.json`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch {}
+}
+
+function devePausarParaProximaOperacao() {
+  if (!EH_MODO_24H) return { pausar: false };
+  const agora = new Date();
+  const minutos = agora.getUTCMinutes();
+  // Pausa suave nos minutos 57..59 para o cron pontual de 1h ou 3h entrar limpo
+  if (minutos >= 57) {
+    return { pausar: true, motivo: `Virada de hora (${minutos}m UTC) - cedendo para pesquisa programada (1h/3h)` };
+  }
+  // Limite de segurança de runtime do GitHub Actions (40 minutos para não estourar os 45m do workflow)
+  if ((Date.now() - sessao.iniciadoEmMs) > 40 * 60 * 1000) {
+    return { pausar: true, motivo: "Tempo limite de segurança da rodada (40 min) atingido" };
+  }
+  return { pausar: false };
+}
+
 function recalcularFatiaDoWorker() {
   const totalRotas = ROTAS_ATIVAS.length;
   if (totalRotas === 0) {
@@ -932,6 +986,21 @@ async function carregarProtegerFirebaseInicial() {
 
   ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila, filaCustomSalva);
   sessao.rotaTotal = ROTAS_ATIVAS.length;
+
+  // No modo 24H Contínuo (ou se não foi passado rota inicial manual), retoma de onde parou no cursor do Firebase
+  if (EH_MODO_24H && !process.env.START_INDEX && WORKER_ID === 1) {
+    try {
+      const resCur = await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/cursor_24h_${MERCADO_ALVO}.json`));
+      if (resCur.ok) {
+        const curData = await resCur.json();
+        if (curData && Number.isInteger(curData.rotaIndice)) {
+          CONFIG.startIndex = Math.max(0, Math.min(ROTAS_ATIVAS.length - 1, curData.rotaIndice));
+          registrarLog("OK", "Cursor 24h", `Retomando de onde parou: Categoria #${CONFIG.startIndex + 1}/${ROTAS_ATIVAS.length} (${ROTAS_ATIVAS[CONFIG.startIndex]?.nome || "Rota"}).`);
+        }
+      }
+    } catch {}
+  }
+
   recalcularFatiaDoWorker();
 
   registrarLog(
@@ -1432,6 +1501,7 @@ async function executarRoboCloud() {
       if (tk && tk !== tokenCapturado) {
         if (tk.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tk.startsWith("v1.")) {
           tokenCapturado = tk;
+          persistirTokenFirebase(tokenCapturado);
         }
       }
     });
@@ -1473,11 +1543,14 @@ async function executarRoboCloud() {
 
           if (mEngine && mEngine[1] && mEngine[1].startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`)) {
             tokenCapturado = mEngine[1];
+            persistirTokenFirebase(tokenCapturado);
             registrarLog("OK", "Token", `Token ${EH_FORT ? "Fort" : "Koch"} Loja ${LOJA_ID} obtido: ${tokenCapturado.slice(0, 26)}...`);
           } else if (mEngine && mEngine[1]) {
             tokenCapturado = mEngine[1];
+            persistirTokenFirebase(tokenCapturado);
           } else if (mIdentity && mIdentity[1]) {
             tokenCapturado = mIdentity[1];
+            persistirTokenFirebase(tokenCapturado);
           }
         }
       } catch {}
@@ -1498,6 +1571,7 @@ async function executarRoboCloud() {
 
       if (tkEval && (tkEval.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tokenCapturado)) {
         tokenCapturado = tkEval;
+        persistirTokenFirebase(tokenCapturado);
         registrarLog("OK", "Token", `Sessão do navegador sincronizada (X-Osuper-Search-Token Loja ${LOJA_ID}).`);
       }
 
@@ -1689,6 +1763,7 @@ async function executarRoboCloud() {
       }).catch(() => "");
       if (tkDaPagina && (tkDaPagina.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tokenCapturado)) {
         tokenCapturado = tkDaPagina;
+        persistirTokenFirebase(tokenCapturado);
       }
 
       let totalLidosRolagem = 0;
@@ -1828,6 +1903,20 @@ async function executarRoboCloud() {
       await verificarComandosRemotos();
       await aguardarSePausadoRemoto();
       if (sessao.canceladoRemoto) break;
+
+      const checkPausa = devePausarParaProximaOperacao();
+      if (checkPausa.pausar) {
+        registrarLog("OK", "Pausa Programada", `⏰ ${checkPausa.motivo}. Salvando cursor (${rIdx}) e finalizando ciclo.`);
+        await salvarCursor24hRemoto(rIdx, 0);
+        sessao.status = "CONCLUIDO";
+        sessao.mensagem = `Transição: ${checkPausa.motivo}. Cursor salvo para próxima rodada.`;
+        await enviarTelemetriaAoVivo(true);
+        if (SOU_MAESTRO) {
+          await absorverEnxameNoMaestro();
+          await gravarComSegurancaNoFirebase(`Pausa Programada (${checkPausa.motivo})`);
+        }
+        process.exit(0);
+      }
 
       if (sessao.irParaRotaIndice !== null && sessao.irParaRotaIndice >= 0) {
         const alvo = Math.max(0, Math.min(ROTAS_ATIVAS.length - 1, sessao.irParaRotaIndice));
@@ -1990,6 +2079,20 @@ async function executarRoboCloud() {
         await verificarAutoSaveInteligente(`${rota.nome} Pág ${pag}`, false);
         await enviarTelemetriaAoVivo(false);
 
+        const checkPausaPag = devePausarParaProximaOperacao();
+        if (checkPausaPag.pausar) {
+          registrarLog("OK", "Pausa Programada", `⏰ ${checkPausaPag.motivo}. Salvando cursor (${rIdx}) e finalizando ciclo.`);
+          await salvarCursor24hRemoto(rIdx, from);
+          sessao.status = "CONCLUIDO";
+          sessao.mensagem = `Transição: ${checkPausaPag.motivo}. Cursor salvo para próxima rodada.`;
+          await enviarTelemetriaAoVivo(true);
+          if (SOU_MAESTRO) {
+            await absorverEnxameNoMaestro();
+            await gravarComSegurancaNoFirebase(`Pausa Programada (${checkPausaPag.motivo})`);
+          }
+          process.exit(0);
+        }
+
         from += hits.length;
         pag++;
 
@@ -2068,8 +2171,21 @@ async function executarRoboCloud() {
         await gravarComSegurancaNoFirebase(`Fim de ${rota.nome}`);
       }
 
+      await salvarCursor24hRemoto(rIdx, from);
       await enviarTelemetriaAoVivo(true);
       await dormirHumano(CONFIG.delayTrocaRotaMs);
+
+      // Reinício Contínuo do Loop 24H (100% dos Itens)
+      if (cursor === indicesPrioritarios.length - 1 && EH_MODO_24H && TOTAL_WORKERS === 1 && !sessao.canceladoRemoto) {
+        const checkLoop = devePausarParaProximaOperacao();
+        if (!checkLoop.pausar) {
+          registrarLog("OK", "Loop 24h", "🔄 Ciclo de 100% das categorias finalizado! Reiniciando loop contínuo na Rota #1...");
+          await salvarCursor24hRemoto(0, 0);
+          sessao.progressoRotas = {};
+          cursor = -1;
+          continue;
+        }
+      }
     }
 
     sessao.minhaFatiaConcluida = true;
@@ -2710,6 +2826,7 @@ const tratarCancelamento = async (sinal) => {
     sessao.mensagem = `⏹ Encerrado (${sinal}) em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Tudo salvo com segurança!`;
     await enviarTelemetriaAoVivo(true);
     if (SOU_MAESTRO) {
+      await salvarCursor24hRemoto(sessao.rotaIndiceAtual, sessao.offsetAtual);
       await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
       await enviarTelemetriaAoVivo(true);
     }

@@ -1,7 +1,7 @@
 name: 🤖 Robô Mercaro (SuperKoch & Fort Atacadista • Enxame Multi-Máquinas)
 
 on:
-  # 1. Permite iniciar manualmente com 1 clique pelo Celular ou PC
+  # 1. Permite iniciar manualmente com 1 clique pelo Celular ou PC (Operação Customizada com Prioridade)
   workflow_dispatch:
     inputs:
       mercado:
@@ -13,7 +13,7 @@ on:
         required: false
         default: "10"
       modo_fila:
-        description: "⚡ Camada de Rastreamento (RADAR = Verificação Básica 24h, 2A = Verificação Avançada 1h, COMPLETA = Verificação Completa 3h)"
+        description: "⚡ Camada de Rastreamento (24H = Contínuo 100% de Onde Parou, 2A = Pesquisa Mediana 1h, COMPLETA = Pesquisa Completa 3h)"
         required: false
         default: "2A"
       tamanho_lote_size:
@@ -45,13 +45,18 @@ on:
         required: false
         default: "false"
 
-  # 2. Execução automática contínua (Sempre com 10 máquinas | Salva a cada 100 atualizados e 300 adicionados):
-  # - 24h de Verificação Básica (RADAR): Roda continuamente nos minutos 20 e 40 de todas as 24 horas
-  # - A cada 1 hora Verificação Avançada (2A): Roda no minuto 0 de cada hora (exceto horas múltiplas de 3)
-  # - A cada 3 horas Verificação Completa (COMPLETA): Roda a cada 3 horas (00h, 03h, 06h, 09h, 12h, 15h, 18h, 21h)
+  # 2. Execução contínua e inteligente sem estourar limites:
+  # - A cada 3 horas (00h, 03h, 06h, 09h, 12h, 15h, 18h, 21h UTC no minuto 00): Pesquisa Completa (10 máquinas) + Vinculação 100%
+  # - A cada 1 hora (demais horas no minuto 00): Pesquisa Mediana (10 máquinas nas categorias principais)
+  # - 24 horas contínua (no minuto 12 de cada hora): Roda de onde parou em loop contínuo de 100% dos itens (1 máquina leve, sem estourar cota)
   schedule:
     - cron: "0 * * * *"
-    - cron: "20,40 * * * *"
+    - cron: "12 * * * *"
+
+# Gerenciamento de Prioridade: Se uma operação customizada for disparada, cancela suavemente a em andamento e roda a sua!
+concurrency:
+  group: robo-mercaro-swarm
+  cancel-in-progress: true
 
 jobs:
   # Etapa 1: Prepara a lista de máquinas do enxame (Padrão: 10 servidores com IPs independentes)
@@ -70,16 +75,22 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             HORA_UTC=$((10#$(date -u +%H)))
             MIN_UTC=$((10#$(date -u +%M)))
-            if [ "$MIN_UTC" -ge 12 ] && [ "$MIN_UTC" -le 52 ]; then
-              MODO_CAMADA="RADAR"
+            if [ "$MIN_UTC" -ge 10 ] && [ "$MIN_UTC" -le 52 ]; then
+              # Pesquisa 24h contínua: 1 máquina leve por mercado, varre 100% dos itens de onde parou sem estourar cota
+              MODO_CAMADA="24H"
+              RAW_N="1"
             elif [ $((HORA_UTC % 3)) -eq 0 ]; then
+              # A cada 3 horas: Pesquisa Completa com 10 máquinas no enxame + Vinculação automática
               MODO_CAMADA="COMPLETA"
+              RAW_N="10"
             else
+              # A cada 1 hora: Pesquisa Mediana com 10 máquinas nas categorias principais
               MODO_CAMADA="2A"
+              RAW_N="10"
             fi
-            RAW_N="10"
             MERCADO="ambos"
           else
+            # Operação customizada disparada pelo usuário: Prioridade Máxima
             MODO_CAMADA="${{ github.event.inputs.modo_fila || '2A' }}"
             RAW_N="${{ github.event.inputs.total_maquinas || '10' }}"
             if [ -z "$RAW_N" ]; then
@@ -208,7 +219,7 @@ jobs:
   # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort)
   vincular-produtos:
     needs: [preparar-enxame, extrator-koch, extrator-fort]
-    if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada != 'RADAR' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular')
+    if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada == 'COMPLETA' || needs.preparar-enxame.outputs.modo_camada == '2A' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular')
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Baixar código do projeto

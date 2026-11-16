@@ -7,9 +7,18 @@
   publish = "."
   command = "echo 'Deploy estático Mercaro (Mercado, Robô e ADM) concluído!'"
 
+[functions]
+  directory = "netlify/functions"
+
 [build.environment]
   NODE_ENV = "production"
   NPM_FLAGS = "--ignore-scripts"
+
+# Endpoint Serverless para Consulta e Atualização Sob Demanda de Preço
+[[redirects]]
+  from = "/api/consultar-preco"
+  to = "/.netlify/functions/consultar-preco"
+  status = 200
 
 # Redirecionamentos automáticos por domínio dedicado
 [[redirects]]
