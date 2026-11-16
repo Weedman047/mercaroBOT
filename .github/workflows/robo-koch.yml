@@ -13,7 +13,7 @@ on:
         required: false
         default: "10"
       modo_fila:
-        description: "⚡ Camada de Rastreamento (RADAR = Busca Básica, 2A = Busca Média 1h, COMPLETA = Busca Total 2x/dia)"
+        description: "⚡ Camada de Rastreamento (RADAR = Verificação Básica 24h, 2A = Verificação Avançada 1h, COMPLETA = Verificação Completa 3h)"
         required: false
         default: "2A"
       tamanho_lote_size:
@@ -46,12 +46,12 @@ on:
         default: "false"
 
   # 2. Execução automática contínua (Sempre com 10 máquinas | Salva a cada 100 atualizados e 300 adicionados):
-  # - 2x ao dia Busca Total (COMPLETA): 03:00 BRT (06:00 UTC) e 15:00 BRT (18:00 UTC)
-  # - A cada 1 hora Busca Média (2A): Todas as demais horas cheias (minuto 0)
-  # - Toda hora Busca Básica (RADAR): A cada hora no minuto 30
+  # - 24h de Verificação Básica (RADAR): Roda continuamente nos minutos 20 e 40 de todas as 24 horas
+  # - A cada 1 hora Verificação Avançada (2A): Roda no minuto 0 de cada hora (exceto horas múltiplas de 3)
+  # - A cada 3 horas Verificação Completa (COMPLETA): Roda a cada 3 horas (00h, 03h, 06h, 09h, 12h, 15h, 18h, 21h)
   schedule:
     - cron: "0 * * * *"
-    - cron: "30 * * * *"
+    - cron: "20,40 * * * *"
 
 jobs:
   # Etapa 1: Prepara a lista de máquinas do enxame (Padrão: 10 servidores com IPs independentes)
@@ -68,11 +68,11 @@ jobs:
         id: calc
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            HORA_UTC=$(date -u +%H)
-            MIN_UTC=$(date -u +%M)
-            if [ "$MIN_UTC" -ge 20 ] && [ "$MIN_UTC" -le 45 ]; then
+            HORA_UTC=$((10#$(date -u +%H)))
+            MIN_UTC=$((10#$(date -u +%M)))
+            if [ "$MIN_UTC" -ge 12 ] && [ "$MIN_UTC" -le 52 ]; then
               MODO_CAMADA="RADAR"
-            elif [ "$HORA_UTC" = "06" ] || [ "$HORA_UTC" = "18" ]; then
+            elif [ $((HORA_UTC % 3)) -eq 0 ]; then
               MODO_CAMADA="COMPLETA"
             else
               MODO_CAMADA="2A"
@@ -104,9 +104,9 @@ jobs:
   # Etapa 2A: Enxame SuperKoch (Loja 1408 Itapema)
   extrator-koch:
     needs: preparar-enxame
-    if: needs.preparar-enxame.outputs.mercado_escolhido != 'fort'
+    if: needs.preparar-enxame.outputs.mercado_escolhido != 'fort' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -156,9 +156,9 @@ jobs:
   # Etapa 2B: Enxame Fort Atacadista (Loja 1644 Porto Belo) - RODA SIMULTANEAMENTE!
   extrator-fort:
     needs: preparar-enxame
-    if: needs.preparar-enxame.outputs.mercado_escolhido != 'koch'
+    if: needs.preparar-enxame.outputs.mercado_escolhido != 'koch' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -208,7 +208,7 @@ jobs:
   # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort)
   vincular-produtos:
     needs: [preparar-enxame, extrator-koch, extrator-fort]
-    if: always() && !cancelled() && needs.preparar-enxame.outputs.modo_camada != 'RADAR'
+    if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada != 'RADAR' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular')
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Baixar código do projeto

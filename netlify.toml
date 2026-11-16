@@ -1,13 +1,50 @@
-# Configuração automática para publicar o BuscaPreço + Central do Robô no Netlify
-# Ignora a instalação do Playwright (que roda apenas no GitHub Actions) para publicar o site em 2 segundos!
+# Configuração para publicar os 3 modos do Mercaro no Netlify:
+# 1. mercaro047.netlify.app (Só Mercado / Catálogo)
+# 2. mercaro047robo.netlify.app (Só Robô Buscador & Vínculos)
+# 3. mercaro047adm.netlify.app (Mercado + Robô 2 em 1)
 
 [build]
   publish = "."
-  command = "echo 'Deploy estático BuscaPreço + Central do Robô concluído!'"
+  command = "echo 'Deploy estático Mercaro (Mercado, Robô e ADM) concluído!'"
 
 [build.environment]
   NODE_ENV = "production"
   NPM_FLAGS = "--ignore-scripts"
+
+# Redirecionamentos automáticos por domínio dedicado
+[[redirects]]
+  from = "https://mercaro047robo.netlify.app/"
+  to = "/robo.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://mercaro047adm.netlify.app/"
+  to = "/adm.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://mercaro047.netlify.app/"
+  to = "/mercado.html"
+  status = 200
+  force = true
+
+# Rotas curtas diretas em qualquer domínio
+[[redirects]]
+  from = "/robo"
+  to = "/robo.html"
+  status = 200
+
+[[redirects]]
+  from = "/adm"
+  to = "/adm.html"
+  status = 200
+
+[[redirects]]
+  from = "/mercado"
+  to = "/mercado.html"
+  status = 200
 
 [[headers]]
   for = "/*"

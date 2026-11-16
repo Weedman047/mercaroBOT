@@ -19,7 +19,7 @@ const COOKIE_LOJA_NOME = `st_${CONTA_ID}`;
 const COOKIE_LOJA_VALOR = `%7B%22id%22%3A%22${LOJA_ID}%22%2C%22userSelected%22%3Atrue%7D`;
 const COOKIE_LOJA_DOMINIO = EH_FORT ? ".fortatacadista.com.br" : ".superkoch.com.br";
 const DEFAULT_STORE_PATH = EH_FORT ? "/334/1644/v2/search" : "/295/1408/v2/search";
-const HEADER_TOKEN_NAME = EH_FORT ? "x-osuper-search-token" : "x-osuper-identity-token";
+const HEADER_TOKEN_NAME = "x-osuper-search-token";
 
 const FIREBASE_BASE = (process.env.FIREBASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com").replace(/\/$/, "");
 const FIREBASE_SECRET = (process.env.FIREBASE_SECRET || process.env.FIREBASE_AUTH || "").trim();
@@ -281,7 +281,9 @@ const sessao = {
   pularRotaAtual: false,
   irParaRotaIndice: null,
   ultimoComandoIdProcessado: 0,
-  indiceProxyAtual: 0
+  indiceProxyAtual: 0,
+  minhaFatiaConcluida: false,
+  minhasRotasIndices: []
 };
 
 function registrarLog(tipo, contexto, mensagem, detalhe = "") {
@@ -385,6 +387,8 @@ function calcularMetricasTempoEProgresso(progressoCombinado = sessao.progressoRo
 // COORDENAÇÃO DO ENXAME DE MÁQUINAS
 // =========================================================================
 let ultimoEnvioTelemetriaMs = 0;
+let ultimaAbsorcaoEnxameMs = 0;
+let ultimoEnxameCache = null;
 const deltasJaContabilizadosMaestro = new Map();
 
 async function publicarEstadoWorkerNoEnxame() {
@@ -396,6 +400,7 @@ async function publicarEstadoWorkerNoEnxame() {
     mercado: MERCADO_ALVO,
     heartbeatMs: agora,
     status: sessao.status,
+    minhaFatiaConcluida: Boolean(sessao.minhaFatiaConcluida),
     mensagem: sessao.mensagem,
     meuIndiceInicio: sessao.meuIndiceInicio,
     meuIndiceFim: sessao.meuIndiceFim,
@@ -427,11 +432,11 @@ async function publicarEstadoWorkerNoEnxame() {
   } catch {}
 }
 
-async function absorverEnxameNoMaestro() {
+async function absorverEnxameNoMaestro(forcarLeituraRede = false) {
   if (TOTAL_WORKERS <= 1) {
     return {
       maquinasAtivas: 1,
-      todosConcluidos: sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO",
+      todosConcluidos: Boolean(sessao.minhaFatiaConcluida || sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO"),
       totalLidosGlobal: sessao.totalLidosNaSessao,
       novosGlobal: sessao.novosNaSessao,
       precosGlobal: sessao.precosAlteradosNaSessao,
@@ -460,6 +465,12 @@ async function absorverEnxameNoMaestro() {
     };
   }
 
+  const agoraMs = Date.now();
+  if (!forcarLeituraRede && ultimoEnxameCache && (agoraMs - ultimaAbsorcaoEnxameMs < 7500)) {
+    return ultimoEnxameCache;
+  }
+  ultimaAbsorcaoEnxameMs = agoraMs;
+
   let enxameDados = {};
   try {
     const r = await fetch(authUrl(`${FIREBASE_ENXAME_BASE}.json`));
@@ -477,11 +488,13 @@ async function absorverEnxameNoMaestro() {
   const lidosCombinados = [...sessao.ultimosLidos];
   const logsCombinados = [...sessao.ultimosLogs];
 
+  const maestroFinalizado = Boolean(sessao.minhaFatiaConcluida || sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO");
+
   const resumoMaquinas = [{
     id: 1,
     ip: WORKER_PUBLIC_IP,
     mercado: MERCADO_ALVO,
-    status: sessao.status,
+    status: maestroFinalizado && sessao.status === "RODANDO" ? "AGUARDANDO_ENXAME" : sessao.status,
     rota: `#${sessao.rotaIndiceAtual + 1} ${sessao.rotaNomeAtual}`,
     depto: sessao.deptoAtualNome || "Geral",
     pag: sessao.paginaAtual,
@@ -490,14 +503,14 @@ async function absorverEnxameNoMaestro() {
     novos: sessao.novosNaSessao,
     precos: sessao.precosAlteradosNaSessao,
     reqs: sessao.requisicoesFeitas,
-    heartbeatMs: Date.now()
+    heartbeatMs: agoraMs
   }];
 
   sessao.ultimosNovos.forEach((n) => novosMap.set(n.id, n));
   sessao.ultimosPrecosAlterados.forEach((p) => precosMap.set(p.id, p));
 
-  let maquinasAtivas = (sessao.status === "RODANDO" || sessao.status === "BLOQUEIO_ESPERA") ? 1 : 0;
-  let workersFinalizados = (sessao.status === "CONCLUIDO" || sessao.status === "CANCELADO_SALVO") ? 1 : 0;
+  let maquinasAtivas = (!maestroFinalizado && (sessao.status === "RODANDO" || sessao.status === "BLOQUEIO_ESPERA")) ? 1 : 0;
+  let workersFinalizados = maestroFinalizado ? 1 : 0;
   let workersVistos = 1;
 
   for (let w = 2; w <= TOTAL_WORKERS; w++) {
@@ -505,10 +518,11 @@ async function absorverEnxameNoMaestro() {
     if (!wk || wk.swarmId !== SWARM_RUN_ID) continue;
     workersVistos++;
 
-    const idadeMs = Date.now() - Number(wk.heartbeatMs || 0);
-    const ativo = (wk.status === "RODANDO" || wk.status === "BLOQUEIO_ESPERA" || wk.status === "INICIANDO") && idadeMs < 180000;
+    const idadeMs = agoraMs - Number(wk.heartbeatMs || 0);
+    const wkConcluiu = wk.status === "CONCLUIDO" || wk.status === "CANCELADO_SALVO" || Boolean(wk.minhaFatiaConcluida);
+    const ativo = !wkConcluiu && (wk.status === "RODANDO" || wk.status === "BLOQUEIO_ESPERA" || wk.status === "INICIANDO") && idadeMs < 150000;
     if (ativo) maquinasAtivas++;
-    if (wk.status === "CONCLUIDO" || wk.status === "CANCELADO_SALVO" || idadeMs >= 240000) {
+    if (wkConcluiu || idadeMs >= 180000) {
       workersFinalizados++;
     }
 
@@ -537,20 +551,30 @@ async function absorverEnxameNoMaestro() {
     if (Array.isArray(wk.produtosDelta)) {
       for (const prodW of wk.produtosDelta) {
         if (!prodW || !prodW.id) continue;
-        const hashW = `${prodW.preco}_${prodW.estoque}_${(prodW.categorias || []).length}`;
-        const jaVistoHash = deltasJaContabilizadosMaestro.get(prodW.id);
-        const existenteMestre = mapaProdutos.get(prodW.id);
+        // Chave por worker + produto sem contar tamanho de array de categorias (evita ping-pong entre máquinas!)
+        const chaveWorkerProd = `${w}_${prodW.id}`;
+        const hashW = `${Number(prodW.preco || 0).toFixed(2)}_${Number(prodW.estoque ?? 0)}`;
+        if (deltasJaContabilizadosMaestro.get(chaveWorkerProd) === hashW) {
+          continue;
+        }
+        deltasJaContabilizadosMaestro.set(chaveWorkerProd, hashW);
 
+        const existenteMestre = mapaProdutos.get(prodW.id);
         if (!existenteMestre) {
           mapaProdutos.set(prodW.id, prodW);
-          deltasJaContabilizadosMaestro.set(prodW.id, hashW);
           sessao.novosDesdeUltimoSave++;
-        } else if (jaVistoHash !== hashW) {
+        } else {
+          const precoMestre = Number(existenteMestre.preco || 0);
+          const precoWorker = Number(prodW.preco || precoMestre);
+          const estMestre = Number(existenteMestre.estoque ?? 0);
+          const estWorker = Number(prodW.estoque ?? estMestre);
+          const mudouRealmente = Math.abs(precoMestre - precoWorker) >= 0.01 || estMestre !== estWorker;
+
           const catsUnidas = Array.from(new Set([...(existenteMestre.categorias || []), ...(prodW.categorias || [])]));
           const histUnido = atualizarHistoricoSemDuplicarConsecutivos(
             { ...(existenteMestre.historicoPrecos || {}), ...(prodW.historicoPrecos || {}) },
             dataHojeISO,
-            Number(prodW.preco || existenteMestre.preco || 0)
+            precoWorker
           );
           mapaProdutos.set(prodW.id, {
             ...existenteMestre,
@@ -558,8 +582,9 @@ async function absorverEnxameNoMaestro() {
             categorias: catsUnidas,
             historicoPrecos: histUnido
           });
-          deltasJaContabilizadosMaestro.set(prodW.id, hashW);
-          sessao.atualizadosDesdeUltimoSave++;
+          if (mudouRealmente) {
+            sessao.atualizadosDesdeUltimoSave++;
+          }
         }
       }
     }
@@ -577,17 +602,21 @@ async function absorverEnxameNoMaestro() {
       novos: wk.novosNaSessao || 0,
       precos: wk.precosAlteradosNaSessao || 0,
       reqs: wk.requisicoesFeitas || 0,
-      heartbeatMs: wk.heartbeatMs || Date.now()
+      heartbeatMs: wk.heartbeatMs || agoraMs
     });
   }
 
   sessao.totalAtualNoBanco = mapaProdutos.size;
-  const todosConcluidos = workersVistos >= TOTAL_WORKERS && workersFinalizados >= TOTAL_WORKERS;
+  const decorridoMs = agoraMs - sessao.tempoInicioMs;
+  const todosConcluidos = maestroFinalizado && (
+    (workersVistos >= TOTAL_WORKERS && workersFinalizados >= TOTAL_WORKERS) ||
+    (maquinasAtivas === 0 && workersFinalizados >= workersVistos && decorridoMs > 75000)
+  );
 
   logsCombinados.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-  return {
-    maquinasAtivas: Math.max(1, maquinasAtivas),
+  ultimoEnxameCache = {
+    maquinasAtivas: Math.max(maestroFinalizado ? 0 : 1, maquinasAtivas),
     todosConcluidos,
     totalLidosGlobal,
     novosGlobal,
@@ -601,6 +630,7 @@ async function absorverEnxameNoMaestro() {
     logsCombinados: logsCombinados.slice(0, 200),
     resumoMaquinas
   };
+  return ultimoEnxameCache;
 }
 
 async function enviarTelemetriaAoVivo(forcar = false) {
@@ -811,6 +841,7 @@ function recalcularFatiaDoWorker() {
   if (totalRotas === 0) {
     sessao.meuIndiceInicio = 0;
     sessao.meuIndiceFim = 0;
+    sessao.minhasRotasIndices = [];
     return;
   }
   const tamanhoFatiaBase = Math.floor(totalRotas / TOTAL_WORKERS);
@@ -826,6 +857,23 @@ function recalcularFatiaDoWorker() {
   sessao.meuIndiceInicio = inicio;
   sessao.meuIndiceFim = fim;
   sessao.rotaIndiceAtual = Math.max(inicio, Math.min(fim, CONFIG.startIndex));
+
+  // Distribui as rotas intercaladas entre as máquinas para equilibrar categorias grandes (ex: Mercearia Inteira 170 págs)
+  if (TOTAL_WORKERS > 1 && CONFIG.startIndex <= 0) {
+    const intercalados = [];
+    for (let idx = 0; idx < totalRotas; idx++) {
+      if ((idx % TOTAL_WORKERS) === (WORKER_ID - 1)) {
+        intercalados.push(idx);
+      }
+    }
+    sessao.minhasRotasIndices = intercalados;
+  } else {
+    const contiguos = [];
+    for (let idx = Math.max(inicio, CONFIG.startIndex); idx <= fim; idx++) {
+      contiguos.push(idx);
+    }
+    sessao.minhasRotasIndices = contiguos;
+  }
 }
 
 // =========================================================================
@@ -1380,9 +1428,9 @@ async function executarRoboCloud() {
       const headersReq = req.headers();
       const tkSearch = headersReq["x-osuper-search-token"];
       const tkId = headersReq["x-osuper-identity-token"];
-      const tk = EH_FORT ? (tkSearch || tkId) : (tkId || tkSearch);
+      const tk = tkSearch || tkId;
       if (tk && tk !== tokenCapturado) {
-        if (!EH_FORT || tk.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`)) {
+        if (tk.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tk.startsWith("v1.")) {
           tokenCapturado = tk;
         }
       }
@@ -1407,6 +1455,7 @@ async function executarRoboCloud() {
       registrarLog("OK", "Sessão", `${motivoRenovacao} — Sincronizando sessão da loja ${LOJA_ID} (${MERCADO_NOME})...`);
 
       // 1. Coleta rápida do token via HTML da loja (com cookie oficial st_295 ou st_334)
+      // Tanto SuperKoch (295/1408) quanto Fort Atacadista (334/1644) usam searchEngineToken (v1.<CONTA>.<LOJA>...)
       try {
         const resHome = await fetch(SITE_URL, {
           headers: {
@@ -1422,10 +1471,12 @@ async function executarRoboCloud() {
           const mEngine = html.match(/"searchEngineToken"\s*:\s*"([^"]+)"/);
           const mIdentity = html.match(/"searchIdentityToken"\s*:\s*"([^"]+)"/);
 
-          if (EH_FORT && mEngine && mEngine[1] && mEngine[1].startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`)) {
+          if (mEngine && mEngine[1] && mEngine[1].startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`)) {
             tokenCapturado = mEngine[1];
-            registrarLog("OK", "Token", `Token Fort Loja ${LOJA_ID} obtido: ${tokenCapturado.slice(0, 26)}...`);
-          } else if (!EH_FORT && mIdentity && mIdentity[1]) {
+            registrarLog("OK", "Token", `Token ${EH_FORT ? "Fort" : "Koch"} Loja ${LOJA_ID} obtido: ${tokenCapturado.slice(0, 26)}...`);
+          } else if (mEngine && mEngine[1]) {
+            tokenCapturado = mEngine[1];
+          } else if (mIdentity && mIdentity[1]) {
             tokenCapturado = mIdentity[1];
           }
         }
@@ -1435,28 +1486,24 @@ async function executarRoboCloud() {
       await garantirNavegadorFallback();
       const urlAlvo = urlNavegacao || SITE_URL;
       await page.goto(urlAlvo, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
-      await dormirHumano(2200);
+      await dormirHumano(1600);
 
-      const tkEval = await page.evaluate(async (ehFort) => {
+      const tkEval = await page.evaluate(async () => {
         try {
-          if (ehFort) {
-            return window.INITIAL_STATE?.app?.searchEngineToken || "";
-          } else {
-            return window.INITIAL_STATE?.auth?.searchIdentityToken || "";
-          }
+          return window.INITIAL_STATE?.app?.searchEngineToken || window.INITIAL_STATE?.auth?.searchIdentityToken || "";
         } catch {
           return "";
         }
-      }, EH_FORT);
+      });
 
-      if (tkEval && (!EH_FORT || tkEval.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`))) {
+      if (tkEval && (tkEval.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tokenCapturado)) {
         tokenCapturado = tkEval;
-        registrarLog("OK", "Token", `Sessão do navegador sincronizada (${EH_FORT ? "X-Osuper-Search-Token" : "Sessão Koch 1408"}).`);
+        registrarLog("OK", "Token", `Sessão do navegador sincronizada (X-Osuper-Search-Token Loja ${LOJA_ID}).`);
       }
 
       // Simula leve rolagem inicial para aquecer listeners da página
       await page.evaluate(() => window.scrollBy(0, 350)).catch(() => {});
-      await dormirHumano(800);
+      await dormirHumano(600);
     } catch (e) {
       registrarLog("AVISO", "Token", `Oscilação ao sincronizar sessão: ${e.message}`);
     }
@@ -1484,7 +1531,7 @@ async function executarRoboCloud() {
       "-H", "Sec-Fetch-Site: same-site"
     ];
     if (tokenCapturado) {
-      args.push("-H", `${HEADER_TOKEN_NAME}: ${tokenCapturado}`);
+      args.push("-H", `x-osuper-search-token: ${tokenCapturado}`);
     }
     args.push(url);
 
@@ -1510,12 +1557,12 @@ async function executarRoboCloud() {
   async function executarMotorPlaywrightEval(url) {
     try {
       await garantirNavegadorFallback();
-      const res = await page.evaluate(async ({ targetUrl, tk, headerName, ehFort }) => {
+      const res = await page.evaluate(async ({ targetUrl, tk }) => {
         try {
           const h = { accept: "application/json, text/plain, */*" };
-          const tokenEfetivo = tk || (ehFort ? window.INITIAL_STATE?.app?.searchEngineToken : window.INITIAL_STATE?.auth?.searchIdentityToken) || "";
+          const tokenEfetivo = tk || window.INITIAL_STATE?.app?.searchEngineToken || window.INITIAL_STATE?.auth?.searchIdentityToken || "";
           if (tokenEfetivo) {
-            h[headerName] = tokenEfetivo;
+            h["x-osuper-search-token"] = tokenEfetivo;
           }
           const r = await fetch(targetUrl, { method: "GET", headers: h, mode: "cors", credentials: "omit" });
           if (!r.ok) return { ok: false, status: r.status, error: `HTTP ${r.status}` };
@@ -1524,7 +1571,7 @@ async function executarRoboCloud() {
         } catch (err) {
           return { ok: false, status: 0, error: err.message };
         }
-      }, { targetUrl: url, tk: tokenCapturado, headerName: HEADER_TOKEN_NAME, ehFort: EH_FORT });
+      }, { targetUrl: url, tk: tokenCapturado });
       return res || { ok: false, status: 0, error: "Eval vazio" };
     } catch (e) {
       return { ok: false, status: 0, error: e.message };
@@ -1633,16 +1680,14 @@ async function executarRoboCloud() {
       await dormirHumano(2500);
 
       // Atualiza o token a partir do estado ao vivo da página da categoria recém-aberta
-      const tkDaPagina = await page.evaluate((ehFort) => {
+      const tkDaPagina = await page.evaluate(() => {
         try {
-          return ehFort
-            ? (window.INITIAL_STATE?.app?.searchEngineToken || "")
-            : (window.INITIAL_STATE?.auth?.searchIdentityToken || "");
+          return window.INITIAL_STATE?.app?.searchEngineToken || window.INITIAL_STATE?.auth?.searchIdentityToken || "";
         } catch {
           return "";
         }
-      }, EH_FORT).catch(() => "");
-      if (tkDaPagina && (!EH_FORT || tkDaPagina.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`))) {
+      }).catch(() => "");
+      if (tkDaPagina && (tkDaPagina.startsWith(`v1.${CONTA_ID}.${LOJA_ID}.`) || !tokenCapturado)) {
         tokenCapturado = tkDaPagina;
       }
 
@@ -1756,14 +1801,17 @@ async function executarRoboCloud() {
   }
 
   // =======================================================================
-  // LAÇO PRINCIPAL: PRIORIZA CATEGORIAS INTEIRAS (DEPTOS + PROMO) E DEPOIS SUBS
+  // LAÇO PRINCIPAL: ROTAS BALANCEADAS ENTRE AS 10 MÁQUINAS
   // =======================================================================
   try {
-    // Monta a fila de índices desta máquina priorizando Promoções e Categorias Inteiras (depto) primeiro!
-    const indicesFatia = [];
-    for (let i = Math.max(sessao.meuIndiceInicio, sessao.rotaIndiceAtual); i <= sessao.meuIndiceFim; i++) {
-      indicesFatia.push(i);
-    }
+    const indicesFatia = Array.isArray(sessao.minhasRotasIndices) && sessao.minhasRotasIndices.length > 0
+      ? [...sessao.minhasRotasIndices]
+      : (() => {
+          const arr = [];
+          for (let i = Math.max(sessao.meuIndiceInicio, sessao.rotaIndiceAtual); i <= sessao.meuIndiceFim; i++) arr.push(i);
+          return arr;
+        })();
+
     const indicesPrioritarios = [
       ...indicesFatia.filter((idx) => {
         const t = ROTAS_ATIVAS[idx]?.tipo;
@@ -1782,7 +1830,7 @@ async function executarRoboCloud() {
       if (sessao.canceladoRemoto) break;
 
       if (sessao.irParaRotaIndice !== null && sessao.irParaRotaIndice >= 0) {
-        const alvo = Math.max(sessao.meuIndiceInicio, Math.min(sessao.meuIndiceFim, sessao.irParaRotaIndice));
+        const alvo = Math.max(0, Math.min(ROTAS_ATIVAS.length - 1, sessao.irParaRotaIndice));
         sessao.irParaRotaIndice = null;
         const posNaFila = indicesPrioritarios.indexOf(alvo);
         if (posNaFila !== -1) {
@@ -1806,15 +1854,14 @@ async function executarRoboCloud() {
       sessao.offsetAtual = 0;
 
       const rotulo = `Rota #${rIdx + 1}/${ROTAS_ATIVAS.length} • ${rota.nome}`;
-      registrarLog("OK", rotulo, `Acessando link direto da categoria e iniciando rolagem: ${rota.url}`);
+      registrarLog("OK", rotulo, `Iniciando coleta da categoria: ${rota.url}`);
 
-      // Abre o link direto da categoria no navegador Chromium e simula rolagem inicial humana
-      if (browserPronto && page && rota.url) {
+      // Só navega antes da Pág 1 se ainda não tiver token capturado (evita 140 carregamentos desnecessários de HTML)
+      if (!tokenCapturado && browserPronto && page && rota.url) {
         try {
           filaRespostasInterceptadas = [];
           await page.goto(rota.url, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
           await dormirHumano(900);
-          await page.evaluate(() => window.scrollBy({ top: 550, behavior: "smooth" })).catch(() => {});
         } catch {}
       }
 
@@ -1943,16 +1990,6 @@ async function executarRoboCloud() {
         await verificarAutoSaveInteligente(`${rota.nome} Pág ${pag}`, false);
         await enviarTelemetriaAoVivo(false);
 
-        // Simula rolagem contínua de página no navegador enquanto pagina os itens da categoria
-        if (browserPronto && page) {
-          await page.evaluate(() => {
-            window.scrollBy({ top: 650, behavior: "smooth" });
-            if ((window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100)) {
-              window.scrollTo({ top: 200, behavior: "smooth" });
-            }
-          }).catch(() => {});
-        }
-
         from += hits.length;
         pag++;
 
@@ -2035,9 +2072,11 @@ async function executarRoboCloud() {
       await dormirHumano(CONFIG.delayTrocaRotaMs);
     }
 
+    sessao.minhaFatiaConcluida = true;
+
     if (!SOU_MAESTRO) {
       sessao.status = "CONCLUIDO";
-      sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu sua fatia (#${sessao.meuIndiceInicio + 1} a #${sessao.meuIndiceFim + 1})!`;
+      sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu suas ${indicesPrioritarios.length} rotas!`;
       registrarLog("OK", "Fatia Concluída", sessao.mensagem);
       await publicarEstadoWorkerNoEnxame();
       return;
@@ -2045,9 +2084,9 @@ async function executarRoboCloud() {
 
     if (SOU_MAESTRO && TOTAL_WORKERS > 1) {
       registrarLog("OK", "Maestro do Enxame", `Máquina #1 concluiu sua fatia. Coordenando e salvando dados das demais máquinas do enxame...`);
-      for (let esperaCiclo = 0; esperaCiclo < 720 && !sessao.canceladoRemoto; esperaCiclo++) {
+      for (let esperaCiclo = 0; esperaCiclo < 180 && !sessao.canceladoRemoto; esperaCiclo++) {
         await aguardarSePausadoRemoto();
-        const enxame = await absorverEnxameNoMaestro();
+        const enxame = await absorverEnxameNoMaestro(true);
         await verificarAutoSaveInteligente("Sincronização do Enxame", false);
         sessao.mensagem = `⚡ Maestro sincronizando enxame (${enxame.maquinasAtivas} máquina(s) finalizando suas categorias)...`;
         await enviarTelemetriaAoVivo(true);
@@ -2060,7 +2099,7 @@ async function executarRoboCloud() {
     }
 
     await gravarComSegurancaNoFirebase("Extração 100% Concluída pelo Enxame");
-    const enxameFinal = await absorverEnxameNoMaestro();
+    const enxameFinal = await absorverEnxameNoMaestro(true);
     sessao.status = "CONCLUIDO";
     sessao.mensagem = `🎉 ${MERCADO_NOME} Concluído (${TOTAL_WORKERS} máq. | Modo ${CONFIG.modoFila})! ${mapaProdutos.size} produtos no banco (+${enxameFinal.novosGlobal} novos, 🔄 ${enxameFinal.precosGlobal} preços).`;
     registrarLog("OK", "Finalizado", sessao.mensagem);
@@ -2080,7 +2119,7 @@ async function executarRoboCloud() {
 }
 
 // =========================================================================
-// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT (ALTA COBERTURA)
+// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT (MÁXIMA COBERTURA)
 // =========================================================================
 const STOPWORDS = new Set([
   "de", "da", "do", "das", "dos", "com", "para", "em", "sem", "ao", "aos",
@@ -2088,30 +2127,62 @@ const STOPWORDS = new Set([
   "no", "na", "nos", "nas", "tipo", "sabor", "pacote", "pct", "pc", "unidade",
   "unid", "un", "cx", "caixa", "pote", "pt", "garrafa", "gf", "lata", "lt",
   "fardo", "fd", "sache", "sc", "bandeja", "bdj", "vidro", "vd", "pet", "tp",
-  "tetra", "pak", "embalagem", "emb", "oferta", "leve", "pague"
+  "tetra", "pak", "embalagem", "emb", "oferta", "leve", "pague", "especial", "extra"
+]);
+
+const MARCAS_NEUTRAS_GRANEL = new Set([
+  "generico", "outros", "sem marca", "importado", "horti fruti", "hortifruti",
+  "hortifruti koch", "fruta delivery fort", "delivery fort", "koch", "superkoch",
+  "super koch", "fort", "fort atacadista", "cookie", "biscoito",
+  "granjeiro", "in natura", "a granel", "granel", "producao propria", "marca propria",
+  "padaria", "acougue", "peixaria", "confeitaria", "rotisseria", "fiambreria", "nacional"
 ]);
 
 const ABREVIACOES_MAP = [
   [/\brefrig\.?\b|\brefri\b/g, "refrigerante"],
   [/\bcerv\.?\b/g, "cerveja"],
   [/\bchoc\.?\b/g, "chocolate"],
-  [/\bbisc\.?\b/g, "biscoito"],
+  [/\bbisc\.?\b|\bbolacha\b/g, "biscoito"],
   [/\bmac\.?\b/g, "macarrao"],
   [/\bmarg\.?\b/g, "margarina"],
-  [/\bdeterg\.?\b/g, "detergente"],
+  [/\breq\.?\b/g, "requeijao"],
+  [/\bdeterg\.?\b|\bdet\b/g, "detergente"],
   [/\bamac\.?\b/g, "amaciante"],
   [/\bdesinf\.?\b/g, "desinfetante"],
+  [/\balvej\.?\b/g, "alvejante"],
   [/\bdesod\.?\b/g, "desodorante"],
   [/\bcondic\.?\b|\bcond\.?\b/g, "condicionador"],
-  [/\bshamp\.?\b/g, "shampoo"],
+  [/\bshamp\.?\b|\bsh\b/g, "shampoo"],
+  [/\bsab\.?\b/g, "sabonete"],
   [/\bhig\.?\b/g, "higienico"],
+  [/\bpap\.?\b/g, "papel"],
+  [/\babsorv\.?\b/g, "absorvente"],
+  [/\bling\.?\b/g, "linguica"],
+  [/\bsals\.?\b/g, "salsicha"],
+  [/\bmort\.?\b/g, "mortadela"],
+  [/\bpres\.?\b/g, "presunto"],
+  [/\bmuss\.?\b|\bmucarela\b|\bmozarela\b/g, "mussarela"],
+  [/\bqueij\.?\b|\bqj\b/g, "queijo"],
+  [/\biog\.?\b/g, "iogurte"],
   [/\btrad\.?\b/g, "tradicional"],
   [/\borig\.?\b/g, "original"],
   [/\bdesn\.?\b/g, "desnatado"],
   [/\bsemidesn\.?\b/g, "semidesnatado"],
+  [/\bint\.?\b/g, "integral"],
+  [/\bligth\b/g, "light"],
+  [/\bmaisena\b/g, "maizena"],
+  [/\bcatchup\b|\bcatsup\b/g, "ketchup"],
+  [/\bchopp\b/g, "chope"],
+  [/\bsugar\s*free\b|\bpense\s+zero\b/g, "zero"],
+  [/\b(sem|zero|0)\s+(adicao\s+de\s+)?(acucar|acucares)\b/g, "zero"],
+  [/\b(sem|zero|0)\s+(de\s+)?(gordura|gorduras)\b/g, "zero"],
+  [/\b(sem|zero|0)\s+lactose\b|\blacfree\b|\bnolac\b|\bzerolac\b/g, "zero zerolactose"],
+  [/\bfronteira\b/g, "frontera"],
+  [/\brodabrill\b/g, "rodabril"],
   [/\bc\/\s*/g, "com "],
   [/\bs\/\s*/g, "sem "],
-  [/\b3\s+coracoes\b/g, "tres coracoes"]
+  [/\b3\s+coracoes\b/g, "tres coracoes"],
+  [/\bcoca[\s-]+cola\b/g, "coca cola"]
 ];
 
 const GRUPOS_CONFLITO_SABOR = [
@@ -2119,7 +2190,8 @@ const GRUPOS_CONFLITO_SABOR = [
   ["bovino", "bovina", "frango", "suino", "suina", "peixe", "tilapia", "salmao", "peru", "bacalhau"],
   ["integral", "desnatado", "semidesnatado"],
   ["carioca", "preto", "branco", "vermelho", "fradinho"],
-  ["parboilizado", "branco", "integral", "arboreo"]
+  ["parboilizado", "branco", "integral", "arboreo"],
+  ["tinto", "branco", "rose"]
 ];
 
 function normalizarTexto(str) {
@@ -2145,11 +2217,42 @@ function normalizarTextoVinculo(str) {
 
 function normalizarMarcaVinculo(marca) {
   const m = normalizarTextoVinculo(marca)
-    .replace(/\b(s\s*a|ltda|brasil|alimentos|industria|comercio|cia)\b/g, "")
+    .replace(/\b(s\s*a|ltda|brasil|alimentos|bebidas|laticinios|industria|comercio|cia|grupo)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!m || m === "generico" || m === "outros" || m === "sem marca" || m === "importado") return "";
+  if (!m || MARCAS_NEUTRAS_GRANEL.has(m)) return "";
   return m;
+}
+
+function marcasSaoCompativeis(marcaK, marcaF, nomeNormK, nomeNormF) {
+  if (!marcaK && !marcaF) return { compativel: true, confirmada: false };
+  if (marcaK && marcaF) {
+    if (marcaK === marcaF || marcaK.includes(marcaF) || marcaF.includes(marcaK)) {
+      return { compativel: true, confirmada: true };
+    }
+    const palavrasK = marcaK.split(" ").filter((w) => w.length >= 3);
+    const palavrasF = marcaF.split(" ").filter((w) => w.length >= 3);
+    if (palavrasK.some((w) => palavrasF.includes(w))) {
+      return { compativel: true, confirmada: true };
+    }
+    if (nomeNormF.includes(marcaK) || nomeNormK.includes(marcaF)) {
+      return { compativel: true, confirmada: true };
+    }
+    return { compativel: false, confirmada: false };
+  }
+  if (marcaK && !marcaF) {
+    if (nomeNormF.includes(marcaK) || marcaK.split(" ").some((w) => w.length >= 4 && nomeNormF.includes(w))) {
+      return { compativel: true, confirmada: true };
+    }
+    return { compativel: true, confirmada: false };
+  }
+  if (!marcaK && marcaF) {
+    if (nomeNormK.includes(marcaF) || marcaF.split(" ").some((w) => w.length >= 4 && nomeNormK.includes(w))) {
+      return { compativel: true, confirmada: true };
+    }
+    return { compativel: true, confirmada: false };
+  }
+  return { compativel: true, confirmada: false };
 }
 
 function extrairAssetHash(urlImg) {
@@ -2160,13 +2263,13 @@ function extrairAssetHash(urlImg) {
 
 function extrairGramatura(nome) {
   if (!nome) return null;
-  const n = normalizarTexto(nome);
-  const mPack = n.match(/(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|l|lt|ml)/i);
+  const n = normalizarTexto(nome).replace(/\bleve\s*(\d+(?:[.,]\d+)?)\s*(?:kg|g|gr|l|lt|ml)?\s*pague\s*\d+(?:[.,]\d+)?\s*(kg|g|gr|l|lt|ml)\b/gi, "$1$2");
+  const mPack = n.match(/(\d+)\s*(?:x|un|unid|unidades\s*de)\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml)\b/i);
   if (mPack) {
     const qtd = parseFloat(mPack[1]);
     const val = parseFloat(mPack[2].replace(",", "."));
     const un = mPack[3].toLowerCase();
-    const totalBase = un.startsWith("k") || un === "l" || un === "lt" ? val * 1000 : val;
+    const totalBase = un.startsWith("k") || un === "l" || un === "lt" || un.startsWith("lit") ? val * 1000 : val;
     return { valorNorm: Math.round(qtd * totalBase), unidade: un.includes("l") ? "ml" : "g", str: `${qtd}x${val}${un}` };
   }
   const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/i);
@@ -2178,10 +2281,10 @@ function extrairGramatura(nome) {
     }
     return { valorNorm: Math.round(val), unidade: un === "ml" ? "ml" : "g", str: `${val}${un}` };
   }
-  const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps|ovos)\b/i);
+  const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps|ovos|folhas)\b/i);
   if (mUn) {
     const val = parseInt(mUn[1], 10);
-    if (val > 1 && val <= 200) {
+    if (val > 1 && val <= 500) {
       return { valorNorm: val, unidade: "unid", str: `${val}un` };
     }
   }
@@ -2218,17 +2321,17 @@ function temConflitoVariante(nomeK, nomeF) {
 
 function extrairTokensNucleo(nome, marcaNorm) {
   const texto = normalizarTextoVinculo(nome)
-    .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|un|unid|unidades|rolos|rolo|m|cm|mm)\b/gi, " ");
+    .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|un|unid|unidades|rolos|rolo|folhas|m|cm|mm)\b/gi, " ");
   const marcaTokens = new Set((marcaNorm || "").split(/\s+/).filter((w) => w.length >= 3));
   const tokens = [];
   for (const w of texto.split(/\s+/)) {
-    if (w.length < 3) continue;
+    if (w.length < 2) continue;
     if (STOPWORDS.has(w)) continue;
     if (/^\d+$/.test(w)) continue;
     if (marcaTokens.has(w)) continue;
     tokens.push(w);
   }
-  return tokens;
+  return Array.from(new Set(tokens));
 }
 
 function calcularScoreCasamento(prodK, prodF) {
@@ -2240,14 +2343,14 @@ function calcularScoreCasamento(prodK, prodF) {
   }
 
   // 1. Gramatura / Medida (Eliminatória se ambos tiverem e forem diferentes)
-  const gramK = extrairGramatura(prodK.nome);
-  const gramF = extrairGramatura(prodF.nome);
+  const gramK = prodK._gramCache !== undefined ? prodK._gramCache : extrairGramatura(prodK.nome);
+  const gramF = prodF._gramCache !== undefined ? prodF._gramCache : extrairGramatura(prodF.nome);
 
   if (gramK && gramF) {
     if (gramK.unidade === gramF.unidade) {
-      const tol = Math.max(2, Math.round(Math.max(gramK.valorNorm, gramF.valorNorm) * 0.02));
+      const tol = Math.max(2, Math.round(Math.max(gramK.valorNorm, gramF.valorNorm) * 0.03));
       if (Math.abs(gramK.valorNorm - gramF.valorNorm) <= tol) {
-        score += 28;
+        score += 30;
         motivos.push(`Medida (${gramK.str})`);
       } else {
         return { score: 0, motivo: "Gramaturas incompatíveis" };
@@ -2259,52 +2362,42 @@ function calcularScoreCasamento(prodK, prodF) {
     const unK = String(prodK.unidade || "UN").toUpperCase();
     const unF = String(prodF.unidade || "UN").toUpperCase();
     if (unK === unF) {
-      score += unK === "KG" ? 22 : 14;
+      score += unK === "KG" ? 24 : 16;
     } else {
       return { score: 0, motivo: "Unidades de venda diferentes" };
     }
   } else {
-    score += 4;
+    score += 6;
   }
 
   // 2. Hash da Imagem no Catálogo OSuper
-  const hashK = extrairAssetHash(prodK.imagem);
-  const hashF = extrairAssetHash(prodF.imagem);
+  const hashK = prodK._hashCache !== undefined ? prodK._hashCache : extrairAssetHash(prodK.imagem);
+  const hashF = prodF._hashCache !== undefined ? prodF._hashCache : extrairAssetHash(prodF.imagem);
   if (hashK && hashF && hashK === hashF) {
-    score += 55;
+    score += 58;
     motivos.push("Foto OSuper idêntica");
   }
 
-  // 3. Marca (com detecção cruzada no nome do produto)
-  const marcaK = normalizarMarcaVinculo(prodK.marca);
-  const marcaF = normalizarMarcaVinculo(prodF.marca);
-  const nomeNormK = normalizarTextoVinculo(prodK.nome);
-  const nomeNormF = normalizarTextoVinculo(prodF.nome);
+  // 3. Marca (com detecção cruzada e suporte a marcas neutras/hortifruti/açougue)
+  const marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
+  const marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
+  const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
+  const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
 
-  if (marcaK && marcaF) {
-    if (
-      marcaK === marcaF ||
-      marcaK.includes(marcaF) ||
-      marcaF.includes(marcaK) ||
-      nomeNormF.includes(marcaK) ||
-      nomeNormK.includes(marcaF)
-    ) {
-      score += 22;
-      motivos.push(`Marca (${prodF.marca || prodK.marca})`);
-    } else {
-      score -= 28;
-    }
-  } else if (marcaK && nomeNormF.includes(marcaK)) {
-    score += 20;
-    motivos.push(`Marca no nome (${prodK.marca})`);
-  } else if (marcaF && nomeNormK.includes(marcaF)) {
-    score += 20;
-    motivos.push(`Marca no nome (${prodF.marca})`);
+  const infoMarca = marcasSaoCompativeis(marcaK, marcaF, nomeNormK, nomeNormF);
+  if (!infoMarca.compativel && (!hashK || hashK !== hashF)) {
+    return { score: 0, motivo: "Marcas diferentes" };
+  }
+  if (infoMarca.confirmada) {
+    score += 24;
+    motivos.push(`Marca (${prodF.marca || prodK.marca})`);
+  } else if (!marcaK && !marcaF) {
+    score += 12; // Itens in natura / granel / hortifruti / açougue
   }
 
   // 4. Tokens de Produto (Dice + Jaccard + Palavra-chave Principal)
-  const listK = extrairTokensNucleo(prodK.nome, marcaK || marcaF);
-  const listF = extrairTokensNucleo(prodF.nome, marcaF || marcaK);
+  const listK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, marcaK || marcaF);
+  const listF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, marcaF || marcaK);
   const tokensK = new Set(listK);
   const tokensF = new Set(listF);
 
@@ -2313,10 +2406,9 @@ function calcularScoreCasamento(prodK, prodF) {
     for (const tk of tokensK) {
       if (tokensF.has(tk)) {
         intersecao++;
-      } else if (tk.length >= 5) {
-        const rad = tk.slice(0, -1);
+      } else if (tk.length >= 4) {
         for (const tf of tokensF) {
-          if (tf.length >= 5 && (tf === rad || tf.slice(0, -1) === tk || tf.slice(0, -1) === rad)) {
+          if (tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) {
             intersecao += 0.85;
             break;
           }
@@ -2325,19 +2417,25 @@ function calcularScoreCasamento(prodK, prodF) {
     }
     const uniao = new Set([...tokensK, ...tokensF]).size;
     const jaccard = uniao > 0 ? intersecao / uniao : 0;
+    const minLen = Math.min(tokensK.size, tokensF.size);
+    const containment = minLen > 0 ? intersecao / minLen : 0;
     const dice = (tokensK.size + tokensF.size) > 0 ? (2 * intersecao) / (tokensK.size + tokensF.size) : 0;
-    const combinado = dice * 0.65 + jaccard * 0.35;
+    const combinado = dice * 0.45 + containment * 0.35 + jaccard * 0.20;
     const ptsTokens = Math.round(combinado * 42);
     score += ptsTokens;
 
-    if (listK[0] && listF[0] && (listK[0] === listF[0] || listK[0].slice(0, 5) === listF[0].slice(0, 5))) {
+    const mesmoTipoInicial = Boolean(listK[0] && listF[0] && (listK[0] === listF[0] || (listK[0].length >= 4 && listF[0].length >= 4 && listK[0].slice(0, 4) === listF[0].slice(0, 4))));
+    if (mesmoTipoInicial) {
       score += 10;
     } else if (intersecao === 0 && (!hashK || hashK !== hashF)) {
       return { score: 0, motivo: "Sem palavras em comum" };
     }
 
-    if (combinado >= 0.55) {
+    const minCombinado = (infoMarca.confirmada && gramK && gramF && mesmoTipoInicial) ? 0.22 : 0.38;
+    if (combinado >= 0.50) {
       motivos.push(`Similaridade (${Math.round(combinado * 100)}%)`);
+    } else if ((!hashK || hashK !== hashF) && combinado < minCombinado) {
+      return { score: 0, motivo: "Baixa similaridade de nome" };
     }
   }
 
@@ -2346,8 +2444,8 @@ function calcularScoreCasamento(prodK, prodF) {
   const pF = Number(prodF.preco || 0);
   if (pK > 0 && pF > 0) {
     const razao = Math.max(pK, pF) / Math.min(pK, pF);
-    if (razao > 3.1 && (!hashK || hashK !== hashF)) {
-      score -= 40;
+    if (razao > 2.85 && (!hashK || hashK !== hashF)) {
+      return { score: 0, motivo: "Discrepância extrema de preço" };
     } else if (razao <= 1.35) {
       score += 6;
     } else if (razao <= 1.65) {
@@ -2362,7 +2460,7 @@ function calcularScoreCasamento(prodK, prodF) {
 }
 
 export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE) {
-  console.log("🔗 Iniciando vinculação inteligente Koch × Fort...");
+  console.log("🔗 Iniciando vinculação inteligente de alta cobertura Koch × Fort...");
 
   let respKoch = null;
   let respFort = null;
@@ -2400,54 +2498,67 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
 
   const manuaisExistentes = { ...(dadosVinc?.manuais || {}) };
   const rejeitadosExistentes = { ...(dadosVinc?.rejeitados || {}) };
-  const vinculosPreviosMap = new Map();
+  const configVinculos = dadosVinc?.configVinculos || {
+    scoreMinimo: 52,
+    tolGramaturaPct: 3,
+    maxRatioPreco: 2.85,
+    exigirMarcaOuFoto: false,
+    autoVincularAoSincronizar: true
+  };
+  const scoreMinimoAceito = Math.max(48, Math.min(90, Number(configVinculos.scoreMinimo || 52)));
 
   if (dadosVinc && typeof dadosVinc === "object") {
     if (Array.isArray(dadosVinc.vinculos)) {
       for (const v of dadosVinc.vinculos) {
-        if (v && v.idKoch && v.idFort) {
-          const kId = String(v.idKoch);
-          const fId = String(v.idFort);
-          if (!rejeitadosExistentes[`${kId}__${fId}`]) {
-            vinculosPreviosMap.set(`${kId}_${fId}`, v);
-            if (v.manual) manuaisExistentes[kId] = fId;
-          }
+        if (v && v.idKoch && v.idFort && v.manual) {
+          manuaisExistentes[String(v.idKoch)] = String(v.idFort);
         }
       }
     }
     for (const [ch, v] of Object.entries(dadosVinc)) {
-      if (ch.startsWith("vinc_") && v && v.idKoch && v.idFort) {
-        const kId = String(v.idKoch);
-        const fId = String(v.idFort);
-        if (!rejeitadosExistentes[`${kId}__${fId}`]) {
-          vinculosPreviosMap.set(`${kId}_${fId}`, v);
-          if (v.manual) manuaisExistentes[kId] = fId;
-        }
+      if (ch.startsWith("vinc_") && v && v.idKoch && v.idFort && v.manual) {
+        manuaisExistentes[String(v.idKoch)] = String(v.idFort);
       }
     }
   }
 
   const mapaFortPorAsset = new Map();
   const mapaFortPorMarca = new Map();
+  const mapaFortPorMarcaPalavra = new Map();
   const mapaFortPorToken = new Map();
+  const mapaFortPorTokenEGram = new Map();
 
   for (const f of prodsFort) {
     if (!f || !f.id) continue;
-    const asset = extrairAssetHash(f.imagem);
-    if (asset) {
-      if (!mapaFortPorAsset.has(asset)) mapaFortPorAsset.set(asset, []);
-      mapaFortPorAsset.get(asset).push(f);
+    f._gramCache = extrairGramatura(f.nome);
+    f._hashCache = extrairAssetHash(f.imagem);
+    f._marcaVinc = normalizarMarcaVinculo(f.marca);
+    f._nomeVinc = normalizarTextoVinculo(f.nome);
+    f._tokensVinc = extrairTokensNucleo(f.nome, f._marcaVinc);
+
+    if (f._hashCache) {
+      if (!mapaFortPorAsset.has(f._hashCache)) mapaFortPorAsset.set(f._hashCache, []);
+      mapaFortPorAsset.get(f._hashCache).push(f);
     }
-    const marcaNorm = normalizarMarcaVinculo(f.marca);
-    if (marcaNorm && marcaNorm.length >= 2) {
-      if (!mapaFortPorMarca.has(marcaNorm)) mapaFortPorMarca.set(marcaNorm, []);
-      mapaFortPorMarca.get(marcaNorm).push(f);
+    if (f._marcaVinc && f._marcaVinc.length >= 2) {
+      if (!mapaFortPorMarca.has(f._marcaVinc)) mapaFortPorMarca.set(f._marcaVinc, []);
+      mapaFortPorMarca.get(f._marcaVinc).push(f);
+      for (const wMarca of f._marcaVinc.split(" ")) {
+        if (wMarca.length >= 3) {
+          if (!mapaFortPorMarcaPalavra.has(wMarca)) mapaFortPorMarcaPalavra.set(wMarca, []);
+          mapaFortPorMarcaPalavra.get(wMarca).push(f);
+        }
+      }
     }
-    const tokens = extrairTokensNucleo(f.nome, "");
-    for (let i = 0; i < Math.min(4, tokens.length); i++) {
-      const tk = tokens[i];
+    for (let i = 0; i < Math.min(5, f._tokensVinc.length); i++) {
+      const tk = f._tokensVinc[i];
       if (!mapaFortPorToken.has(tk)) mapaFortPorToken.set(tk, []);
       mapaFortPorToken.get(tk).push(f);
+      if (f._gramCache) {
+        const chGram = `${tk}_${f._gramCache.unidade}_${f._gramCache.valorNorm}`;
+        if (!mapaFortPorTokenEGram.has(chGram)) mapaFortPorTokenEGram.set(chGram, []);
+        mapaFortPorTokenEGram.get(chGram).push(f);
+      }
     }
   }
 
@@ -2461,6 +2572,7 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     const idK = String(objVinc.idKoch);
     const idF = String(objVinc.idFort);
     if (mapaKochParaFort[idK] || fortJaCasados.has(idF)) return;
+    if (rejeitadosExistentes[`${idK}__${idF}`]) return;
     mapaKochParaFort[idK] = idF;
     mapaFortParaKoch[idF] = idK;
     fortJaCasados.add(idF);
@@ -2486,11 +2598,7 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     });
   }
 
-  for (const v of vinculosPreviosMap.values()) {
-    registrarParVinculo(v);
-  }
-
-  // Coleta pares candidatos e ordena pelos maiores scores globais primeiro
+  // Coleta TODOS os pares candidatos válidos e ordena pelos maiores scores globais primeiro
   const paresCandidatos = [];
 
   for (const k of prodsKoch) {
@@ -2498,27 +2606,44 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     const idK = String(k.id);
     if (mapaKochParaFort[idK]) continue;
 
-    const assetK = extrairAssetHash(k.imagem);
-    const marcaK = normalizarMarcaVinculo(k.marca);
-    const tokensK = extrairTokensNucleo(k.nome, "");
+    k._gramCache = extrairGramatura(k.nome);
+    k._hashCache = extrairAssetHash(k.imagem);
+    k._marcaVinc = normalizarMarcaVinculo(k.marca);
+    k._nomeVinc = normalizarTextoVinculo(k.nome);
+    k._tokensVinc = extrairTokensNucleo(k.nome, k._marcaVinc);
 
     const candidatos = new Set();
-    if (assetK && mapaFortPorAsset.has(assetK)) {
-      for (const f of mapaFortPorAsset.get(assetK)) candidatos.add(f);
+    if (k._hashCache && mapaFortPorAsset.has(k._hashCache)) {
+      for (const f of mapaFortPorAsset.get(k._hashCache)) candidatos.add(f);
     }
-    if (marcaK && mapaFortPorMarca.has(marcaK)) {
-      for (const f of mapaFortPorMarca.get(marcaK)) candidatos.add(f);
+    if (k._marcaVinc) {
+      if (mapaFortPorMarca.has(k._marcaVinc)) {
+        for (const f of mapaFortPorMarca.get(k._marcaVinc)) candidatos.add(f);
+      }
+      for (const wMarca of k._marcaVinc.split(" ")) {
+        if (wMarca.length >= 3 && mapaFortPorMarcaPalavra.has(wMarca)) {
+          const arrM = mapaFortPorMarcaPalavra.get(wMarca);
+          if (arrM.length <= 450) {
+            for (const f of arrM) candidatos.add(f);
+          }
+        }
+      }
     }
-    for (let i = 0; i < Math.min(3, tokensK.length); i++) {
-      const listaTk = mapaFortPorToken.get(tokensK[i]);
-      if (listaTk && listaTk.length <= 250) {
+    if (k._gramCache) {
+      for (let i = 0; i < Math.min(4, k._tokensVinc.length); i++) {
+        const chGram = `${k._tokensVinc[i]}_${k._gramCache.unidade}_${k._gramCache.valorNorm}`;
+        const arrG = mapaFortPorTokenEGram.get(chGram);
+        if (arrG) {
+          for (const f of arrG) candidatos.add(f);
+        }
+      }
+    }
+    for (let i = 0; i < Math.min(4, k._tokensVinc.length); i++) {
+      const listaTk = mapaFortPorToken.get(k._tokensVinc[i]);
+      if (listaTk && (listaTk.length <= 700 || candidatos.size < 40)) {
         for (const f of listaTk) candidatos.add(f);
       }
     }
-
-    let melhorFort = null;
-    let melhorScore = 0;
-    let melhorMotivo = "";
 
     for (const f of candidatos) {
       const idF = String(f.id);
@@ -2526,20 +2651,14 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       if (rejeitadosExistentes[`${idK}__${idF}`]) continue;
 
       const res = calcularScoreCasamento(k, f);
-      if (res.score > melhorScore) {
-        melhorScore = res.score;
-        melhorFort = f;
-        melhorMotivo = res.motivo;
+      if (res.score >= scoreMinimoAceito) {
+        paresCandidatos.push({
+          idKoch: idK,
+          idFort: idF,
+          score: res.score,
+          motivo: res.motivo
+        });
       }
-    }
-
-    if (melhorScore >= 62 && melhorFort) {
-      paresCandidatos.push({
-        idKoch: idK,
-        idFort: String(melhorFort.id),
-        score: melhorScore,
-        motivo: melhorMotivo
-      });
     }
   }
 
@@ -2560,7 +2679,8 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     mapaKochParaFort,
     mapaFortParaKoch,
     manuais: manuaisExistentes,
-    rejeitados: rejeitadosExistentes
+    rejeitados: rejeitadosExistentes,
+    configVinculos
   };
 
   try {
