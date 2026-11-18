@@ -839,11 +839,19 @@ async function verificarComandosRemotos(forcar = false) {
     } else if (acao === "ATUALIZAR_FILA" && Array.isArray(cmd.rotas) && cmd.rotas.length > 0) {
       ROTAS_BASE_MODO = sincronizarIdsOficiaisNasRotas(cmd.rotas);
       recalcularFatiaDoWorker();
+
+  if (SOU_MAESTRO) {
+    await salvarPesosCategoriasNoFirebase(sessao.progressoRotas);
+  }
       registrarLog("OK", "Fila", `Fila atualizada remotamente pelo painel (${ROTAS_ATIVAS.length} tarefas/fatias).`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "RESETAR_FILA") {
       ROTAS_BASE_MODO = obterRotasFiltradasPorModo(CONFIG.modoFila);
       recalcularFatiaDoWorker();
+
+  if (SOU_MAESTRO) {
+    await salvarPesosCategoriasNoFirebase(sessao.progressoRotas);
+  }
       sessao.irParaRotaIndice = sessao.meuIndiceInicio;
       sessao.pularRotaAtual = true;
       sessao.progressoRotas = {};
@@ -1029,7 +1037,10 @@ async function salvarPesosCategoriasNoFirebase(progressoCombinado = sessao.progr
 
     const mapaPorPath = {};
     for (const item of rankingSecoes) {
-      mapaPorPath[item.pathReal] = item;
+      const chaveFbSegura = String(item.pathReal || "")
+        .replace(/^\/+/, "")
+        .replace(/[/.#$[\]]/g, "__") || "geral";
+      mapaPorPath[chaveFbSegura] = item;
     }
 
     const payloadPesos = {
@@ -1434,10 +1445,18 @@ async function carregarProtegerFirebaseInicial() {
     ]);
     if (rPesos && rPesos.ok) {
       const dPesos = await rPesos.json().catch(() => null);
+      if (Array.isArray(dPesos?.rankingSecoes)) {
+        for (const val of dPesos.rankingSecoes) {
+          if (val && val.pathReal && Number(val.totalItens) > 0) {
+            mapaPesosCategorias.set(String(val.pathReal).toLowerCase(), val);
+          }
+        }
+      }
       const mapaSalvo = dPesos?.mapaPorPath || {};
       for (const [k, val] of Object.entries(mapaSalvo)) {
         if (val && Number(val.totalItens) > 0) {
-          mapaPesosCategorias.set(String(k).toLowerCase(), val);
+          const chReal = String(val.pathReal || k.replace(/__/g, "/")).toLowerCase();
+          mapaPesosCategorias.set(chReal.startsWith("/") ? chReal : `/${chReal}`, val);
         }
       }
     }
@@ -1521,6 +1540,10 @@ async function carregarProtegerFirebaseInicial() {
   }
 
   recalcularFatiaDoWorker();
+
+  if (SOU_MAESTRO) {
+    await salvarPesosCategoriasNoFirebase(sessao.progressoRotas);
+  }
 
   if (EH_MODO_24H && WORKER_ID === 1) {
     registrarLog(
