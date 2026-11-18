@@ -340,9 +340,9 @@
               <div>
                 <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  <span>Disparo & Controle (10 Máquinas • Save 300 Add / 100 Salvos)</span>
+                  <span>Disparo & Controle (Adaptativo por Volume • Save 300 Add / 100 Salvos)</span>
                 </h4>
-                <p class="text-[11px] text-slate-400">Cronograma padrão: Básica 24h (contínua) • Avançada a cada 1h • Completa a cada 3h</p>
+                <p class="text-[11px] text-slate-400">Cronograma automático: 24h Sem Parar (1 máq • Mais Acessados & Promoções) • 3 em 3h Ampla (10 máqs) • 12 em 12h Completa Total (10 máqs)</p>
               </div>
               <div class="flex items-center gap-1.5">
                 <span id="feedbackComandoRemoto" class="text-[11px] font-mono text-sky-400 truncate"></span>
@@ -357,14 +357,15 @@
             <!-- Linha 1: Disparo na Nuvem GitHub Actions -->
             <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
               <select id="selDisparoMercado" class="sm:col-span-4 bg-[#06101f] border border-[#234876] text-slate-100 text-xs font-medium rounded-lg px-2.5 py-2">
-                <option value="ambos">Ambos os Mercados (10 Máqs)</option>
+                <option value="ambos">Ambos os Mercados (Paralelo)</option>
                 <option value="koch">Somente SuperKoch (1408)</option>
                 <option value="fort">Somente Fort Atacadista (1644)</option>
               </select>
               <select id="selDisparoCamada" class="sm:col-span-5 bg-[#06101f] border border-[#234876] text-slate-100 text-xs font-medium rounded-lg px-2.5 py-2">
-                <option value="24H">Pesquisa Contínua • 24 Horas (100% Catálogo de onde parou)</option>
-                <option value="2A" selected>Pesquisa Mediana • A cada 1 Hora (Departamentos Principais)</option>
-                <option value="COMPLETA">Pesquisa Completa • A cada 3 Horas (100% Catálogo + Vínculos)</option>
+                <option value="AUTO" selected>Ciclo Automático Inteligente (24h 1 Máq / 3h 10 Máq / 12h 10 Máq)</option>
+                <option value="24H">24 Horas Sem Parar • 1 Máq por Site (Mais Acessados & Promoções)</option>
+                <option value="2A">Busca Ampla • 3 em 3 Horas (10 Máqs por Site • Maioria do Site)</option>
+                <option value="COMPLETA">Varredura Completa • 12 em 12 Horas (10 Máqs por Site • 100% Total)</option>
                 <option value="RADAR">Varredura Rápida de Ofertas (Radar Promocional)</option>
               </select>
               <button onclick="acionarRoboNuvemGitHub()" class="sm:col-span-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 shadow transition">
@@ -782,7 +783,7 @@
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#1c355e]">
                 <div>
                   <h4 class="text-xs font-bold text-white uppercase tracking-wider">Parâmetros de Operação & Ciclos Automáticos</h4>
-                  <p class="text-[11px] text-slate-400 mt-0.5">24h Verificação Básica • A cada 1h Verificação Avançada • A cada 3h Verificação Completa • 10 Máquinas • Save 300/100</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">24h Sem Parar (1 Máq • Mais Acessados & Promoções) • 3 em 3h Busca Ampla (10 Máqs) • 12 em 12h Varredura Completa (10 Máqs)</p>
                 </div>
                 <div class="inline-flex items-center bg-[#06101f] p-0.5 rounded-lg border border-[#1c355e] text-xs">
                   <button onclick="selecionarMercadoConfigUI('fort')" id="btnConfigMercado-fort" class="px-2.5 py-1 rounded-md font-semibold bg-sky-500 text-slate-950 transition">Fort (1644)</button>
@@ -794,27 +795,27 @@
                 <div>
                   <label class="block text-[11px] text-slate-300 font-medium mb-1">Enxame de Máquinas (IPs)</label>
                   <select id="inpConfigTotalMaquinas" class="w-full bg-[#06101f] border border-[#234876] rounded-lg px-2.5 py-2 text-xs text-white font-medium">
-                    <option value="10" selected>10 Máquinas Simultâneas (Padrão)</option>
+                    <option value="10" selected>10 Máquinas Simultâneas (Padrão 3h / 12h)</option>
                     <option value="8">8 Máquinas Simultâneas</option>
                     <option value="5">5 Máquinas Simultâneas</option>
                     <option value="3">3 Máquinas Simultâneas</option>
-                    <option value="1">1 Máquina (1 IP)</option>
+                    <option value="1">1 Máquina (Padrão 24h Contínuo)</option>
                   </select>
                 </div>
 
                 <div>
                   <label class="block text-[11px] text-slate-300 font-medium mb-1">Padrão de Busca & Fila</label>
                   <select id="inpConfigModoFila" onchange="aoMudarModoFilaUI(this.value)" class="w-full bg-[#06101f] border border-[#234876] rounded-lg px-2.5 py-2 text-xs text-white font-medium">
-                    <option value="24H">Pesquisa Contínua • 24 Horas (100% Catálogo de onde parou)</option>
-                    <option value="2A" selected>Pesquisa Mediana • A cada 1 Hora (Departamentos Principais)</option>
-                    <option value="COMPLETA">Pesquisa Completa • A cada 3 Horas (100% Catálogo + Vínculos)</option>
+                    <option value="24H">24 Horas Sem Parar • 1 Máq (Mais Acessados & Promoções)</option>
+                    <option value="2A" selected>Busca Ampla • 3 em 3 Horas (10 Máqs • Maioria do Site)</option>
+                    <option value="COMPLETA">Varredura Completa • 12 em 12 Horas (10 Máqs • 100% Total)</option>
                     <option value="RADAR">Varredura Rápida de Ofertas (Radar Promocional)</option>
                     <option value="CUSTOM">Fila Personalizada</option>
                   </select>
                   <div class="flex items-center gap-1 pt-1.5 flex-wrap">
-                    <button type="button" onclick="aplicarPresetCamada('24H')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">Contínua (24h)</button>
-                    <button type="button" onclick="aplicarPresetCamada('2A')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">Mediana (1h)</button>
-                    <button type="button" onclick="aplicarPresetCamada('COMPLETA')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">Completa (3h)</button>
+                    <button type="button" onclick="aplicarPresetCamada('24H')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">24h Sem Parar (1 Máq)</button>
+                    <button type="button" onclick="aplicarPresetCamada('2A')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">Ampla 3h (10 Máqs)</button>
+                    <button type="button" onclick="aplicarPresetCamada('COMPLETA')" class="text-[10px] bg-[#112645] hover:bg-[#19355e] text-sky-200 px-2 py-0.5 rounded border border-[#234876]">Completa 12h (10 Máqs)</button>
                   </div>
                 </div>
 
@@ -1097,9 +1098,10 @@
 
               <div class="flex items-center justify-between gap-2">
                 <select id="selModoFilaRapido" onchange="aoMudarModoFilaUI(this.value)" class="w-full bg-[#06101f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-medium">
-                  <option value="RADAR">Verificação Básica (24 Horas): Ofertas & Categorias de Giro</option>
-                  <option value="2A" selected>Verificação Avançada (A cada 1h): Departamentos + Promoções</option>
-                  <option value="COMPLETA">Verificação Completa (A cada 3h): Todas as Categorias e Subcategorias</option>
+                  <option value="24H">24 Horas Sem Parar (1 Máq): Mais Acessados & Promoções</option>
+                  <option value="2A" selected>Busca Ampla (3 em 3h • 10 Máqs): Maioria do Site (Departamentos + Ofertas)</option>
+                  <option value="COMPLETA">Varredura Completa (12 em 12h • 10 Máqs): 100% Todas as Categorias e Subcategorias</option>
+                  <option value="RADAR">Radar Rápido de Ofertas</option>
                   <option value="CUSTOM">Fila Personalizada Manual</option>
                 </select>
               </div>
@@ -1700,10 +1702,11 @@
       }
       aoMudarModoFilaUI(camada);
       const nomes = {
-        '24H': 'Pesquisa Contínua (24 Horas • 100% dos Itens de Onde Parou • 1 Máq)',
+        AUTO: 'Ciclo Automático Inteligente (24h 1 Máq / 3h 10 Máqs / 12h 10 Máqs)',
+        '24H': '24 Horas Sem Parar (1 Máquina por Site • Mais Acessados & Promoções)',
         RADAR: 'Radar Promocional (Ofertas & Giro Rápido)',
-        '2A': 'Pesquisa Mediana (A cada 1 Hora • 10 Máquinas)',
-        COMPLETA: 'Pesquisa Completa (A cada 3 Horas • 10 Máquinas • Vínculos 100%)'
+        '2A': 'Busca Ampla (3 em 3 Horas • 10 Máquinas por Site • Maioria do Site)',
+        COMPLETA: 'Varredura Completa (12 em 12 Horas • 10 Máquinas por Site • 100% Categorias + Vínculos)'
       };
       mostrarToast(`Preset aplicado: ${nomes[camada] || camada}`);
     }
@@ -4085,8 +4088,15 @@
             })
           });
           if (resp.status === 204 || resp.ok) {
-            const rotuloCamada = camadaEscolhida === 'RADAR' ? 'Verificação Básica (24 Horas)' : (camadaEscolhida === 'COMPLETA' ? 'Verificação Completa (A cada 3h)' : 'Verificação Avançada (A cada 1h)');
-            alert(`[Disparo Nuvem]\nMercado: ${mercadoAlvo.toUpperCase()}\nModo: ${rotuloCamada}\nMáquinas: ${totalMaquinas}\nSalvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para AO VIVO.`);
+            const mapaRotulo = {
+              AUTO: 'Ciclo Automático Inteligente (24h / 3h / 12h)',
+              '24H': '24 Horas Sem Parar (1 Máq por Site • Mais Acessados & Promoções)',
+              '2A': 'Busca Ampla (3 em 3h • 10 Máquinas por Site)',
+              COMPLETA: 'Varredura Completa (12 em 12h • 10 Máquinas por Site)',
+              RADAR: 'Radar Rápido de Ofertas'
+            };
+            const rotuloCamada = mapaRotulo[camadaEscolhida] || camadaEscolhida;
+            alert(`[Disparo Nuvem]\nMercado: ${mercadoAlvo.toUpperCase()}\nModo: ${rotuloCamada}\nMáquinas: ${camadaEscolhida === 'AUTO' ? 'Automático (1 ou 10 por site)' : totalMaquinas}\nSalvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para AO VIVO.`);
             return;
           }
         } catch (e) {}

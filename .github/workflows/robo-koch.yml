@@ -13,9 +13,9 @@ on:
         required: false
         default: "10"
       modo_fila:
-        description: "⚡ Camada de Rastreamento (24H = Contínuo 100% de Onde Parou, 2A = Pesquisa Mediana 1h, COMPLETA = Pesquisa Completa 3h)"
+        description: "⚡ Camada de Rastreamento (AUTO = Ciclo Inteligente 24h/3h/12h, 24H = Contínuo 1 Máq Mais Acessados+Promo, 2A = Busca Ampla 3h 10 Máq, COMPLETA = Varredura Total 12h 10 Máq)"
         required: false
-        default: "2A"
+        default: "AUTO"
       tamanho_lote_size:
         description: "📦 Produtos por Requisição (20 = Teto Oficial OSuper p/ Koch e Fort • 12 = Furtivo)"
         required: false
@@ -45,21 +45,26 @@ on:
         required: false
         default: "false"
 
-  # 2. Execução contínua e inteligente sem estourar limites:
-  # - A cada 3 horas (00h, 03h, 06h, 09h, 12h, 15h, 18h, 21h UTC no minuto 00): Pesquisa Completa (10 máquinas) + Vinculação 100%
-  # - A cada 1 hora (demais horas no minuto 00): Pesquisa Mediana (10 máquinas nas categorias principais)
-  # - 24 horas contínua (no minuto 12 de cada hora): Roda de onde parou em loop contínuo de 100% dos itens (1 máquina leve, sem estourar cota)
+  # 2. Execução 100% automática e ininterrupta:
+  # - 24 horas sem parar: 1 máquina em cada site buscando os itens mais acessados e promoções
+  # - De 3 em 3 horas: 10 máquinas em cada site fazendo busca ampla na maioria do site (balanceadas por volume de itens)
+  # - De 12 em 12 horas: 10 máquinas em cada site fazendo varredura completa em todas as categorias total de todos os sites
   schedule:
-    - cron: "0 * * * *"
-    - cron: "12 * * * *"
+    - cron: "7,22,37,52 * * * *"
 
-# Gerenciamento de Prioridade: Se uma operação customizada for disparada, cancela suavemente a em andamento e roda a sua!
+permissions:
+  actions: write
+  contents: read
+
+# Gerenciamento Inteligente de Concorrência:
+# - Disparo manual customizado pelo painel cancela a operação em andamento e assume prioridade imediata.
+# - Agendamentos automáticos (schedule / AUTO) NUNCA cancelam uma operação em andamento (entram em fila limpa).
 concurrency:
   group: robo-mercaro-swarm
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.modo_fila != 'AUTO' && github.event.inputs.modo_fila != '' }}
 
 jobs:
-  # Etapa 1: Prepara a lista de máquinas do enxame (Padrão: 10 servidores com IPs independentes)
+  # Etapa 1: Orquestrador Automático de Ciclos (24h Contínuo 1 Máq • 3h Ampla 10 Máq • 12h Completa 10 Máq)
   preparar-enxame:
     runs-on: ubuntu-latest
     outputs:
@@ -69,30 +74,53 @@ jobs:
       mercado_escolhido: ${{ steps.calc.outputs.mercado_escolhido }}
       modo_camada: ${{ steps.calc.outputs.modo_camada }}
     steps:
-      - name: 🧮 Definir parâmetros do Enxame e Camada
+      - name: 🧮 Definir parâmetros do Enxame e Camada (24h / 3h / 12h)
         id: calc
+        env:
+          FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            HORA_UTC=$((10#$(date -u +%H)))
-            MIN_UTC=$((10#$(date -u +%M)))
-            if [ "$MIN_UTC" -ge 10 ] && [ "$MIN_UTC" -le 52 ]; then
-              # Pesquisa 24h contínua: 1 máquina leve por mercado, varre 100% dos itens de onde parou sem estourar cota
-              MODO_CAMADA="24H"
-              RAW_N="1"
-            elif [ $((HORA_UTC % 3)) -eq 0 ]; then
-              # A cada 3 horas: Pesquisa Completa com 10 máquinas no enxame + Vinculação automática
-              MODO_CAMADA="COMPLETA"
-              RAW_N="10"
-            else
-              # A cada 1 hora: Pesquisa Mediana com 10 máquinas nas categorias principais
-              MODO_CAMADA="2A"
-              RAW_N="10"
-            fi
+          INPUT_MODO="${{ github.event.inputs.modo_fila || 'AUTO' }}"
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "$INPUT_MODO" = "AUTO" ]; then
+            DECISAO=$(node -e '
+              (async () => {
+                const base = process.env.FIREBASE_URL;
+                const sec = (process.env.FIREBASE_SECRET || "").trim();
+                const q = sec ? `?auth=${encodeURIComponent(sec)}` : "";
+                const agora = Date.now();
+                let u12 = 0, u3 = 0;
+                try {
+                  const r = await fetch(`${base}/robo_controle/agendamento_auto.json${q}`, { signal: AbortSignal.timeout(8000) });
+                  if (r.ok) {
+                    const d = await r.json();
+                    u12 = Number(d?.ultimaCompleta12hMs || 0);
+                    u3 = Number(d?.ultimaAmpla3hMs || 0);
+                  }
+                } catch {}
+                const diff12h = agora - u12;
+                const diff3h = agora - u3;
+                // A cada 12 horas (43.200s, tolerância 3 min): Varredura Completa Total com 10 máquinas por site
+                if (!u12 || diff12h >= (12 * 3600 - 180) * 1000) {
+                  console.log("COMPLETA|10");
+                } else if (!u3 || diff3h >= (3 * 3600 - 180) * 1000) {
+                  // A cada 3 horas (10.800s, tolerância 3 min): Busca Ampla na maioria do site com 10 máquinas por site
+                  console.log("2A|10");
+                } else {
+                  // 24 horas sem parar: 1 máquina em cada site buscando os itens mais acessados e promoções
+                  console.log("24H|1");
+                }
+              })();
+            ')
+            MODO_CAMADA=$(echo "$DECISAO" | cut -d'|' -f1)
+            RAW_N=$(echo "$DECISAO" | cut -d'|' -f2)
             MERCADO="ambos"
           else
-            # Operação customizada disparada pelo usuário: Prioridade Máxima
-            MODO_CAMADA="${{ github.event.inputs.modo_fila || '2A' }}"
+            # Operação customizada disparada manualmente pelo usuário
+            MODO_CAMADA="$INPUT_MODO"
             RAW_N="${{ github.event.inputs.total_maquinas || '10' }}"
+            if [ "$MODO_CAMADA" = "24H" ] && [ "${{ github.event.inputs.total_maquinas }}" = "" ]; then
+              RAW_N="1"
+            fi
             if [ -z "$RAW_N" ]; then
               RAW_N="10"
             fi
@@ -117,7 +145,7 @@ jobs:
     needs: preparar-enxame
     if: needs.preparar-enxame.outputs.mercado_escolhido != 'fort' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +178,7 @@ jobs:
           BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '20' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
-          START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
+          START_INDEX: ${{ github.event.inputs.rota_inicial || '' }}
           SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '300' }}
           SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '100' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
@@ -169,7 +197,7 @@ jobs:
     needs: preparar-enxame
     if: needs.preparar-enxame.outputs.mercado_escolhido != 'koch' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -202,7 +230,7 @@ jobs:
           BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '20' }}
           DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
           DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
-          START_INDEX: ${{ github.event.inputs.rota_inicial || '1' }}
+          START_INDEX: ${{ github.event.inputs.rota_inicial || '' }}
           SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '300' }}
           SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '100' }}
           DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
@@ -235,3 +263,70 @@ jobs:
           FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
           FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
         run: node scripts/extrator-cloud.mjs --vincular
+
+  # Etapa 4: Auto-Revezamento Contínuo 24/7 (Garante que o robô NUNCA pare entre os turnos de 24h, 3h e 12h)
+  auto-continuar:
+    needs: [preparar-enxame, extrator-koch, extrator-fort, vincular-produtos]
+    if: always() && !cancelled() && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Disparar Próximo Turno Automaticamente (24h Sem Parar / 3h Ampla / 12h Completa)
+        env:
+          FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_TOKEN_DEFAULT: ${{ secrets.GITHUB_TOKEN }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          node -e '
+            (async () => {
+              const base = process.env.FIREBASE_URL;
+              const sec = (process.env.FIREBASE_SECRET || "").trim();
+              const q = sec ? `?auth=${encodeURIComponent(sec)}` : "";
+              try {
+                const [rK, rF] = await Promise.all([
+                  fetch(`${base}/robo_controle/comandos.json${q}`).catch(() => null),
+                  fetch(`${base}/robo_controle/comandos_fort.json${q}`).catch(() => null)
+                ]);
+                const cK = rK && rK.ok ? await rK.json().catch(() => null) : null;
+                const cF = rF && rF.ok ? await rF.json().catch(() => null) : null;
+                const agora = Date.now();
+                const cancelK = cK && String(cK.acao || "").toUpperCase() === "CANCELAR" && (agora - Number(cK.timestamp || cK.id || 0)) < 10 * 60 * 1000;
+                const cancelF = cF && String(cF.acao || "").toUpperCase() === "CANCELAR" && (agora - Number(cF.timestamp || cF.id || 0)) < 10 * 60 * 1000;
+                if (cancelK || cancelF) {
+                  console.log("Parada manual recente detectada no painel. Aguardando retomada ou próximo ciclo.");
+                  return;
+                }
+              } catch {}
+
+              const tokens = [process.env.GH_PAT, process.env.GH_TOKEN_DEFAULT].map(t => (t || "").trim()).filter(Boolean);
+              for (const tk of tokens) {
+                try {
+                  const res = await fetch(`https://api.github.com/repos/${process.env.REPO_SLUG}/actions/workflows/robo-koch.yml/dispatches`, {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${tk}`,
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mercaro-Auto-Relay"
+                    },
+                    body: JSON.stringify({
+                      ref: "main",
+                      inputs: {
+                        mercado: "ambos",
+                        modo_fila: "AUTO"
+                      }
+                    })
+                  });
+                  if (res.status === 204 || res.ok) {
+                    console.log("✅ Próximo ciclo automático (24h / 3h / 12h) engatilhado com sucesso!");
+                    return;
+                  } else {
+                    console.log("Aviso ao disparar com token:", res.status);
+                  }
+                } catch (e) {
+                  console.log("Erro ao disparar:", e.message);
+                }
+              }
+            })();
+          '

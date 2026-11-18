@@ -380,27 +380,73 @@ export const ROTAS_DEPTOS_BALANCEADAS_FORT = [
 ];
 
 // =========================================================================
-// SELETOR UNIVERSAL DE CAMADAS (1 = RADAR, 2 = TURNO CATEGORIAS INTEIRAS, 3 = COMPLETA)
+// CAMADA 24H CONTÍNUA (1 MÁQUINA POR SITE): PROMOÇÕES + MAIS ACESSADOS DE CADA SEÇÃO
+// =========================================================================
+export const ROTAS_24H_KOCH = [
+  { url: "https://www.superkoch.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: null, depto: "Ofertas", hierarquia: "", nome: "Promoções & Ofertas Ativas (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "3654859", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "3655065", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/acougue", pathReal: "/categorias/acougue", tipo: "depto", id: "3886346", depto: "Açougue", hierarquia: "Açougue", nome: "Açougue (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/frios-laticinios", pathReal: "/categorias/frios-laticinios", tipo: "depto", id: "3655007", depto: "Frios & Laticínios", hierarquia: "Frios & Laticínios", nome: "Frios & Laticínios (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas", pathReal: "/categorias/bebidas", tipo: "depto", id: "3655269", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "3655331", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/higiene-beleza", pathReal: "/categorias/higiene-beleza", tipo: "depto", id: "3655290", depto: "Higiene & Beleza", hierarquia: "Higiene & Beleza", nome: "Higiene & Beleza (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "3655240", depto: "Limpeza", hierarquia: "Limpeza", nome: "Limpeza (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/padaria-confeitaria", pathReal: "/categorias/padaria-confeitaria", tipo: "depto", id: "3655473", depto: "Padaria & Confeitaria", hierarquia: "Padaria & Confeitaria", nome: "Padaria & Confeitaria (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "3655459", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/casa-utilidades", pathReal: "/categorias/casa-utilidades", tipo: "depto", id: "3995264", depto: "Casa & Utilidades", hierarquia: "Casa & Utilidades", nome: "Casa & Utilidades (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/alimentacao-especial", pathReal: "/categorias/alimentacao-especial", tipo: "depto", id: "3886378", depto: "Alimentação Especial", hierarquia: "Alimentação Especial", nome: "Alimentação Especial (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/pet-care", pathReal: "/categorias/pet-care", tipo: "depto", id: "3655503", depto: "Pet Care", hierarquia: "Pet Care", nome: "Pet Care (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/mundo-bebe", pathReal: "/categorias/mundo-bebe", tipo: "depto", id: "3655486", depto: "Mundo Bebê", hierarquia: "Mundo Bebê", nome: "Mundo Bebê (Mais Acessados)" },
+  { url: "https://www.superkoch.com.br/categorias/eletro", pathReal: "/categorias/eletro", tipo: "depto", id: "3655361", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Mais Acessados)" }
+];
+
+export const ROTAS_24H_FORT = [
+  { url: "https://www.fortatacadista.com.br/promocoes", pathReal: "/promocoes", tipo: "promocoes", id: "PROMO_FORT", depto: "Promoções", hierarquia: "", nome: "Promoções & Ofertas Ativas (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/mercearia", pathReal: "/categorias/mercearia", tipo: "depto", id: "1812721", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/hortifruti", pathReal: "/categorias/hortifruti", tipo: "depto", id: "1812709", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/carnes-e-aves", pathReal: "/categorias/carnes-e-aves", tipo: "depto", id: "1812708", depto: "Carnes e Aves", hierarquia: "Carnes e Aves", nome: "Carnes e Aves (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/laticinios-e-frios", pathReal: "/categorias/laticinios-e-frios", tipo: "depto", id: "1812720", depto: "Laticínios e Frios", hierarquia: "Laticínios e Frios", nome: "Laticínios e Frios (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/bebidas-nao-alcoolicas", pathReal: "/categorias/bebidas-nao-alcoolicas", tipo: "depto", id: "1812710", depto: "Bebidas não Alcoólicas", hierarquia: "Bebidas não Alcoólicas", nome: "Bebidas não Alcoólicas (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/bebidas-alcoolicas", pathReal: "/categorias/bebidas-alcoolicas", tipo: "depto", id: "1812716", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/higiene-e-beleza", pathReal: "/categorias/higiene-e-beleza", tipo: "depto", id: "1812714", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "Higiene e Beleza (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/limpeza", pathReal: "/categorias/limpeza", tipo: "depto", id: "1812719", depto: "Limpeza", hierarquia: "Limpeza", nome: "Limpeza (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/padaria-e-confeitaria", pathReal: "/categorias/padaria-e-confeitaria", tipo: "depto", id: "1812712", depto: "Padaria e Confeitaria", hierarquia: "Padaria e Confeitaria", nome: "Padaria e Confeitaria (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/congelados", pathReal: "/categorias/congelados", tipo: "depto", id: "1812718", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/bazar-e-utilidades", pathReal: "/categorias/bazar-e-utilidades", tipo: "depto", id: "1812715", depto: "Bazar e Utilidades", hierarquia: "Bazar e Utilidades", nome: "Bazar e Utilidades (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/petshop", pathReal: "/categorias/petshop", tipo: "depto", id: "1812713", depto: "Petshop", hierarquia: "Petshop", nome: "Petshop (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/infantil", pathReal: "/categorias/infantil", tipo: "depto", id: "1812717", depto: "Infantil", hierarquia: "Infantil", nome: "Infantil (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/peixes-e-frutos-do-mar", pathReal: "/categorias/peixes-e-frutos-do-mar", tipo: "depto", id: "1812707", depto: "Peixes e Frutos do Mar", hierarquia: "Peixes e Frutos do Mar", nome: "Peixes e Frutos do Mar (Mais Acessados)" },
+  { url: "https://www.fortatacadista.com.br/categorias/suplementos-esportivos", pathReal: "/categorias/suplementos-esportivos", tipo: "depto", id: "5180817", depto: "Suplementos Esportivos", hierarquia: "Suplementos Esportivos", nome: "Suplementos Esportivos (Mais Acessados)" }
+];
+
+// =========================================================================
+// SELETOR UNIVERSAL DE CAMADAS:
+// - 24H / RADAR (Contínuo 1 Máquina): Promoções + Itens Mais Acessados de cada seção
+// - 2A / 3H (A cada 3 Horas • 10 Máquinas): Busca Ampla na maioria do site (Departamentos + Promoções)
+// - COMPLETA / 12H (A cada 12 Horas • 10 Máquinas): Varredura Completa em TODAS as categorias e subcategorias
 // =========================================================================
 export function obterRotasPorCamada(mercado = "koch", camada = "2A", filaCustom = null) {
   const c = String(camada || "2A").toUpperCase();
   const ehFort = mercado === "fort" || mercado === "fortatacadista";
 
   if (c === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
-    return filaCustom;
+    return filaCustom.map((r) => ({ ...r }));
   }
 
-  // Camada 1: RADAR (Promoções + Categorias Inteiras Principais)
-  if (c === "RADAR" || c === "1" || c === "1A" || c === "OFERTAS") {
-    return ehFort ? ROTAS_RADAR_FORT : ROTAS_RADAR_KOCH;
+  // Camada 1: 24H Contínua / Radar (1 máquina em cada site buscando os itens mais acessados e promoções sem parar)
+  if (c === "24H" || c === "CONTINUO" || c === "CONTINUO_24H" || c === "RADAR" || c === "1" || c === "1A" || c === "OFERTAS") {
+    return (ehFort ? ROTAS_24H_FORT : ROTAS_24H_KOCH).map((r) => ({ ...r }));
   }
 
-  // Camada 2 (TURNO / 2A / 2B / DEPTOS / MEDIA): As 16 Categorias Inteiras Diretas + Promoções (Pesquisa Mediana de 1h)
-  if (c === "2A" || c === "TURNO" || c === "2B" || c === "DEPTOS" || c === "MEDIA" || c === "MEDIANA") {
-    return ehFort ? [...ROTAS_DEPTOS_BALANCEADAS_FORT] : [...ROTAS_DEPTOS_BALANCEADAS_KOCH];
+  // Camada 2 (2A / 3H / AMPLA / TURNO / DEPTOS): Busca Ampla de 3 em 3 horas com 10 máquinas em cada site
+  if (c === "2A" || c === "3H" || c === "AMPLA" || c === "TURNO" || c === "2B" || c === "DEPTOS" || c === "MEDIA" || c === "MEDIANA") {
+    return (ehFort ? ROTAS_DEPTOS_BALANCEADAS_FORT : ROTAS_DEPTOS_BALANCEADAS_KOCH).map((r) => ({ ...r }));
   }
 
-  // Camada 3 (COMPLETA) ou Modo 24H (Varredura Contínua de 100% dos Itens de onde parou)
-  const listaBase = ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
-  return [...listaBase];
+  // Camada 3 (COMPLETA / 12H): Varredura Completa de 12 em 12 horas em TODAS as categorias e subcategorias com 10 máquinas
+  const listaBase = (ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH).map((r) => ({ ...r }));
+  const promos = listaBase.filter((r) => r.tipo === "promocoes" || r.tipo === "promocao");
+  const demais = listaBase.filter((r) => r.tipo !== "promocoes" && r.tipo !== "promocao");
+  return [...promos, ...demais];
 }

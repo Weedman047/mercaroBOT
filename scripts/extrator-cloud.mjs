@@ -35,6 +35,8 @@ const FIREBASE_TELEMETRIA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/t
 const FIREBASE_COMANDOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/comandos_fort.json` : `${FIREBASE_BASE}/robo_controle/comandos.json`;
 const FIREBASE_FILA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/fila_custom_fort.json` : `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
 const FIREBASE_ENXAME_BASE = EH_FORT ? `${FIREBASE_BASE}/robo_controle/enxame_fort` : `${FIREBASE_BASE}/robo_controle/enxame_koch`;
+const FIREBASE_PESOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/pesos_categorias_fort.json` : `${FIREBASE_BASE}/robo_controle/pesos_categorias_koch.json`;
+const FIREBASE_AGENDAMENTO_ENDPOINT = `${FIREBASE_BASE}/robo_controle/agendamento_auto.json`;
 const FIREBASE_VINCULOS_ENDPOINT = `${FIREBASE_BASE}/vinculos_produtos.json`;
 
 // Identificação desta Máquina no Enxame (1 a 10 Máquinas com IPs diferentes)
@@ -146,45 +148,69 @@ async function sincronizarArvoreCategoriasGraphQL(rotas = []) {
     if (!Array.isArray(deptos) || deptos.length === 0) return false;
 
     const mapaGqlPorPath = new Map();
+    const listaGqlCompleta = [];
     for (const d of deptos) {
       if (!d || !d.slug || !d.id) continue;
       const dName = String(d.name || "").trim();
       const dSlug = String(d.slug || "").trim().toLowerCase();
       const pathDepto = `/categorias/${dSlug}`;
-      mapaGqlPorPath.set(pathDepto, {
+      const objDepto = {
         id: String(d.id),
+        tipo: "depto",
         depto: dName,
         hierarquia: dName,
+        nome: `${dName} (Categoria Inteira)`,
         url: `${SITE_URL}${pathDepto}`,
         pathReal: pathDepto
-      });
+      };
+      mapaGqlPorPath.set(pathDepto, objDepto);
+      listaGqlCompleta.push(objDepto);
       if (Array.isArray(d.children)) {
         for (const s of d.children) {
           if (!s || !s.slug || !s.id) continue;
           const sName = String(s.name || "").trim();
           const sSlug = String(s.slug || "").trim().toLowerCase();
           const pathSub = `/categorias/${dSlug}/${sSlug}`;
-          mapaGqlPorPath.set(pathSub, {
+          const objSub = {
             id: String(s.id),
+            tipo: "sub",
             depto: dName,
             hierarquia: `${dName} > ${sName}`,
+            nome: `${dName} > ${sName}`,
             url: `${SITE_URL}${pathSub}`,
             pathReal: pathSub
-          });
+          };
+          mapaGqlPorPath.set(pathSub, objSub);
+          listaGqlCompleta.push(objSub);
         }
       }
     }
 
+    const pathsExistentes = new Set();
     let atualizadas = 0;
     for (const r of rotas) {
       if (!r || !r.pathReal) continue;
-      const info = mapaGqlPorPath.get(String(r.pathReal).toLowerCase());
+      const pLow = String(r.pathReal).toLowerCase();
+      pathsExistentes.add(pLow);
+      const info = mapaGqlPorPath.get(pLow);
       if (info) {
         r.id = info.id;
         r.depto = info.depto;
         r.hierarquia = info.hierarquia;
         r.url = info.url;
         atualizadas++;
+      }
+    }
+
+    // No modo COMPLETA (12h), incorpora automaticamente eventuais categorias/subcategorias novas criadas pelo site
+    const modoUp = String(CONFIG.modoFila || "").toUpperCase();
+    if (modoUp === "COMPLETA" || modoUp === "12H" || modoUp === "3") {
+      for (const itemGql of listaGqlCompleta) {
+        if (!pathsExistentes.has(itemGql.pathReal)) {
+          rotas.push({ ...itemGql });
+          pathsExistentes.add(itemGql.pathReal);
+          atualizadas++;
+        }
       }
     }
     return atualizadas > 0;
@@ -194,14 +220,16 @@ async function sincronizarArvoreCategoriasGraphQL(rotas = []) {
 }
 
 // =========================================================================
-// SELETOR DINÂMICO DE FILAS POR CAMADA (1 = RADAR, 2 = TURNO 2A, 3 = COMPLETA)
+// SELETOR DINÂMICO DE FILAS POR CAMADA (24H = MAIS ACESSADOS/PROMO, 2A = 3H AMPLA, COMPLETA = 12H TOTAL)
 // =========================================================================
 function obterRotasFiltradasPorModo(modo, filaCustom = null) {
   const selecionadas = obterRotasPorCamada(MERCADO_ALVO, modo, filaCustom);
   return sincronizarIdsOficiaisNasRotas(selecionadas);
 }
 
-let ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
+let ROTAS_BASE_MODO = obterRotasFiltradasPorModo(CONFIG.modoFila);
+let ROTAS_ATIVAS = [...ROTAS_BASE_MODO];
+const mapaPesosCategorias = new Map();
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const dormirHumano = (baseMs) => {
@@ -241,8 +269,9 @@ const sessao = {
   totalWorkers: TOTAL_WORKERS,
   origem: TOTAL_WORKERS > 1
     ? `Enxame ${MERCADO_NOME} (${TOTAL_WORKERS} Máquinas Paralelas • Modo ${CONFIG.modoFila})`
-    : `${MERCADO_NOME} (Nuvem V10 • Modo ${CONFIG.modoFila})`,
+    : `${MERCADO_NOME} (Contínuo 24h • Modo ${CONFIG.modoFila})`,
   iniciadoEm: new Date().toISOString(),
+  iniciadoEmMs: Date.now(),
   tempoInicioMs: Date.now(),
   status: "INICIANDO",
   mensagem: `Carregando e protegendo banco inicial de ${MERCADO_NOME}...`,
@@ -256,6 +285,9 @@ const sessao = {
   paginaAtual: 1,
   totalPaginasEstimadoRota: 1,
   offsetAtual: 0,
+  offsetRetomada24h: 0,
+  pagRetomada24h: 1,
+  pathRetomada24h: "",
   totalInicialFirebase: 0,
   totalAtualNoBanco: 0,
   totalLidosNaSessao: 0,
@@ -284,7 +316,14 @@ const sessao = {
   ultimoComandoIdProcessado: 0,
   indiceProxyAtual: 0,
   minhaFatiaConcluida: false,
-  minhasRotasIndices: []
+  minhasRotasIndices: [],
+  minhaCargaEstimadaItens: 0,
+  resumoDistribuicaoPlanejada: [],
+  agendamentoAuto: {
+    ultimaCompleta12hMs: 0,
+    ultimaAmpla3hMs: 0,
+    ultimoCiclo24hMs: 0
+  }
 };
 
 function registrarLog(tipo, contexto, mensagem, detalhe = "") {
@@ -698,7 +737,11 @@ async function enviarTelemetriaAoVivo(forcar = false) {
     enxameAtivo: {
       totalMaquinas: TOTAL_WORKERS,
       maquinasAtivas: enxame.maquinasAtivas,
-      resumoMaquinas: enxame.resumoMaquinas
+      resumoMaquinas: enxame.resumoMaquinas,
+      distribuicaoPlanejada: sessao.resumoDistribuicaoPlanejada || [],
+      secoesMaisItensTop15: Array.from(mapaPesosCategorias.values())
+        .sort((a, b) => Number(b.totalItens || 0) - Number(a.totalItens || 0))
+        .slice(0, 15)
     },
     configAtiva: {
       totalMaquinas: TOTAL_WORKERS,
@@ -794,19 +837,17 @@ async function verificarComandosRemotos(forcar = false) {
       sessao.mensagem = `🎯 Indo para categoria #${cmd.rotaNumero} (${ROTAS_ATIVAS[sessao.irParaRotaIndice]?.nome})...`;
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "ATUALIZAR_FILA" && Array.isArray(cmd.rotas) && cmd.rotas.length > 0) {
-      ROTAS_ATIVAS = cmd.rotas;
-      sessao.rotaTotal = ROTAS_ATIVAS.length;
+      ROTAS_BASE_MODO = sincronizarIdsOficiaisNasRotas(cmd.rotas);
       recalcularFatiaDoWorker();
-      registrarLog("OK", "Fila", `Fila atualizada remotamente pelo painel (${ROTAS_ATIVAS.length} categorias).`);
+      registrarLog("OK", "Fila", `Fila atualizada remotamente pelo painel (${ROTAS_ATIVAS.length} tarefas/fatias).`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "RESETAR_FILA") {
-      ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila);
-      sessao.rotaTotal = ROTAS_ATIVAS.length;
+      ROTAS_BASE_MODO = obterRotasFiltradasPorModo(CONFIG.modoFila);
       recalcularFatiaDoWorker();
       sessao.irParaRotaIndice = sessao.meuIndiceInicio;
       sessao.pularRotaAtual = true;
       sessao.progressoRotas = {};
-      registrarLog("OK", "Fila", `Fila restaurada (${ROTAS_ATIVAS.length} categorias no modo ${CONFIG.modoFila}).`);
+      registrarLog("OK", "Fila", `Fila restaurada (${ROTAS_ATIVAS.length} tarefas/fatias no modo ${CONFIG.modoFila}).`);
       await enviarTelemetriaAoVivo(true);
     } else if (acao === "CANCELAR") {
       sessao.canceladoRemoto = true;
@@ -855,16 +896,235 @@ async function persistirTokenFirebase(tk) {
   } catch {}
 }
 
-async function salvarCursor24hRemoto(rIdx, offset = 0) {
+// =========================================================================
+// INTELIGÊNCIA ADAPTATIVA DE PESOS POR SEÇÃO E DISTRIBUIÇÃO MULTI-MÁQUINAS
+// =========================================================================
+function chaveCategoriaRota(rota) {
+  if (!rota) return "";
+  if (rota.tipo === "promocoes" || rota.tipo === "promocao" || String(rota.pathReal || "").toLowerCase() === "/promocoes") {
+    return "/promocoes";
+  }
+  if (rota.pathReal) return String(rota.pathReal).toLowerCase().trim();
+  if (rota.url) {
+    try {
+      const u = new URL(rota.url);
+      if (u.pathname) return u.pathname.toLowerCase().trim();
+    } catch {}
+  }
+  return String(rota.nomeBase || rota.nome || "").toLowerCase().trim();
+}
+
+function popularPesosIniciaisPeloCatalogo() {
+  if (mapaProdutos.size === 0) return;
+  let totalPromos = 0;
+  const contagemPorDepto = new Map();
+  const contagemPorCat = new Map();
+
+  for (const p of mapaProdutos.values()) {
+    if (!p) continue;
+    if (p.emPromocao || (Number(p.precoOriginal) > Number(p.preco) && Number(p.preco) > 0)) {
+      totalPromos++;
+    }
+    if (Array.isArray(p.categorias)) {
+      const vistosDepto = new Set();
+      for (const c of p.categorias) {
+        const cStr = String(c || "").trim();
+        if (!cStr) continue;
+        const cLow = cStr.toLowerCase();
+        contagemPorCat.set(cLow, (contagemPorCat.get(cLow) || 0) + 1);
+        const raiz = cLow.split(">")[0].trim();
+        if (raiz && !vistosDepto.has(raiz)) {
+          vistosDepto.add(raiz);
+          contagemPorDepto.set(raiz, (contagemPorDepto.get(raiz) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  for (const r of ROTAS_PADRAO_SEQUENCIAIS) {
+    const ch = chaveCategoriaRota(r);
+    if (!ch || mapaPesosCategorias.has(ch)) continue;
+    let qtd = 0;
+    if (r.tipo === "promocoes" || r.tipo === "promocao" || ch === "/promocoes") {
+      qtd = Math.max(200, totalPromos);
+    } else if (r.tipo === "depto") {
+      const dLow = String(r.depto || r.hierarquia || "").toLowerCase().trim();
+      qtd = contagemPorDepto.get(dLow) || contagemPorCat.get(dLow) || 400;
+    } else {
+      const hLow = String(r.hierarquia || r.nome || "").toLowerCase().trim();
+      const subLow = hLow.includes(">") ? hLow.split(">").pop().trim() : hLow;
+      qtd = contagemPorCat.get(hLow) || contagemPorCat.get(subLow) || 80;
+    }
+    qtd = Math.max(20, qtd);
+    mapaPesosCategorias.set(ch, {
+      pathReal: ch,
+      nome: r.nomeBase || r.nome,
+      depto: r.depto || "Geral",
+      tipo: r.tipo || "sub",
+      totalItens: qtd,
+      paginas: Math.max(1, Math.ceil(qtd / CONFIG.size)),
+      origem: "catalogo_firebase",
+      atualizadoEm: new Date().toISOString()
+    });
+  }
+}
+
+function obterPesoCategoria(rota) {
+  const ch = chaveCategoriaRota(rota);
+  const salvo = ch ? mapaPesosCategorias.get(ch) : null;
+  if (salvo && Number(salvo.totalItens) > 0) {
+    return Math.max(20, Number(salvo.totalItens));
+  }
+  if (rota?.tipo === "promocoes" || rota?.tipo === "promocao") return 1400;
+  if (rota?.tipo === "depto") return 600;
+  return 100;
+}
+
+async function salvarPesosCategoriasNoFirebase(progressoCombinado = sessao.progressoRotas) {
+  if (!SOU_MAESTRO || !FIREBASE_BASE || CONFIG.dryRun) return;
+  try {
+    const agrupadoPorPath = new Map();
+    for (const info of Object.values(progressoCombinado || {})) {
+      if (!info) continue;
+      const ch = chaveCategoriaRota(info);
+      if (!ch) continue;
+      if (!agrupadoPorPath.has(ch)) {
+        agrupadoPorPath.set(ch, {
+          pathReal: ch,
+          nome: info.nomeBase || String(info.nome || "").replace(/\s*\[Máq\s+\d+\/\d+.*$/i, "").trim(),
+          depto: info.depto || "Geral",
+          tipo: info.tipo || "sub",
+          somaLidos: 0,
+          maxTotalSite: 0,
+          algumaConcluida: false
+        });
+      }
+      const g = agrupadoPorPath.get(ch);
+      g.somaLidos += Number(info.lidos || 0);
+      if (Number(info.totalCategoriaSite || 0) > g.maxTotalSite) {
+        g.maxTotalSite = Number(info.totalCategoriaSite);
+      }
+      if (info.st === "ok") g.algumaConcluida = true;
+    }
+
+    for (const [ch, g] of agrupadoPorPath.entries()) {
+      const totalMedido = g.maxTotalSite > 0 ? Math.max(g.maxTotalSite, g.somaLidos) : g.somaLidos;
+      if (totalMedido > 0 && (g.algumaConcluida || g.maxTotalSite > 0)) {
+        mapaPesosCategorias.set(ch, {
+          pathReal: ch,
+          nome: g.nome || ch,
+          depto: g.depto || "Geral",
+          tipo: g.tipo || "sub",
+          totalItens: totalMedido,
+          paginas: Math.max(1, Math.ceil(totalMedido / CONFIG.size)),
+          origem: "verificacao_site",
+          atualizadoEm: new Date().toISOString()
+        });
+      }
+    }
+
+    const rankingSecoes = Array.from(mapaPesosCategorias.values())
+      .filter((x) => x && Number(x.totalItens) > 0)
+      .sort((a, b) => Number(b.totalItens) - Number(a.totalItens));
+
+    const mapaPorPath = {};
+    for (const item of rankingSecoes) {
+      mapaPorPath[item.pathReal] = item;
+    }
+
+    const payloadPesos = {
+      mercado: MERCADO_ALVO,
+      mercadoNome: MERCADO_NOME,
+      lojaId: LOJA_ID,
+      atualizadoEm: new Date().toISOString(),
+      totalSecoesMapeadas: rankingSecoes.length,
+      secoesMaisItensTop15: rankingSecoes.slice(0, 15),
+      distribuicaoUltimaExecucao: sessao.resumoDistribuicaoPlanejada || [],
+      rankingSecoes,
+      mapaPorPath
+    };
+
+    await fetch(authUrl(FIREBASE_PESOS_ENDPOINT), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadPesos)
+    });
+  } catch {}
+}
+
+async function registrarAgendamentoAutoNoFirebase(etapa = "inicio") {
+  if (!SOU_MAESTRO || !FIREBASE_BASE || CONFIG.dryRun) return;
+  try {
+    const agoraMs = Date.now();
+    const agoraISO = new Date(agoraMs).toISOString();
+    const resAt = await fetch(authUrl(FIREBASE_AGENDAMENTO_ENDPOINT)).catch(() => null);
+    const atual = (resAt && resAt.ok ? await resAt.json().catch(() => null) : null) || {};
+
+    const modoUp = String(CONFIG.modoFila || "").toUpperCase();
+    const ehCompleta12h = modoUp === "COMPLETA" || modoUp === "12H" || modoUp === "3";
+    const ehAmpla3h = modoUp === "2A" || modoUp === "3H" || modoUp === "AMPLA" || modoUp === "TURNO" || modoUp === "DEPTOS";
+
+    let ultimaCompleta12hMs = Number(atual.ultimaCompleta12hMs || sessao.agendamentoAuto.ultimaCompleta12hMs || 0);
+    let ultimaAmpla3hMs = Number(atual.ultimaAmpla3hMs || sessao.agendamentoAuto.ultimaAmpla3hMs || 0);
+    let ultimoCiclo24hMs = Number(atual.ultimoCiclo24hMs || sessao.agendamentoAuto.ultimoCiclo24hMs || 0);
+
+    if (ehCompleta12h) {
+      ultimaCompleta12hMs = agoraMs;
+      ultimaAmpla3hMs = agoraMs; // A varredura completa de 12h já engloba a ampla de 3h
+    } else if (ehAmpla3h) {
+      ultimaAmpla3hMs = agoraMs;
+      if (!ultimaCompleta12hMs) ultimaCompleta12hMs = agoraMs;
+    } else {
+      ultimoCiclo24hMs = agoraMs;
+      if (!ultimaAmpla3hMs) ultimaAmpla3hMs = agoraMs;
+      if (!ultimaCompleta12hMs) ultimaCompleta12hMs = agoraMs;
+    }
+
+    sessao.agendamentoAuto = {
+      ultimaCompleta12hMs,
+      ultimaAmpla3hMs,
+      ultimoCiclo24hMs
+    };
+
+    const payload = {
+      ...atual,
+      ultimaCompleta12hMs,
+      ultimaCompleta12hISO: ultimaCompleta12hMs ? new Date(ultimaCompleta12hMs).toISOString() : null,
+      proximaCompleta12hEmMs: ultimaCompleta12hMs + 12 * 3600 * 1000,
+      proximaCompleta12hISO: new Date(ultimaCompleta12hMs + 12 * 3600 * 1000).toISOString(),
+      ultimaAmpla3hMs,
+      ultimaAmpla3hISO: ultimaAmpla3hMs ? new Date(ultimaAmpla3hMs).toISOString() : null,
+      proximaAmpla3hEmMs: ultimaAmpla3hMs + 3 * 3600 * 1000,
+      proximaAmpla3hISO: new Date(ultimaAmpla3hMs + 3 * 3600 * 1000).toISOString(),
+      ultimoCiclo24hMs,
+      ultimoCiclo24hISO: ultimoCiclo24hMs ? new Date(ultimoCiclo24hMs).toISOString() : null,
+      modoAtual: modoUp,
+      etapaAtual: etapa,
+      maquinasPorSite: TOTAL_WORKERS,
+      atualizadoEm: agoraISO
+    };
+
+    await fetch(authUrl(FIREBASE_AGENDAMENTO_ENDPOINT), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch {}
+}
+
+async function salvarCursor24hRemoto(rIdx, offset = 0, rotaConcluidaBool = true, pagAtual = 1) {
   if (!FIREBASE_BASE || WORKER_ID !== 1) return;
   try {
     const total = ROTAS_ATIVAS.length || 1;
-    const prox = (rIdx + 1) >= total ? 0 : (rIdx + 1);
+    const prox = rotaConcluidaBool ? ((rIdx + 1) >= total ? 0 : (rIdx + 1)) : Math.max(0, Math.min(total - 1, rIdx));
+    const rotaAlvo = ROTAS_ATIVAS[prox] || ROTAS_ATIVAS[0] || {};
     const payload = {
       rotaIndice: prox,
-      rotaNome: ROTAS_ATIVAS[prox]?.nome || "Início",
-      rotaConcluida: ROTAS_ATIVAS[rIdx]?.nome || "",
-      offset: Number(offset || 0),
+      pathReal: chaveCategoriaRota(rotaAlvo),
+      rotaNome: rotaAlvo.nomeBase || rotaAlvo.nome || "Início",
+      rotaConcluida: rotaConcluidaBool ? (ROTAS_ATIVAS[rIdx]?.nome || "") : "",
+      offset: rotaConcluidaBool ? 0 : Math.max(0, Number(offset || 0)),
+      pag: rotaConcluidaBool ? 1 : Math.max(1, Number(pagAtual || 1)),
       totalRotas: total,
       atualizadoEm: new Date().toISOString()
     };
@@ -878,57 +1138,245 @@ async function salvarCursor24hRemoto(rIdx, offset = 0) {
 
 function devePausarParaProximaOperacao() {
   if (!EH_MODO_24H) return { pausar: false };
-  const agora = new Date();
-  const minutos = agora.getUTCMinutes();
-  // Pausa suave nos minutos 57..59 para o cron pontual de 1h ou 3h entrar limpo
-  if (minutos >= 57) {
-    return { pausar: true, motivo: `Virada de hora (${minutos}m UTC) - cedendo para pesquisa programada (1h/3h)` };
+  const agoraMs = Date.now();
+  const { ultimaCompleta12hMs, ultimaAmpla3hMs } = sessao.agendamentoAuto || {};
+
+  // 1. Verifica se chegou o horário da Varredura Completa de 12 em 12 horas (10 máquinas em cada site)
+  if (ultimaCompleta12hMs > 0 && (agoraMs - ultimaCompleta12hMs) >= (12 * 3600 - 90) * 1000) {
+    return {
+      pausar: true,
+      motivo: "Horário de 12h atingido — iniciando Varredura Completa (10 máquinas em cada site)"
+    };
   }
-  // Limite de segurança de runtime do GitHub Actions (40 minutos para não estourar os 45m do workflow)
-  if ((Date.now() - sessao.iniciadoEmMs) > 40 * 60 * 1000) {
-    return { pausar: true, motivo: "Tempo limite de segurança da rodada (40 min) atingido" };
+
+  // 2. Verifica se chegou o horário da Busca Ampla de 3 em 3 horas (10 máquinas em cada site)
+  if (ultimaAmpla3hMs > 0 && (agoraMs - ultimaAmpla3hMs) >= (3 * 3600 - 90) * 1000) {
+    return {
+      pausar: true,
+      motivo: "Horário de 3h atingido — iniciando Busca Ampla (10 máquinas em cada site)"
+    };
   }
+
+  // 3. Revezamento automático de segurança a cada 42 minutos para manter o modo 24h rodando sem parar
+  if ((agoraMs - sessao.tempoInicioMs) >= 42 * 60 * 1000) {
+    return {
+      pausar: true,
+      motivo: "Revezamento contínuo 24h (42 min) — auto-disparando próximo turno no mesmo ponto"
+    };
+  }
+
   return { pausar: false };
 }
 
 function recalcularFatiaDoWorker() {
-  const totalRotas = ROTAS_ATIVAS.length;
-  if (totalRotas === 0) {
+  const baseRotas = Array.isArray(ROTAS_BASE_MODO) && ROTAS_BASE_MODO.length > 0
+    ? ROTAS_BASE_MODO.map((r) => ({ ...r, nomeBase: r.nomeBase || r.nome }))
+    : [];
+
+  if (baseRotas.length === 0) {
+    ROTAS_ATIVAS = [];
+    sessao.rotaTotal = 0;
     sessao.meuIndiceInicio = 0;
     sessao.meuIndiceFim = 0;
     sessao.minhasRotasIndices = [];
     return;
   }
-  const tamanhoFatiaBase = Math.floor(totalRotas / TOTAL_WORKERS);
-  const resto = totalRotas % TOTAL_WORKERS;
 
-  let inicio = 0;
-  for (let i = 1; i < WORKER_ID; i++) {
-    inicio += tamanhoFatiaBase + (i <= resto ? 1 : 0);
-  }
-  const meuTamanho = tamanhoFatiaBase + (WORKER_ID <= resto ? 1 : 0);
-  const fim = Math.min(totalRotas - 1, inicio + meuTamanho - 1);
+  // Modo de 1 Máquina (24h Contínuo buscando Mais Acessados + Promoções):
+  // Ordena Promoções primeiro e depois as seções onde há mais itens salvos!
+  if (TOTAL_WORKERS <= 1) {
+    const promos = baseRotas.filter((r) => r.tipo === "promocoes" || r.tipo === "promocao");
+    const demais = baseRotas
+      .filter((r) => r.tipo !== "promocoes" && r.tipo !== "promocao")
+      .sort((a, b) => obterPesoCategoria(b) - obterPesoCategoria(a));
 
-  sessao.meuIndiceInicio = inicio;
-  sessao.meuIndiceFim = fim;
-  sessao.rotaIndiceAtual = Math.max(inicio, Math.min(fim, CONFIG.startIndex));
+    ROTAS_ATIVAS = [...promos, ...demais].map((r) => {
+      const peso = obterPesoCategoria(r);
+      return {
+        ...r,
+        nomeBase: r.nomeBase || r.nome,
+        fatiaIndex: 1,
+        fatiaTotal: 1,
+        pagInicioFatia: 1,
+        pagFimFatia: null,
+        offsetInicioFatia: 0,
+        offsetFimFatia: null,
+        pesoEstimado: peso,
+        pesoTotalCategoria: peso
+      };
+    });
 
-  // Distribui as rotas intercaladas entre as máquinas para equilibrar categorias grandes (ex: Mercearia Inteira 170 págs)
-  if (TOTAL_WORKERS > 1 && CONFIG.startIndex <= 0) {
-    const intercalados = [];
-    for (let idx = 0; idx < totalRotas; idx++) {
-      if ((idx % TOTAL_WORKERS) === (WORKER_ID - 1)) {
-        intercalados.push(idx);
+    sessao.rotaTotal = ROTAS_ATIVAS.length;
+    sessao.meuIndiceInicio = 0;
+    sessao.meuIndiceFim = Math.max(0, ROTAS_ATIVAS.length - 1);
+
+    if (sessao.pathRetomada24h) {
+      const idxPorPath = ROTAS_ATIVAS.findIndex((r) => chaveCategoriaRota(r) === sessao.pathRetomada24h);
+      if (idxPorPath >= 0) {
+        CONFIG.startIndex = idxPorPath;
       }
     }
-    sessao.minhasRotasIndices = intercalados;
-  } else {
-    const contiguos = [];
-    for (let idx = Math.max(inicio, CONFIG.startIndex); idx <= fim; idx++) {
-      contiguos.push(idx);
-    }
-    sessao.minhasRotasIndices = contiguos;
+    sessao.rotaIndiceAtual = Math.max(0, Math.min(sessao.meuIndiceFim, CONFIG.startIndex));
+    sessao.minhasRotasIndices = ROTAS_ATIVAS.map((_, idx) => idx);
+    sessao.minhaCargaEstimadaItens = ROTAS_ATIVAS.reduce((acc, r) => acc + (r.pesoEstimado || 0), 0);
+    sessao.resumoDistribuicaoPlanejada = [{
+      workerId: 1,
+      cargaItens: sessao.minhaCargaEstimadaItens,
+      totalTarefas: ROTAS_ATIVAS.length,
+      categorias: ROTAS_ATIVAS.slice(0, 8).map((r) => `${r.nomeBase || r.nome} (~${r.pesoEstimado} itens)`)
+    }];
+    return;
   }
+
+  // =========================================================================
+  // MODO MULTI-MÁQUINAS (10 MÁQUINAS EM CADA SITE - 3H AMPLA E 12H COMPLETA):
+  // 1) Calcula o volume real de itens de cada seção salvo nas verificações.
+  // 2) Divide automaticamente categorias grandes (ex: Mercearia, Promoções, Higiene, Bazar)
+  //    em múltiplas fatias de páginas para colocar MAIS DE 1 MÁQUINA na mesma categoria!
+  // 3) Distribui todas as fatias e categorias uniformemente (Greedy LPT) para que todas
+  //    as 10 máquinas processem praticamente a mesma quantidade de itens!
+  // =========================================================================
+  const pesosBase = baseRotas.map((r) => obterPesoCategoria(r));
+  const somaTotalItens = Math.max(100, pesosBase.reduce((acc, p) => acc + p, 0));
+  const metaItensPorMaquina = Math.max(80, Math.ceil(somaTotalItens / TOTAL_WORKERS));
+
+  const tarefasExpandidas = [];
+  for (let i = 0; i < baseRotas.length; i++) {
+    const r = baseRotas[i];
+    const peso = pesosBase[i];
+    const nomeOriginal = r.nomeBase || r.nome;
+
+    // Se a seção tem mais itens que a média de 1 máquina (ou >75% da média na busca ampla),
+    // divide a categoria entre 2, 3, 4+ máquinas simultâneas por faixas de páginas/offset!
+    const limiarDivisao = baseRotas.length <= TOTAL_WORKERS * 2
+      ? metaItensPorMaquina * 0.72
+      : metaItensPorMaquina * 1.12;
+
+    let numFatias = 1;
+    if (peso >= limiarDivisao && peso >= CONFIG.size * 4) {
+      numFatias = Math.min(
+        TOTAL_WORKERS,
+        Math.max(2, Math.round(peso / (metaItensPorMaquina * 0.82)))
+      );
+      const maxFatiasPorTamanho = Math.max(1, Math.floor(peso / (CONFIG.size * 3)));
+      numFatias = Math.min(numFatias, maxFatiasPorTamanho);
+    }
+
+    if (numFatias <= 1) {
+      tarefasExpandidas.push({
+        ...r,
+        nomeBase: nomeOriginal,
+        nome: nomeOriginal,
+        fatiaIndex: 1,
+        fatiaTotal: 1,
+        pagInicioFatia: 1,
+        pagFimFatia: null,
+        offsetInicioFatia: 0,
+        offsetFimFatia: null,
+        pesoEstimado: peso,
+        pesoTotalCategoria: peso,
+        ordemOriginal: i
+      });
+    } else {
+      const totalPagsCat = Math.max(numFatias, Math.ceil(peso / CONFIG.size));
+      const pagsPorFatia = Math.max(1, Math.ceil(totalPagsCat / numFatias));
+
+      for (let f = 0; f < numFatias; f++) {
+        const pagInicio = f * pagsPorFatia + 1;
+        if (pagInicio > totalPagsCat && f > 0) break;
+        const ehUltimaFatia = (f === numFatias - 1) || ((f + 1) * pagsPorFatia >= totalPagsCat);
+        const pagFim = ehUltimaFatia ? null : Math.min(totalPagsCat, (f + 1) * pagsPorFatia);
+        const offsetInicio = (pagInicio - 1) * CONFIG.size;
+        const offsetFim = ehUltimaFatia ? null : (pagFim * CONFIG.size);
+        const pesoFatia = ehUltimaFatia
+          ? Math.max(CONFIG.size, peso - offsetInicio)
+          : Math.max(CONFIG.size, (pagFim - pagInicio + 1) * CONFIG.size);
+
+        tarefasExpandidas.push({
+          ...r,
+          nomeBase: nomeOriginal,
+          nome: `${nomeOriginal} [Máq ${f + 1}/${numFatias} • Págs ${pagInicio}-${ehUltimaFatia ? "Fim" : pagFim}]`,
+          fatiaIndex: f + 1,
+          fatiaTotal: numFatias,
+          pagInicioFatia: pagInicio,
+          pagFimFatia: pagFim,
+          offsetInicioFatia: offsetInicio,
+          offsetFimFatia: offsetFim,
+          pesoEstimado: pesoFatia,
+          pesoTotalCategoria: peso,
+          ordemOriginal: i
+        });
+        if (ehUltimaFatia) break;
+      }
+    }
+  }
+
+  ROTAS_ATIVAS = tarefasExpandidas;
+  sessao.rotaTotal = ROTAS_ATIVAS.length;
+
+  // Balanceamento Uniforme LPT (Longest Processing Time First) entre as 10 Máquinas
+  const buckets = Array.from({ length: TOTAL_WORKERS }, (_, idx) => ({
+    workerId: idx + 1,
+    cargaItens: 0,
+    indices: [],
+    pathsAtribuidos: new Set()
+  }));
+
+  const indicesOrdenadosPorPeso = ROTAS_ATIVAS.map((_, idx) => idx).sort((a, b) => {
+    const diffPeso = (ROTAS_ATIVAS[b].pesoEstimado || 0) - (ROTAS_ATIVAS[a].pesoEstimado || 0);
+    if (diffPeso !== 0) return diffPeso;
+    return a - b;
+  });
+
+  for (const idxTarefa of indicesOrdenadosPorPeso) {
+    const tarefa = ROTAS_ATIVAS[idxTarefa];
+    const chPath = chaveCategoriaRota(tarefa);
+
+    // Escolhe a máquina com menor carga acumulada de itens, priorizando máquina que ainda não tenha outra fatia da mesma categoria
+    let melhorBucket = null;
+    for (const b of buckets) {
+      if (b.pathsAtribuidos.has(chPath)) continue;
+      if (!melhorBucket || b.cargaItens < melhorBucket.cargaItens) {
+        melhorBucket = b;
+      }
+    }
+    if (!melhorBucket) {
+      for (const b of buckets) {
+        if (!melhorBucket || b.cargaItens < melhorBucket.cargaItens) {
+          melhorBucket = b;
+        }
+      }
+    }
+
+    melhorBucket.indices.push(idxTarefa);
+    melhorBucket.cargaItens += Number(tarefa.pesoEstimado || 20);
+    if (chPath) melhorBucket.pathsAtribuidos.add(chPath);
+  }
+
+  // Dentro de cada máquina, prioriza Promoções e Departamentos maiores primeiro
+  for (const b of buckets) {
+    b.indices.sort((a, bIdx) => {
+      const ra = ROTAS_ATIVAS[a];
+      const rb = ROTAS_ATIVAS[bIdx];
+      const pA = (ra?.tipo === "promocoes" || ra?.tipo === "promocao") ? 0 : (ra?.tipo === "depto" ? 1 : 2);
+      const pB = (rb?.tipo === "promocoes" || rb?.tipo === "promocao") ? 0 : (rb?.tipo === "depto" ? 1 : 2);
+      if (pA !== pB) return pA - pB;
+      return (rb?.pesoEstimado || 0) - (ra?.pesoEstimado || 0);
+    });
+  }
+
+  const meuBucket = buckets[Math.max(0, Math.min(TOTAL_WORKERS - 1, WORKER_ID - 1))];
+  sessao.minhasRotasIndices = meuBucket.indices;
+  sessao.minhaCargaEstimadaItens = meuBucket.cargaItens;
+  sessao.meuIndiceInicio = meuBucket.indices.length > 0 ? Math.min(...meuBucket.indices) : 0;
+  sessao.meuIndiceFim = meuBucket.indices.length > 0 ? Math.max(...meuBucket.indices) : 0;
+  sessao.rotaIndiceAtual = meuBucket.indices[0] ?? 0;
+  sessao.resumoDistribuicaoPlanejada = buckets.map((b) => ({
+    workerId: b.workerId,
+    cargaItens: b.cargaItens,
+    totalTarefas: b.indices.length,
+    categorias: b.indices.slice(0, 6).map((idx) => ROTAS_ATIVAS[idx]?.nome || `#${idx + 1}`)
+  }));
 }
 
 // =========================================================================
@@ -953,6 +1401,64 @@ async function carregarProtegerFirebaseInicial() {
       registrarLog("ERRO", "Firebase Inicial", `Erro de conexão ao ler banco inicial: ${err.message}. Aguardando 30s...`);
     }
     await dormir(30000);
+  }
+
+  // 1. Popula o catálogo atual na memória primeiro (serve também para estimativa inicial de itens por seção)
+  const dados = await resp.json();
+  if (dados && Array.isArray(dados.produtos)) {
+    if (SOU_MAESTRO) {
+      const arqBackup = EH_FORT ? "backup_fort_1644_antes.json" : "backup_koch_1408_antes.json";
+      try {
+        fs.writeFileSync(arqBackup, JSON.stringify(dados), "utf-8");
+      } catch {}
+    }
+
+    for (const p of dados.produtos) {
+      if (p && p.id) {
+        if (p.historicoPrecos && typeof p.historicoPrecos === "object") {
+          p.historicoPrecos = atualizarHistoricoSemDuplicarConsecutivos(p.historicoPrecos, "", 0);
+        }
+        mapaProdutos.set(p.id, p);
+      }
+    }
+    sessao.totalInicialFirebase = mapaProdutos.size;
+    sessao.totalAtualNoBanco = mapaProdutos.size;
+    registrarLog("OK", "Proteção Firebase", `${sessao.totalInicialFirebase} produtos carregados e protegidos na memória.`);
+  }
+
+  // 2. Lê histórico de pesos de itens por categoria salvo nas verificações anteriores + estado do agendador 24h/3h/12h
+  try {
+    const [rPesos, rAgend] = await Promise.all([
+      fetch(authUrl(FIREBASE_PESOS_ENDPOINT)).catch(() => null),
+      fetch(authUrl(FIREBASE_AGENDAMENTO_ENDPOINT)).catch(() => null)
+    ]);
+    if (rPesos && rPesos.ok) {
+      const dPesos = await rPesos.json().catch(() => null);
+      const mapaSalvo = dPesos?.mapaPorPath || {};
+      for (const [k, val] of Object.entries(mapaSalvo)) {
+        if (val && Number(val.totalItens) > 0) {
+          mapaPesosCategorias.set(String(k).toLowerCase(), val);
+        }
+      }
+    }
+    if (rAgend && rAgend.ok) {
+      const dAg = await rAgend.json().catch(() => null);
+      if (dAg && typeof dAg === "object") {
+        sessao.agendamentoAuto = {
+          ultimaCompleta12hMs: Number(dAg.ultimaCompleta12hMs || 0),
+          ultimaAmpla3hMs: Number(dAg.ultimaAmpla3hMs || 0),
+          ultimoCiclo24hMs: Number(dAg.ultimoCiclo24hMs || 0)
+        };
+      }
+    }
+  } catch {}
+
+  // Preenche qualquer seção ainda não medida com a contagem exata do catálogo carregado
+  popularPesosIniciaisPeloCatalogo();
+
+  // Registra início da operação no agendador automático (3h / 12h / 24h)
+  if (SOU_MAESTRO) {
+    await registrarAgendamentoAutoNoFirebase("em_execucao");
   }
 
   try {
@@ -985,18 +1491,30 @@ async function carregarProtegerFirebaseInicial() {
     }
   } catch {}
 
-  ROTAS_ATIVAS = obterRotasFiltradasPorModo(CONFIG.modoFila, filaCustomSalva);
-  sessao.rotaTotal = ROTAS_ATIVAS.length;
+  ROTAS_BASE_MODO = obterRotasFiltradasPorModo(CONFIG.modoFila, filaCustomSalva);
 
-  // No modo 24H Contínuo (ou se não foi passado rota inicial manual), retoma de onde parou no cursor do Firebase
-  if (EH_MODO_24H && !process.env.START_INDEX && WORKER_ID === 1) {
+  // Sincroniza a árvore oficial do GraphQL ANTES de dividir as categorias entre as máquinas!
+  const sincGqlOk = await sincronizarArvoreCategoriasGraphQL(ROTAS_BASE_MODO);
+  if (sincGqlOk) {
+    popularPesosIniciaisPeloCatalogo();
+    registrarLog("OK", "GraphQL", `Árvore oficial da loja ${LOJA_ID} sincronizada (${ROTAS_BASE_MODO.length} seções base validadas).`);
+  }
+
+  // No modo 24H Contínuo (ou se não foi passado rota inicial manual > 1), retoma exatamente da categoria e página onde parou
+  if (EH_MODO_24H && (!process.env.START_INDEX || Number(process.env.START_INDEX) <= 1) && WORKER_ID === 1) {
     try {
       const resCur = await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/cursor_24h_${MERCADO_ALVO}.json`));
       if (resCur.ok) {
         const curData = await resCur.json();
-        if (curData && Number.isInteger(curData.rotaIndice)) {
-          CONFIG.startIndex = Math.max(0, Math.min(ROTAS_ATIVAS.length - 1, curData.rotaIndice));
-          registrarLog("OK", "Cursor 24h", `Retomando de onde parou: Categoria #${CONFIG.startIndex + 1}/${ROTAS_ATIVAS.length} (${ROTAS_ATIVAS[CONFIG.startIndex]?.nome || "Rota"}).`);
+        if (curData) {
+          if (curData.pathReal) sessao.pathRetomada24h = String(curData.pathReal).toLowerCase();
+          if (Number.isInteger(curData.rotaIndice)) {
+            CONFIG.startIndex = Math.max(0, curData.rotaIndice);
+          }
+          if (Number(curData.offset) > 0) {
+            sessao.offsetRetomada24h = Number(curData.offset);
+            sessao.pagRetomada24h = Math.max(1, Number(curData.pag) || (Math.floor(sessao.offsetRetomada24h / CONFIG.size) + 1));
+          }
         }
       }
     } catch {}
@@ -1004,33 +1522,25 @@ async function carregarProtegerFirebaseInicial() {
 
   recalcularFatiaDoWorker();
 
+  if (EH_MODO_24H && WORKER_ID === 1) {
+    registrarLog(
+      "OK",
+      "Cursor 24h",
+      `Modo 24h Contínuo (Mais Acessados & Promoções): iniciando em #${sessao.rotaIndiceAtual + 1}/${ROTAS_ATIVAS.length} (${ROTAS_ATIVAS[sessao.rotaIndiceAtual]?.nome || "Início"} • Pág ${sessao.pagRetomada24h}).`
+    );
+  }
+
+  const resumoTopSecoes = Array.from(mapaPesosCategorias.values())
+    .sort((a, b) => Number(b.totalItens || 0) - Number(a.totalItens || 0))
+    .slice(0, 4)
+    .map((s) => `${s.depto || s.nome}: ${s.totalItens} it.`)
+    .join(" | ");
+
   registrarLog(
     "OK",
-    "Divisão do Enxame",
-    `${MERCADO_NOME} • Modo Fila: ${CONFIG.modoFila} (${ROTAS_ATIVAS.length} rotas totais | Lote size=${CONFIG.size}). Máquina #${WORKER_ID}/${TOTAL_WORKERS} cuidará das rotas #${sessao.meuIndiceInicio + 1} até #${sessao.meuIndiceFim + 1}.`
+    "Divisão Adaptativa",
+    `${MERCADO_NOME} • Modo ${CONFIG.modoFila}: ${ROTAS_ATIVAS.length} tarefas/fatias totais. Máquina #${WORKER_ID}/${TOTAL_WORKERS} assumiu ${sessao.minhasRotasIndices.length} fatia(s) (~${sessao.minhaCargaEstimadaItens} itens estimados). Maiores seções: ${resumoTopSecoes}`
   );
-
-  const dados = await resp.json();
-  if (dados && Array.isArray(dados.produtos)) {
-    if (SOU_MAESTRO) {
-      const arqBackup = EH_FORT ? "backup_fort_1644_antes.json" : "backup_koch_1408_antes.json";
-      try {
-        fs.writeFileSync(arqBackup, JSON.stringify(dados), "utf-8");
-      } catch {}
-    }
-
-    for (const p of dados.produtos) {
-      if (p && p.id) {
-        if (p.historicoPrecos && typeof p.historicoPrecos === "object") {
-          p.historicoPrecos = atualizarHistoricoSemDuplicarConsecutivos(p.historicoPrecos, "", 0);
-        }
-        mapaProdutos.set(p.id, p);
-      }
-    }
-    sessao.totalInicialFirebase = mapaProdutos.size;
-    sessao.totalAtualNoBanco = mapaProdutos.size;
-    registrarLog("OK", "Proteção Firebase", `${sessao.totalInicialFirebase} produtos carregados e protegidos na memória.`);
-  }
 }
 
 // =========================================================================
@@ -1263,6 +1773,7 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
     // ECONOMIA DE BANDA FIREBASE SPARK (Camada Radar): Se nada mudou, atualiza apenas heartbeat (200 bytes em vez de 12MB!)
     if (!houveAlteracoes && !forcarCompleto) {
       registrarLog("OK", "Economia Firebase", `Nenhuma alteração de preço/estoque detectada. Heartbeat leve enviado (Economia de 99.9% de banda).`);
+      await salvarPesosCategoriasNoFirebase(enxame.progressoCombinado);
       await fetch(authUrl(FIREBASE_ENDPOINT), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1275,6 +1786,8 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
       sessao.ultimoSaveMs = Date.now();
       return true;
     }
+
+    await salvarPesosCategoriasNoFirebase(enxame.progressoCombinado);
 
     const resp = await fetch(authUrl(FIREBASE_ENDPOINT), {
       method: "PUT",
@@ -1418,16 +1931,9 @@ async function executarRoboCloud() {
   }
 
   await carregarProtegerFirebaseInicial();
-
-  // Sincroniza a árvore real de categorias e IDs da Loja 1408 (Koch) ou Loja 1644 (Fort) direto do GraphQL
-  const sincGqlOk = await sincronizarArvoreCategoriasGraphQL(ROTAS_ATIVAS);
-  if (sincGqlOk) {
-    registrarLog("OK", "GraphQL", `Árvore oficial da loja ${LOJA_ID} sincronizada (${ROTAS_ATIVAS.length} rotas validadas).`);
-  }
-
   await enviarTelemetriaAoVivo(true);
 
-  if (sessao.meuIndiceInicio >= ROTAS_ATIVAS.length || sessao.meuIndiceInicio > sessao.meuIndiceFim) {
+  if (!Array.isArray(sessao.minhasRotasIndices) || sessao.minhasRotasIndices.length === 0 || ROTAS_ATIVAS.length === 0) {
     sessao.status = "CONCLUIDO";
     sessao.mensagem = `Máquina #${WORKER_ID} (${WORKER_PUBLIC_IP}) sem rotas pendentes nesta divisão.`;
     await enviarTelemetriaAoVivo(true);
@@ -1878,7 +2384,7 @@ async function executarRoboCloud() {
   }
 
   // =======================================================================
-  // LAÇO PRINCIPAL: ROTAS BALANCEADAS ENTRE AS 10 MÁQUINAS
+  // LAÇO PRINCIPAL: ROTAS E FATIAS BALANCEADAS POR VOLUME DE ITENS
   // =======================================================================
   try {
     const indicesFatia = Array.isArray(sessao.minhasRotasIndices) && sessao.minhasRotasIndices.length > 0
@@ -1889,18 +2395,14 @@ async function executarRoboCloud() {
           return arr;
         })();
 
-    const indicesPrioritarios = [
-      ...indicesFatia.filter((idx) => {
-        const t = ROTAS_ATIVAS[idx]?.tipo;
-        return t === "promocoes" || t === "promocao" || t === "depto";
-      }),
-      ...indicesFatia.filter((idx) => {
-        const t = ROTAS_ATIVAS[idx]?.tipo;
-        return t !== "promocoes" && t !== "promocao" && t !== "depto";
-      })
-    ];
+    const indicesPrioritarios = [...indicesFatia];
+    let cursorInicial = 0;
+    if (EH_MODO_24H && TOTAL_WORKERS <= 1 && sessao.rotaIndiceAtual > 0) {
+      const posRetomada = indicesPrioritarios.indexOf(sessao.rotaIndiceAtual);
+      if (posRetomada >= 0) cursorInicial = posRetomada;
+    }
 
-    for (let cursor = 0; cursor < indicesPrioritarios.length; cursor++) {
+    for (let cursor = cursorInicial; cursor < indicesPrioritarios.length; cursor++) {
       let rIdx = indicesPrioritarios[cursor];
       await verificarComandosRemotos();
       await aguardarSePausadoRemoto();
@@ -1909,7 +2411,7 @@ async function executarRoboCloud() {
       const checkPausa = devePausarParaProximaOperacao();
       if (checkPausa.pausar) {
         registrarLog("OK", "Pausa Programada", `⏰ ${checkPausa.motivo}. Salvando cursor (${rIdx}) e finalizando ciclo.`);
-        await salvarCursor24hRemoto(rIdx, 0);
+        await salvarCursor24hRemoto(rIdx, 0, false, 1);
         sessao.status = "CONCLUIDO";
         sessao.mensagem = `Transição: ${checkPausa.motivo}. Cursor salvo para próxima rodada.`;
         await enviarTelemetriaAoVivo(true);
@@ -1936,16 +2438,30 @@ async function executarRoboCloud() {
       const rota = ROTAS_ATIVAS[rIdx];
       if (!rota) continue;
 
+      const offsetInicioRota = (EH_MODO_24H && TOTAL_WORKERS <= 1 && sessao.offsetRetomada24h > 0)
+        ? sessao.offsetRetomada24h
+        : Number(rota.offsetInicioFatia || 0);
+      const pagInicioRota = (EH_MODO_24H && TOTAL_WORKERS <= 1 && sessao.pagRetomada24h > 1)
+        ? sessao.pagRetomada24h
+        : Number(rota.pagInicioFatia || 1);
+
+      // Limpa retomada parcial de página após consumir na primeira rota
+      sessao.offsetRetomada24h = 0;
+      sessao.pagRetomada24h = 1;
+
+      const offsetLimiteFatia = typeof rota.offsetFimFatia === "number" && rota.offsetFimFatia > 0 ? rota.offsetFimFatia : null;
+      const pagLimiteFatia = typeof rota.pagFimFatia === "number" && rota.pagFimFatia > 0 ? rota.pagFimFatia : null;
+
       sessao.rotaIndiceAtual = rIdx;
       sessao.rotaNomeAtual = rota.nome;
       sessao.rotaUrlAtual = rota.url;
       sessao.deptoAtualNome = rota.depto || "Geral";
-      sessao.paginaAtual = 1;
-      sessao.totalPaginasEstimadoRota = 1;
-      sessao.offsetAtual = 0;
+      sessao.paginaAtual = pagInicioRota;
+      sessao.totalPaginasEstimadoRota = pagLimiteFatia || Math.max(1, Math.ceil((rota.pesoEstimado || 40) / CONFIG.size));
+      sessao.offsetAtual = offsetInicioRota;
 
       const rotulo = `Rota #${rIdx + 1}/${ROTAS_ATIVAS.length} • ${rota.nome}`;
-      registrarLog("OK", rotulo, `Iniciando coleta da categoria: ${rota.url}`);
+      registrarLog("OK", rotulo, `Iniciando coleta da seção: ${rota.url} (Pág inicial ${pagInicioRota} • Offset ${offsetInicioRota})`);
 
       // Só navega antes da Pág 1 se ainda não tiver token capturado (evita 140 carregamentos desnecessários de HTML)
       if (!tokenCapturado && browserPronto && page && rota.url) {
@@ -1959,12 +2475,18 @@ async function executarRoboCloud() {
       sessao.progressoRotas[rIdx] = {
         st: "rodando",
         nome: rota.nome,
+        nomeBase: rota.nomeBase || rota.nome,
+        pathReal: rota.pathReal || "",
+        tipo: rota.tipo || "sub",
         depto: rota.depto,
         url: rota.url,
         lidos: 0,
         novos: 0,
         precos: 0,
-        pags: 1,
+        pags: pagInicioRota,
+        fatiaIndex: rota.fatiaIndex || 1,
+        fatiaTotal: rota.fatiaTotal || 1,
+        totalCategoriaSite: rota.pesoTotalCategoria || rota.pesoEstimado || 0,
         inicioEm: horaAtualBR(),
         worker: WORKER_ID
       };
@@ -1974,8 +2496,8 @@ async function executarRoboCloud() {
       const ehHomeOuIndex = rota.tipo === "home" || rota.tipo === "categorias_index";
       const ehPromo = rota.tipo === "promocoes" || rota.tipo === "promocao";
 
-      let from = 0;
-      let pag = 1;
+      let from = offsetInicioRota;
+      let pag = pagInicioRota;
       let totalItensEstimado = null;
       let totalLidosRota = 0;
       let novosRota = 0;
@@ -2008,15 +2530,15 @@ async function executarRoboCloud() {
 
         let dados = await consultarAPINoPontoExato(urlAPI, rotulo, pag, from, rota.url);
 
-        // Fallback 1 na Pág 1: Se categoryId retornou 0 itens ou falhou, tenta pelo nome hierárquico oficial ("Hortifruti > Frutas")
+        // Fallback 1 na Pág Inicial da Fatia: Se categoryId retornou 0 itens ou falhou, tenta pelo nome hierárquico oficial ("Hortifruti > Frutas")
         const hitsIniciais = dados ? (Array.isArray(dados.hits) ? dados.hits : (Array.isArray(dados.products) ? dados.products : [])) : [];
-        if (pag === 1 && hitsIniciais.length === 0 && !ehPromo && hierarquiaOficial && !usarFiltroPorHierarquia) {
+        if (pag === pagInicioRota && hitsIniciais.length === 0 && !ehPromo && hierarquiaOficial && !usarFiltroPorHierarquia) {
           usarFiltroPorHierarquia = true;
           const urlHierarquia = montarUrlOficial({
             storePath,
             promo: false,
             size: CONFIG.size,
-            from: 0,
+            from,
             categoryId: "",
             categoryName: hierarquiaOficial
           });
@@ -2026,9 +2548,9 @@ async function executarRoboCloud() {
           }
         }
 
-        // Fallback 2: Se a API direta não respondeu ou veio vazia na Pág 1, abre o link direto da categoria no navegador e faz rolagem!
+        // Fallback 2: Se a API direta não respondeu ou veio vazia na Pág 1 (from === 0), abre o link direto da categoria no navegador e faz rolagem!
         const hitsVerificados = dados ? (Array.isArray(dados.hits) ? dados.hits : (Array.isArray(dados.products) ? dados.products : [])) : [];
-        if (pag === 1 && (!dados || hitsVerificados.length === 0)) {
+        if (from === 0 && pag === 1 && (!dados || hitsVerificados.length === 0)) {
           const resRolagem = await coletarCategoriaPorRolagemNoNavegador(rota, rotulo, rIdx);
           if (resRolagem.lidos > 0) {
             totalLidosRota += resRolagem.lidos;
@@ -2056,12 +2578,13 @@ async function executarRoboCloud() {
 
         if (totalItensEstimado === null && typeof dados.total === "number") {
           totalItensEstimado = dados.total;
-          sessao.totalPaginasEstimadoRota = Math.max(1, Math.ceil(totalItensEstimado / CONFIG.size));
+          const totalPagsGlobalCat = Math.max(1, Math.ceil(totalItensEstimado / CONFIG.size));
+          sessao.totalPaginasEstimadoRota = pagLimiteFatia ? Math.min(pagLimiteFatia, totalPagsGlobalCat) : totalPagsGlobalCat;
         }
 
         if (hits.length === 0) {
-          if (pag === 1) {
-            registrarLog("OK", rotulo, `Categoria sem produtos em estoque no momento (0 itens).`);
+          if (pag === pagInicioRota) {
+            registrarLog("OK", rotulo, `Fatia/Categoria concluída sem itens adicionais nesta faixa (off ${from}).`);
           }
           break;
         }
@@ -2076,15 +2599,21 @@ async function executarRoboCloud() {
           sessao.progressoRotas[rIdx].novos = novosRota;
           sessao.progressoRotas[rIdx].precos = precosRota;
           sessao.progressoRotas[rIdx].pags = pag;
+          if (totalItensEstimado !== null) {
+            sessao.progressoRotas[rIdx].totalCategoriaSite = totalItensEstimado;
+          }
         }
 
         await verificarAutoSaveInteligente(`${rota.nome} Pág ${pag}`, false);
         await enviarTelemetriaAoVivo(false);
 
+        const proxFrom = from + hits.length;
+        const proxPag = pag + 1;
+
         const checkPausaPag = devePausarParaProximaOperacao();
         if (checkPausaPag.pausar) {
-          registrarLog("OK", "Pausa Programada", `⏰ ${checkPausaPag.motivo}. Salvando cursor (${rIdx}) e finalizando ciclo.`);
-          await salvarCursor24hRemoto(rIdx, from);
+          registrarLog("OK", "Pausa Programada", `⏰ ${checkPausaPag.motivo}. Salvando cursor exato (Rota #${rIdx + 1}, Pág ${proxPag}, Off ${proxFrom}) e finalizando turno.`);
+          await salvarCursor24hRemoto(rIdx, proxFrom, false, proxPag);
           sessao.status = "CONCLUIDO";
           sessao.mensagem = `Transição: ${checkPausaPag.motivo}. Cursor salvo para próxima rodada.`;
           await enviarTelemetriaAoVivo(true);
@@ -2095,14 +2624,22 @@ async function executarRoboCloud() {
           process.exit(0);
         }
 
-        from += hits.length;
-        pag++;
+        from = proxFrom;
+        pag = proxPag;
 
         if (ehHomeOuIndex) {
           if (pag > 3) break;
         }
 
         if (hits.length < CONFIG.size) {
+          break;
+        }
+
+        if (offsetLimiteFatia !== null && from >= offsetLimiteFatia) {
+          break;
+        }
+
+        if (pagLimiteFatia !== null && pag > pagLimiteFatia) {
           break;
         }
 
@@ -2113,8 +2650,8 @@ async function executarRoboCloud() {
         await dormirHumano(CONFIG.delayMs);
       }
 
-      // Rede de Segurança de Subcategorias: se uma Categoria Inteira (depto) retornou 0 itens, varre automaticamente suas subcategorias!
-      if (totalLidosRota === 0 && rota.tipo === "depto" && !sessao.pularRotaAtual && !sessao.canceladoRemoto) {
+      // Rede de Segurança de Subcategorias: se uma Categoria Inteira (depto) na fatia inicial retornou 0 itens, varre automaticamente suas subcategorias!
+      if (totalLidosRota === 0 && offsetInicioRota === 0 && rota.tipo === "depto" && !sessao.pularRotaAtual && !sessao.canceladoRemoto) {
         const listaCompletaMercado = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
         const subRotasDepto = listaCompletaMercado.filter((sr) => sr.tipo === "sub" && sr.depto === rota.depto);
         if (subRotasDepto.length > 0) {
@@ -2152,20 +2689,27 @@ async function executarRoboCloud() {
         }
       }
 
+      const pagsLidasFatia = Math.max(1, pag - pagInicioRota);
       sessao.progressoRotas[rIdx] = {
         st: sessao.pularRotaAtual ? "skip" : "ok",
         nome: rota.nome,
+        nomeBase: rota.nomeBase || rota.nome,
+        pathReal: rota.pathReal || "",
+        tipo: rota.tipo || "sub",
         depto: rota.depto,
         url: rota.url,
         lidos: totalLidosRota,
         novos: novosRota,
         precos: precosRota,
-        pags: Math.max(1, pag - 1),
+        pags: pagsLidasFatia,
+        fatiaIndex: rota.fatiaIndex || 1,
+        fatiaTotal: rota.fatiaTotal || 1,
+        totalCategoriaSite: totalItensEstimado || Math.max(totalLidosRota, rota.pesoTotalCategoria || 0),
         fimEm: horaAtualBR(),
         worker: WORKER_ID
       };
 
-      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${Math.max(1, pag - 1)} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços).`);
+      registrarLog("OK", rotulo, `Concluída: ${totalLidosRota} itens em ${pagsLidasFatia} pág(s) (+${novosRota} novos | 🔄 ${precosRota} preços).`);
 
       await verificarAutoSaveInteligente(rota.nome, true);
 
@@ -2173,16 +2717,17 @@ async function executarRoboCloud() {
         await gravarComSegurancaNoFirebase(`Fim de ${rota.nome}`);
       }
 
-      await salvarCursor24hRemoto(rIdx, from);
+      await salvarCursor24hRemoto(rIdx, 0, true, 1);
       await enviarTelemetriaAoVivo(true);
       await dormirHumano(CONFIG.delayTrocaRotaMs);
 
-      // Reinício Contínuo do Loop 24H (100% dos Itens)
+      // Reinício Contínuo do Loop 24H (Mais Acessados + Promoções sem parar)
       if (cursor === indicesPrioritarios.length - 1 && EH_MODO_24H && TOTAL_WORKERS === 1 && !sessao.canceladoRemoto) {
         const checkLoop = devePausarParaProximaOperacao();
         if (!checkLoop.pausar) {
-          registrarLog("OK", "Loop 24h", "🔄 Ciclo de 100% das categorias finalizado! Reiniciando loop contínuo na Rota #1...");
-          await salvarCursor24hRemoto(0, 0);
+          registrarLog("OK", "Loop 24h", "🔄 Ciclo de Promoções e Mais Acessados concluído! Reordenando pelas seções com mais itens e reiniciando loop contínuo...");
+          await salvarPesosCategoriasNoFirebase(sessao.progressoRotas);
+          await salvarCursor24hRemoto(0, 0, false, 1);
           sessao.progressoRotas = {};
           cursor = -1;
           continue;
@@ -2194,7 +2739,7 @@ async function executarRoboCloud() {
 
     if (!SOU_MAESTRO) {
       sessao.status = "CONCLUIDO";
-      sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu suas ${indicesPrioritarios.length} rotas!`;
+      sessao.mensagem = `✅ Máquina #${WORKER_ID}/${TOTAL_WORKERS} concluiu suas ${indicesPrioritarios.length} fatias/rotas!`;
       registrarLog("OK", "Fatia Concluída", sessao.mensagem);
       await publicarEstadoWorkerNoEnxame();
       return;
@@ -2218,6 +2763,9 @@ async function executarRoboCloud() {
 
     await gravarComSegurancaNoFirebase("Extração 100% Concluída pelo Enxame");
     const enxameFinal = await absorverEnxameNoMaestro(true);
+    await salvarPesosCategoriasNoFirebase(enxameFinal.progressoCombinado);
+    await registrarAgendamentoAutoNoFirebase("concluido");
+
     sessao.status = "CONCLUIDO";
     sessao.mensagem = `🎉 ${MERCADO_NOME} Concluído (${TOTAL_WORKERS} máq. | Modo ${CONFIG.modoFila})! ${mapaProdutos.size} produtos no banco (+${enxameFinal.novosGlobal} novos, 🔄 ${enxameFinal.precosGlobal} preços).`;
     registrarLog("OK", "Finalizado", sessao.mensagem);
@@ -2837,7 +3385,7 @@ const tratarCancelamento = async (sinal) => {
     sessao.mensagem = `⏹ Encerrado (${sinal}) em ${sessao.rotaNomeAtual} (Pág ${sessao.paginaAtual}). Tudo salvo com segurança!`;
     await enviarTelemetriaAoVivo(true);
     if (SOU_MAESTRO) {
-      await salvarCursor24hRemoto(sessao.rotaIndiceAtual, sessao.offsetAtual);
+      await salvarCursor24hRemoto(sessao.rotaIndiceAtual, sessao.offsetAtual, false, sessao.paginaAtual);
       await gravarComSegurancaNoFirebase(`Salvamento por Cancelamento (${sinal})`);
       await enviarTelemetriaAoVivo(true);
     }
