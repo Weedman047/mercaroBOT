@@ -57,11 +57,11 @@ permissions:
   contents: read
 
 # Gerenciamento Inteligente de Concorrência:
-# - Disparo manual customizado pelo painel cancela a operação em andamento e assume prioridade imediata.
-# - Agendamentos automáticos (schedule / AUTO) NUNCA cancelam uma operação em andamento (entram em fila limpa).
+# - Disparo manual customizado pelo painel (ou para um mercado específico como só Angeloni) cancela a operação em andamento e assume prioridade imediata.
+# - Agendamentos automáticos (schedule / AUTO em todos os mercados) NUNCA cancelam uma operação em andamento (entram em fila limpa).
 concurrency:
   group: robo-mercaro-swarm
-  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.modo_fila != 'AUTO' && github.event.inputs.modo_fila != '' }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' && ((github.event.inputs.modo_fila != 'AUTO' && github.event.inputs.modo_fila != '') || (github.event.inputs.mercado != 'ambos' && github.event.inputs.mercado != 'todos' && github.event.inputs.mercado != '')) }}
 
 jobs:
   # Etapa 1: Orquestrador Automático de Ciclos (24h Contínuo 1 Máq • 3h Ampla 10 Máq • 12h Completa 10 Máq)
@@ -81,7 +81,16 @@ jobs:
           FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
         run: |
           INPUT_MODO="${{ github.event.inputs.modo_fila || 'AUTO' }}"
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "$INPUT_MODO" = "AUTO" ]; then
+          INPUT_MERCADO="${{ github.event.inputs.mercado || 'ambos' }}"
+          INPUT_MAQ="${{ github.event.inputs.total_maquinas || '' }}"
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            MERCADO="ambos"
+          else
+            MERCADO="$INPUT_MERCADO"
+          fi
+
+          if [ "${{ github.event_name }}" = "schedule" ] || ( [ "$INPUT_MODO" = "AUTO" ] && ( [ "$MERCADO" = "ambos" ] || [ "$MERCADO" = "todos" ] ) ); then
             DECISAO=$(node -e '
               (async () => {
                 const base = process.env.FIREBASE_URL;
@@ -113,18 +122,46 @@ jobs:
             ')
             MODO_CAMADA=$(echo "$DECISAO" | cut -d'|' -f1)
             RAW_N=$(echo "$DECISAO" | cut -d'|' -f2)
-            MERCADO="ambos"
           else
-            # Operação customizada disparada manualmente pelo usuário
-            MODO_CAMADA="$INPUT_MODO"
-            RAW_N="${{ github.event.inputs.total_maquinas || '10' }}"
-            if [ "$MODO_CAMADA" = "24H" ] && [ "${{ github.event.inputs.total_maquinas }}" = "" ]; then
+            # Operação customizada disparada manualmente pelo usuário (ou para mercado individual ex: só Angeloni)
+            if [ "$INPUT_MODO" = "AUTO" ]; then
+              MODO_CAMADA="2A"
+            else
+              MODO_CAMADA="$INPUT_MODO"
+            fi
+            RAW_N="${INPUT_MAQ:-10}"
+            if [ "$MODO_CAMADA" = "24H" ] && [ -z "$INPUT_MAQ" ]; then
               RAW_N="1"
             fi
             if [ -z "$RAW_N" ]; then
               RAW_N="10"
             fi
-            MERCADO="${{ github.event.inputs.mercado || 'ambos' }}"
+          fi
+
+          # Se o usuário pediu para vasculhar SOMENTE 1 mercado específico, limpa o status RODANDO dos outros 2 no Firebase
+          if [ "$MERCADO" != "ambos" ] && [ "$MERCADO" != "todos" ]; then
+            MERCADO_ALVO="$MERCADO" node -e '
+              (async () => {
+                const base = process.env.FIREBASE_URL;
+                const sec = (process.env.FIREBASE_SECRET || "").trim();
+                const q = sec ? `?auth=${encodeURIComponent(sec)}` : "";
+                const alvo = process.env.MERCADO_ALVO;
+                const alvosPausar = [];
+                if (alvo !== "koch") alvosPausar.push({ tel: "telemetria.json", enx: "enxame_koch.json" });
+                if (alvo !== "fort") alvosPausar.push({ tel: "telemetria_fort.json", enx: "enxame_fort.json" });
+                if (alvo !== "angeloni") alvosPausar.push({ tel: "telemetria_angeloni.json", enx: "enxame_angeloni.json" });
+                for (const item of alvosPausar) {
+                  try {
+                    await fetch(`${base}/robo_controle/${item.tel}${q}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ status: "PAUSADO", mensagem: `Aguardando (Foco exclusivo em ${alvo.toUpperCase()})`, heartbeatMs: 0 })
+                    });
+                    await fetch(`${base}/robo_controle/${item.enx}${q}`, { method: "DELETE" });
+                  } catch {}
+                }
+              })();
+            '
           fi
 
           if ! [[ "$RAW_N" =~ ^[0-9]+$ ]]; then RAW_N="10"; fi
@@ -299,7 +336,7 @@ jobs:
   # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort × Angeloni Porto Belo)
   vincular-produtos:
     needs: [preparar-enxame, extrator-koch, extrator-fort, extrator-angeloni]
-    if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada == 'COMPLETA' || needs.preparar-enxame.outputs.modo_camada == '2A' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular')
+    if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada == 'COMPLETA' || needs.preparar-enxame.outputs.modo_camada == '2A' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular' || needs.preparar-enxame.outputs.mercado_escolhido != 'ambos')
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Baixar código do projeto
@@ -319,7 +356,7 @@ jobs:
   # Etapa 4: Auto-Revezamento Contínuo 24/7 (Garante que o robô NUNCA pare entre os turnos de 24h, 3h e 12h)
   auto-continuar:
     needs: [preparar-enxame, extrator-koch, extrator-fort, extrator-angeloni, vincular-produtos]
-    if: always() && !cancelled() && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
+    if: always() && !cancelled() && (needs.preparar-enxame.outputs.mercado_escolhido == 'ambos' || needs.preparar-enxame.outputs.mercado_escolhido == 'todos')
     runs-on: ubuntu-latest
     steps:
       - name: 🔄 Disparar Próximo Turno Automaticamente (24h Sem Parar / 3h Ampla / 12h Completa)

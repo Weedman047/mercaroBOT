@@ -760,8 +760,8 @@
           <div id="secaoLogVinculos" class="bg-[#0a192f] border border-[#1c355e] rounded-xl p-3.5 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h4 class="text-xs font-bold text-white">Auditoria de Vínculos (Fort ↔ SuperKoch)</h4>
-                <p class="text-[11px] text-slate-400">Para editar, adicionar, excluir, executar e configurar parâmetros, acesse Config → Vínculos</p>
+                <h4 class="text-xs font-bold text-white">Auditoria de Vínculos Triplos (Fort ↔ SuperKoch ↔ Angeloni Porto Belo)</h4>
+                <p class="text-[11px] text-slate-400">Medida (kg/g/L/ml) 100% exata • Marca 100% exata • Similaridade de nome rigorosa</p>
               </div>
               <button onclick="abrirConfigVinculosDireto()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition shrink-0">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
@@ -936,6 +936,9 @@
                   <button onclick="copiarRoboExtrator('koch')" class="text-[11px] bg-[#112645] hover:bg-[#19355e] text-slate-200 px-2.5 py-1 rounded-lg border border-[#234876]">
                     Console Koch
                   </button>
+                  <button onclick="copiarRoboExtrator('angeloni')" class="text-[11px] bg-[#112645] hover:bg-[#19355e] text-slate-200 px-2.5 py-1 rounded-lg border border-[#234876]">
+                    Console Angeloni
+                  </button>
                 </div>
               </div>
 
@@ -962,9 +965,9 @@
                 <div>
                   <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                     <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                    <span>Central de Vínculos de Produtos (Fort ↔ SuperKoch)</span>
+                    <span>Central de Vínculos Triplos (Fort ↔ SuperKoch ↔ Angeloni Porto Belo)</span>
                   </h4>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Configure parâmetros de pareamento, execute o motor inteligente, adicione, edite ou exclua vínculos</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Medida (kg/g/L/ml) 100% exata • Marca 100% exata • Similaridade de nome rigorosa sem falsos positivos</p>
                 </div>
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <button onclick="abrirFormularioNovoVinculo()" class="bg-[#112645] hover:bg-[#19355e] text-sky-200 font-semibold px-3 py-1.5 rounded-lg text-xs border border-[#234876] flex items-center gap-1.5 transition">
@@ -982,22 +985,27 @@
                 </div>
               </div>
 
-              <!-- KPIs dos Vínculos -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 tabular-nums">
+              <!-- KPIs dos Vínculos Triplos -->
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 tabular-nums">
                 <div class="bg-[#06101f] border border-[#1c355e] rounded-lg p-2.5">
                   <div class="text-[9px] text-slate-400 uppercase">Total Vinculados</div>
                   <div id="kpiTotalVinculos" class="text-sm font-bold text-white mt-0.5">0</div>
-                  <div id="kpiManuaisCount" class="text-[10px] text-sky-400">0 manuais</div>
+                  <div id="kpiTotalVinculosSub" class="text-[10px] text-sky-400">0 nas 3 lojas</div>
                 </div>
                 <div class="bg-[#06101f] border border-[#1c355e] rounded-lg p-2.5">
                   <div class="text-[9px] text-slate-400 uppercase">Fort Mais Barato</div>
-                  <div id="kpiVitoriasFort" class="text-sm font-bold text-sky-300 mt-0.5">0 itens</div>
+                  <div id="kpiVitoriasFort" class="text-sm font-bold text-emerald-300 mt-0.5">0 itens</div>
                   <div id="kpiPctVitoriasFort" class="text-[10px] text-slate-500">0%</div>
                 </div>
                 <div class="bg-[#06101f] border border-[#1c355e] rounded-lg p-2.5">
                   <div class="text-[9px] text-slate-400 uppercase">SuperKoch Mais Barato</div>
-                  <div id="kpiVitoriasKoch" class="text-sm font-bold text-blue-300 mt-0.5">0 itens</div>
+                  <div id="kpiVitoriasKoch" class="text-sm font-bold text-sky-300 mt-0.5">0 itens</div>
                   <div id="kpiPctVitoriasKoch" class="text-[10px] text-slate-500">0%</div>
+                </div>
+                <div class="bg-[#06101f] border border-[#1c355e] rounded-lg p-2.5">
+                  <div class="text-[9px] text-slate-400 uppercase">Angeloni Mais Barato</div>
+                  <div id="kpiVitoriasAngeloni" class="text-sm font-bold text-cyan-300 mt-0.5">0 itens</div>
+                  <div id="kpiPctVitoriasAngeloni" class="text-[10px] text-slate-500">0%</div>
                 </div>
                 <div class="bg-[#06101f] border border-[#1c355e] rounded-lg p-2.5">
                   <div class="text-[9px] text-slate-400 uppercase">Mesmo Preço / Rejeitados</div>
@@ -1012,9 +1020,9 @@
                   <div>
                     <h5 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                       <svg class="w-4 h-4 text-rose-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                      <span>Tinder de Vínculos (Aprovação Rápida de Pares)</span>
+                      <span>Tinder de Vínculos (Aprovação Rápida de Pares entre os 3 Mercados)</span>
                     </h5>
-                    <p class="text-[11px] text-slate-400 mt-0.5">Sugestões de produtos com marcas e gramaturas semelhantes. Aprove para vincular permanentemente ou rejeite para nunca mais sugerir.</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Sugestões de produtos com mesma medida e marca nos 3 mercados. Aprove para vincular permanentemente ou rejeite para nunca mais sugerir.</p>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
                     <span id="badgeContadorTinder" class="bg-[#0a192f] text-sky-300 border border-[#234876] font-mono text-[10px] px-2 py-0.5 rounded">Calculando...</span>
@@ -1037,7 +1045,7 @@
                 <div class="flex items-center justify-between gap-2">
                   <span class="text-xs font-bold text-white flex items-center gap-1.5">
                     <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-                    <span>Configuração do Algoritmo de Vínculo</span>
+                    <span>Configuração do Algoritmo de Vínculo (Medida Exata + Marca Exata)</span>
                   </span>
                   <div class="flex items-center gap-1.5">
                     <button onclick="limparRejeitadosVinculos()" title="Limpar lista de pares rejeitados" class="text-[11px] bg-[#112645] hover:bg-[#19355e] text-slate-300 px-2.5 py-1 rounded-lg border border-[#234876]">
@@ -1051,23 +1059,23 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label class="block text-[10px] text-slate-400 font-medium mb-1">Score Mínimo Automático (45–95%)</label>
-                    <input id="inpVincScoreMin" type="number" min="45" max="95" value="58" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+                    <label class="block text-[10px] text-slate-400 font-medium mb-1">Score Mínimo Automático (55–95%)</label>
+                    <input id="inpVincScoreMin" type="number" min="55" max="95" value="65" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
                   </div>
                   <div>
-                    <label class="block text-[10px] text-slate-400 font-medium mb-1">Tolerância Gramatura (%)</label>
-                    <input id="inpVincTolGram" type="number" min="0" max="20" step="1" value="2" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+                    <label class="block text-[10px] text-slate-400 font-medium mb-1">Tolerância Gramatura (% • 0 = Exata)</label>
+                    <input id="inpVincTolGram" type="number" min="0" max="5" step="1" value="0" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
                   </div>
                   <div>
                     <label class="block text-[10px] text-slate-400 font-medium mb-1">Razão Máx. Preço (Fardo vs Un)</label>
-                    <input id="inpVincMaxRatioPreco" type="number" min="1.3" max="5.0" step="0.05" value="2.65" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+                    <input id="inpVincMaxRatioPreco" type="number" min="1.3" max="4.0" step="0.05" value="2.35" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
                   </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-300">
                   <label class="inline-flex items-center gap-2 cursor-pointer">
                     <input id="chkVincExigirMarcaOuFoto" type="checkbox" checked class="accent-sky-400 w-3.5 h-3.5">
-                    <span>Exigir marca compatível ou foto idêntica quando score &lt; 68</span>
+                    <span>Exigir marca 100% exata e medida (kg/g/L/ml) 100% exata</span>
                   </label>
                   <label class="inline-flex items-center gap-2 cursor-pointer">
                     <input id="chkVincAutoSync" type="checkbox" checked class="accent-sky-400 w-3.5 h-3.5">
@@ -1076,24 +1084,29 @@
                 </div>
               </div>
 
-              <!-- 2. ADICIONAR OU EDITAR VÍNCULO MANUALMENTE -->
+              <!-- 2. ADICIONAR OU EDITAR VÍNCULO MANUALMENTE (ATÉ 3 LOJAS) -->
               <div id="boxFormVinculoManual" class="hidden bg-[#06101f] border border-sky-500/50 rounded-xl p-3.5 space-y-3">
                 <div class="flex items-center justify-between gap-2 border-b border-[#1c355e] pb-2">
-                  <span id="tituloFormVinculoManual" class="text-xs font-bold text-sky-300">Adicionar Novo Vínculo Manual</span>
+                  <span id="tituloFormVinculoManual" class="text-xs font-bold text-sky-300">Adicionar Novo Vínculo Manual (2 ou 3 Lojas)</span>
                   <button onclick="fecharFormVinculoManual()" title="Fechar formulário" class="text-slate-400 hover:text-white w-6 h-6 flex items-center justify-center rounded">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6L6 18M6 6l12 12"/></svg>
                   </button>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Produto SuperKoch (Loja 1408)</label>
+                    <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Produto SuperKoch (Itapema 1408)</label>
                     <input id="inpBuscaVincKoch" type="text" placeholder="Pesquisar no SuperKoch..." oninput="filtrarOpcoesVincKoch(this.value)" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white">
                     <select id="selVincProdKoch" size="5" class="w-full bg-[#0a192f] border border-[#1c355e] rounded-lg mt-1.5 p-1 text-xs text-slate-200"></select>
                   </div>
                   <div>
-                    <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Produto Fort Atacadista (Loja 1644)</label>
+                    <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Produto Fort Atacadista (Porto Belo 1644)</label>
                     <input id="inpBuscaVincFort" type="text" placeholder="Pesquisar no Fort Atacadista..." oninput="filtrarOpcoesVincFort(this.value)" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white">
                     <select id="selVincProdFort" size="5" class="w-full bg-[#0a192f] border border-[#1c355e] rounded-lg mt-1.5 p-1 text-xs text-slate-200"></select>
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-semibold text-slate-400 uppercase mb-1">Produto Angeloni (Porto Belo 28)</label>
+                    <input id="inpBuscaVincAngeloni" type="text" placeholder="Pesquisar no Angeloni..." oninput="filtrarOpcoesVincAngeloni(this.value)" class="w-full bg-[#0a192f] border border-[#234876] rounded-lg px-2.5 py-1.5 text-xs text-white">
+                    <select id="selVincProdAngeloni" size="5" class="w-full bg-[#0a192f] border border-[#1c355e] rounded-lg mt-1.5 p-1 text-xs text-slate-200"></select>
                   </div>
                 </div>
                 <div class="flex items-center justify-end gap-2">
@@ -1110,10 +1123,14 @@
               <!-- 3. LISTA DE VÍNCULOS COM BUSCA, FILTRO, EDITAR, FIXAR E EXCLUIR -->
               <div class="space-y-2.5 pt-1">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div class="flex items-center gap-1.5">
+                  <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-xs font-bold text-slate-200">Produtos Vinculados</span>
                     <select id="selFiltroTipoVinculo" onchange="filtrarTipoVinculoUI(this.value)" class="bg-[#06101f] border border-[#234876] text-slate-200 rounded-lg px-2 py-1 text-[11px]">
                       <option value="TODOS">Todos os Vínculos</option>
+                      <option value="TRIPLOS">Comparados nas 3 Lojas</option>
+                      <option value="FORT">Fort Mais Barato</option>
+                      <option value="KOCH">SuperKoch Mais Barato</option>
+                      <option value="ANGELONI">Angeloni Mais Barato</option>
                       <option value="MANUAIS">Somente Manuais</option>
                       <option value="AUTOMATICOS">Somente Automáticos</option>
                     </select>
@@ -2018,6 +2035,19 @@
       if (cKoch) cKoch.classList.toggle('hidden', modo !== 'ambos' && modo !== 'koch');
       if (cFort) cFort.classList.toggle('hidden', modo !== 'ambos' && modo !== 'fort');
       if (cAng) cAng.classList.toggle('hidden', modo !== 'ambos' && modo !== 'angeloni');
+
+      // Sincroniza automaticamente os seletores de Disparo na Nuvem e Comando Remoto com o mercado focado no painel
+      const selDisp = document.getElementById('selDisparoMercado');
+      if (selDisp && ['ambos', 'koch', 'fort', 'angeloni'].includes(modo)) {
+        selDisp.value = modo;
+      }
+      const selRemoto = document.getElementById('selDestinoComandoRemoto');
+      if (selRemoto && ['ambos', 'koch', 'fort', 'angeloni'].includes(modo)) {
+        selRemoto.value = modo;
+      }
+      if (modo === 'koch' || modo === 'fort' || modo === 'angeloni') {
+        selecionarMercadoConfigUI(modo);
+      }
     }
 
     function selecionarMercadoConfigUI(mercado) {
@@ -2045,25 +2075,277 @@
       }
     }
 
-    // Ícones SVG Minimalistas por Departamento
+    // Ícones SVG Minimalistas por Departamento (Classificação Estrita por Hierarquia de Categoria + Bloqueio de Falsos Positivos)
     const DEPARTAMENTOS_IFOOD = [
       { id: 'TODOS', nome: 'Todos', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>', sub: [] },
       { id: 'OFERTAS', nome: 'Ofertas', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>', sub: ['Maiores Descontos', 'Até R$ 5', 'Até R$ 10', 'Até R$ 20'] },
-      { id: 'MERCEARIA', nome: 'Mercearia', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>', termosCat: ['mercearia', 'alimento', 'graos', 'matinal', 'biscoito', 'chocolate', 'doces', 'basicos'], regexNome: /\b(arroz|feijao|macarrao|massa|oleo|azeite|vinagre|sal|acucar|cafe|farinha|aveia|biscoito|bolacha|chocolate|molho|ketchup|maionese|milho|ervilha|atum|sardinha)\b/i, sub: ['Arroz & Feijão', 'Macarrão & Molhos', 'Óleo & Azeite', 'Café & Matinais', 'Biscoitos & Doces', 'Enlatados'] },
-      { id: 'BEBIDAS', nome: 'Bebidas', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 2h8l-1 19a2 2 0 01-2 2h-2a2 2 0 01-2-2L8 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12"/></svg>', termosCat: ['bebida'], excluirCat: ['alcoolica', 'cerveja', 'vinho', 'destilado'], regexNome: /\b(refrigerante|sprite|coca-cola|coca cola|pepsi|guarana|suco|agua mineral|agua com gas|energetico|red bull|monster|cha gelado)\b/i, sub: ['Refrigerante', 'Suco & Néctar', 'Água', 'Energético & Isotônico'] },
-      { id: 'ALCOOLICAS', nome: 'Alcoólicas', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 22h8M12 15v7m-5-19h10l-1 7a4 4 0 01-8 0L7 3z"/></svg>', termosCat: ['alcoolica', 'cerveja', 'vinho', 'destilado', 'champagne', 'licores'], regexNome: /\b(cerveja|heineken|amstel|brahma|skol|spaten|corona|vinho|espumante|whisky|vodka|gin|tequila|cachaca)\b/i, sub: ['Cerveja', 'Vinho & Espumante', 'Whisky & Vodka', 'Destilados & Gin'] },
-      { id: 'ACOUGUE', nome: 'Açougue', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 5.5a5 5 0 013 8.5L11 21.5a4 4 0 01-5.5-5.5L13 8.5a5 5 0 012.5-3z"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>', termosCat: ['acougue', 'carne', 'aves', 'peixaria', 'pescado'], regexNome: /\b(bovino|bovina|picanha|alcatra|maminha|contra file|costela|coxao|patinho|acem|carne moida|frango|suino|linguica|salsicha|bacon|peixe|tilapia|salmao)\b/i, sub: ['Bovinos', 'Frango', 'Suínos', 'Linguiça & Salsicha', 'Peixes'] },
-      { id: 'FRIOS_LATICINIOS', nome: 'Frios & Laticínios', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-7 9 7v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7z"/><circle cx="10" cy="15" r="1"/><circle cx="14" cy="13" r="1"/></svg>', termosCat: ['frios', 'laticinio', 'queijo', 'leite', 'iogurte', 'embutidos'], regexNome: /\b(leite|queijo|mussarela|prato|parmesao|presunto|mortadela|salame|copa|iogurte|requeijao|manteiga|margarina|creme de leite)\b/i, sub: ['Leite', 'Queijos', 'Presunto & Embutidos', 'Iogurte & Laticínios', 'Manteiga & Margarina'] },
-      { id: 'HORTIFRUTI', nome: 'Hortifruti', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6c-3.5 0-6 2.8-6 6.8C6 17.5 9 21 12 21s6-3.5 6-8.2C18 8.8 15.5 6 12 6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V3m0 3c1.5-2 3.5-2 4.5-1"/></svg>', termosCat: ['hortifruti', 'fruta', 'verdura', 'legume', 'ovos', 'organicos'], regexNome: /\b(banana|maca|laranja|limao|uva|mamao|melancia|melao|abacaxi|morango|tomate|cebola|batata|alho|cenoura|alface|ovos|ovo)\b/i, sub: ['Frutas', 'Verduras & Folhas', 'Legumes', 'Ovos'] },
-      { id: 'LIMPEZA', nome: 'Limpeza', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>', termosCat: ['limpeza', 'lava roupas', 'amaciante', 'desinfetante'], regexNome: /\b(sabao|lava roupas|omo|amaciante|downy|detergente|ype|agua sanitaria|alvejante|desinfetante|veja|multiuso|esponja|saco para lixo)\b/i, sub: ['Lava Roupas', 'Amaciante', 'Detergente & Esponja', 'Desinfetante & Multiuso'] },
-      { id: 'HIGIENE', nome: 'Higiene & Beleza', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>', termosCat: ['higiene', 'beleza', 'cuidado pessoal', 'corpo', 'cabelo', 'bucal'], regexNome: /\b(papel higienico|sabonete|shampoo|condicionador|desodorante|creme dental|escova dental|enxaguante|absorvente)\b/i, sub: ['Papel Higiênico', 'Sabonete & Banho', 'Cabelo', 'Higiene Bucal', 'Desodorante'] },
-      { id: 'CONGELADOS', nome: 'Congelados', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v20M4.93 4.93l14.14 14.14M2 12h20M4.93 19.07L19.07 4.93"/></svg>', termosCat: ['congelado', 'sorvete', 'sobremesa'], regexNome: /\b(pizza|lasanha|hamburguer|nuggets|batata pre-frita|pao de queijo|sorvete|picole)\b/i, sub: ['Pizza & Pratos Prontos', 'Hambúrguer & Empanados', 'Batata Congelada', 'Sorvete'] },
-      { id: 'PADARIA', nome: 'Padaria', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 15s1-7 8-7 8 7 8 7v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3z"/></svg>', termosCat: ['padaria', 'confeitaria', 'paes', 'bolo'], regexNome: /\b(pao|paes|bisnaguinha|torrada|bolo|torta|panetone)\b/i, sub: ['Pão de Forma', 'Pães Variados', 'Bolos & Tortas', 'Torradas'] },
-      { id: 'PET', nome: 'Pet', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="7" cy="9" r="1.5"/><circle cx="17" cy="9" r="1.5"/><circle cx="10" cy="6" r="1.5"/><circle cx="14" cy="6" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 15c0-2 2-3.5 4-3.5s4 1.5 4 3.5c0 1.8-1.5 3-4 3s-4-1.2-4-3z"/></svg>', termosCat: ['pet', 'caes', 'gatos', 'racao'], regexNome: /\b(racao|petisco|pedigree|whiskas|areia sanitaria|tapete higienico)\b/i, sub: ['Ração para Cães', 'Ração para Gatos', 'Higiene Pet'] },
-      { id: 'BEBE', nome: 'Bebê', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"/></svg>', termosCat: ['bebe', 'infantil', 'fraldas'], regexNome: /\b(fralda|pampers|huggies|lenco umedecido|composto lacteo|aptamil|chupeta)\b/i, sub: ['Fraldas', 'Lenço Umedecido', 'Alimentação Infantil'] },
-      { id: 'CASA_UTILIDADES', nome: 'Utilidades', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/></svg>', termosCat: ['casa', 'utilidade', 'bazar', 'churrasco', 'descartaveis', 'textil'], regexNome: /\b(carvao|papel toalha|papel aluminio|copo descartavel|lampada|pilha)\b/i, sub: ['Churrasco & Carvão', 'Descartáveis', 'Papel Toalha & Alumínio', 'Lâmpadas & Pilhas'] },
-      { id: 'ELETRO', nome: 'Eletro', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', termosCat: ['eletro', 'smart tv', 'ar condicionado', 'informatica', 'eletronicos'], regexNome: /\b(tv|televisao|ar condicionado|ventilador|liquidificador|cafeteira|air fryer|ferro de passar)\b/i, sub: ['Eletroportáteis', 'TV & Áudio', 'Climatização'] }
+      { id: 'MERCEARIA', nome: 'Mercearia', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>', sub: ['Arroz & Feijão', 'Macarrão & Molhos', 'Óleo & Azeite', 'Café & Matinais', 'Biscoitos & Doces', 'Enlatados'] },
+      { id: 'BEBIDAS', nome: 'Bebidas', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 2h8l-1 19a2 2 0 01-2 2h-2a2 2 0 01-2-2L8 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 7h12"/></svg>', sub: ['Refrigerante', 'Suco & Néctar', 'Água', 'Energético & Isotônico'] },
+      { id: 'ALCOOLICAS', nome: 'Alcoólicas', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 22h8M12 15v7m-5-19h10l-1 7a4 4 0 01-8 0L7 3z"/></svg>', sub: ['Cerveja', 'Vinho & Espumante', 'Whisky & Vodka', 'Destilados & Gin'] },
+      { id: 'ACOUGUE', nome: 'Açougue', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.5 5.5a5 5 0 013 8.5L11 21.5a4 4 0 01-5.5-5.5L13 8.5a5 5 0 012.5-3z"/><circle cx="15.5" cy="8.5" r="1.2"/></svg>', sub: ['Bovinos', 'Frango', 'Suínos', 'Linguiça & Salsicha', 'Peixes'] },
+      { id: 'FRIOS_LATICINIOS', nome: 'Frios & Laticínios', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-7 9 7v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7z"/><circle cx="10" cy="15" r="1"/><circle cx="14" cy="13" r="1"/></svg>', sub: ['Leite', 'Queijos', 'Presunto & Embutidos', 'Iogurte & Laticínios', 'Manteiga & Margarina'] },
+      { id: 'HORTIFRUTI', nome: 'Hortifruti', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6c-3.5 0-6 2.8-6 6.8C6 17.5 9 21 12 21s6-3.5 6-8.2C18 8.8 15.5 6 12 6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V3m0 3c1.5-2 3.5-2 4.5-1"/></svg>', sub: ['Frutas', 'Verduras & Folhas', 'Legumes', 'Ovos'] },
+      { id: 'LIMPEZA', nome: 'Limpeza', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>', sub: ['Lava Roupas', 'Amaciante', 'Detergente & Esponja', 'Desinfetante & Multiuso'] },
+      { id: 'HIGIENE', nome: 'Higiene & Beleza', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>', sub: ['Papel Higiênico', 'Sabonete & Banho', 'Cabelo', 'Higiene Bucal', 'Desodorante'] },
+      { id: 'CONGELADOS', nome: 'Congelados', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v20M4.93 4.93l14.14 14.14M2 12h20M4.93 19.07L19.07 4.93"/></svg>', sub: ['Pizza & Pratos Prontos', 'Hambúrguer & Empanados', 'Batata Congelada', 'Sorvete'] },
+      { id: 'PADARIA', nome: 'Padaria', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 15s1-7 8-7 8 7 8 7v3a2 2 0 01-2 2H6a2 2 0 01-2-2v-3z"/></svg>', sub: ['Pão de Forma', 'Pães Variados', 'Bolos & Tortas', 'Torradas'] },
+      { id: 'PET', nome: 'Pet', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="7" cy="9" r="1.5"/><circle cx="17" cy="9" r="1.5"/><circle cx="10" cy="6" r="1.5"/><circle cx="14" cy="6" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 15c0-2 2-3.5 4-3.5s4 1.5 4 3.5c0 1.8-1.5 3-4 3s-4-1.2-4-3z"/></svg>', sub: ['Ração para Cães', 'Ração para Gatos', 'Higiene Pet'] },
+      { id: 'BEBE', nome: 'Bebê', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"/></svg>', sub: ['Fraldas', 'Lenço Umedecido', 'Alimentação Infantil'] },
+      { id: 'CASA_UTILIDADES', nome: 'Utilidades', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z"/></svg>', sub: ['Churrasco & Carvão', 'Descartáveis', 'Papel Toalha & Alumínio', 'Lâmpadas & Pilhas'] },
+      { id: 'ELETRO', nome: 'Eletro', svg: '<svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', sub: ['Eletroportáteis', 'TV & Áudio', 'Climatização'] }
     ];
+
+    // Regras estritas de bloqueio por tipo real do produto (impede miojo de picanha em Açougue, suco/energético em Alcoólicas, etc.)
+    const REGEX_NAO_EH_ACOUGUE = /\b(macarrao|miojo|lamen|instantaneo|instantanea|massa|lasanha|pizza|sopa|caldo|tempero|molho|ketchup|catchup|mostarda|maionese|biscoito|bolacha|salgadinho|batata|chips|slice|lays|pingo|doritos|ruffles|cheetos|torresmo|pururuca|racao|petisco|bifinho|bifao|sache|caes|gatos|cachorro|gato|sanduiche|hot pocket|hot hit|escondidinho|nhoque|ravioli|capeletti|pastel|esfirra|empada|coxinha|pao|bolo|torta|panetone|sorvete)\b/i;
+    const REGEX_NAO_EH_ALCOOLICA = /\b(suco|nectar|refresco|refrigerante|energetico|isotonico|agua mineral|agua com gas|agua sem gas|agua de coco|agua tonica|cha |cha$|mate |achocolatado|bebida lactea|red bull|monster|gatorade|powerade|del valle|kapo|tang|clight|coca cola|coca-cola|pepsi|fanta|sprite|guarana|sukita|h2oh|schweppes|toddynho|kero coco)\b/i;
+    const REGEX_EH_ALCOOLICA_REAL = /\b(cerveja|chope|chopp|vinho|espumante|champagne|prosecco|frisante|whisky|whiskey|vodka|gin|tequila|cachaca|aguardente|licor|aperitivo|conhaque|rum|saque|sidra|smirnoff|absolut|tanqueray|beefeater|johnnie walker|ballantines|chivas|jack daniels|velho barreiro|ypioca|campari|aperol|martini|catuaba)\b/i;
+
+    function classificarDepartamentosProduto(nomeNorm, categoriasLimpas, emOferta = false) {
+      const deptos = new Set(['TODOS']);
+      if (emOferta) deptos.add('OFERTAS');
+
+      // Sanitiza "bebidas nao alcoolicas" ANTES de checar "alcoolica" para nunca confundir o depto do Fort Atacadista!
+      const catRaw = normalizarTexto((categoriasLimpas || []).join(' | '));
+      const catSegura = catRaw
+        .replace(/\bbebidas?\s+nao\s+alcoolicas?\b/g, 'bebidas_nao_alcoolicas')
+        .replace(/\bnao\s+alcoolic[oa]s?\b/g, 'nao_alcool')
+        .replace(/\bsem\s+alcool\b/g, 'sem_alcool');
+
+      const ehItemNaoAcougue = REGEX_NAO_EH_ACOUGUE.test(nomeNorm);
+      const ehBebidaNaoAlcoolica = REGEX_NAO_EH_ALCOOLICA.test(nomeNorm) && !REGEX_EH_ALCOOLICA_REAL.test(nomeNorm);
+      const ehBebidaAlcoolicaReal = REGEX_EH_ALCOOLICA_REAL.test(nomeNorm);
+      const ehItemPet = /\b(racao|petisco|bifinho|bifao|areia sanitaria|tapete higienico|para caes|para gatos|caes adultos|caes filhotes|gatos adultos|dog chow|cat chow|pedigree|whiskas|friskies|golden|premier|chappi|keldog|fancy feast)\b/i.test(nomeNorm) || /\b(pet|petshop|caes|cachorros|gatos)\b/.test(catSegura);
+
+      if (ehItemPet) {
+        deptos.add('PET');
+        return deptos;
+      }
+
+      if (catSegura) {
+        if (/\b(mercearia|alimentos basicos|alimentacao especial|saudaveis|biscoitos e snacks|massas|molhos|temperos|condimentos|graos|cereais|matinais|bomboniere|doces|conservas|enlatados)\b/.test(catSegura)) {
+          deptos.add('MERCEARIA');
+        }
+        if ((/\b(bebidas_nao_alcoolicas|refrigerantes|sucos|aguas|energeticos|isotonicos|chas)\b/.test(catSegura) || (/\bbebidas\b/.test(catSegura) && !/\b(alcoolica|adega|cerveja|vinho|destilado|espumante)\b/.test(catSegura))) && !ehBebidaAlcoolicaReal) {
+          deptos.add('BEBIDAS');
+        }
+        if (/\b(alcoolica|alcoolicas|adega|cervejas|vinhos|espumantes|destilados|licores|whiskies|vodkas|gins|cachacas)\b/.test(catSegura) && !ehBebidaNaoAlcoolica) {
+          deptos.add('ALCOOLICAS');
+        }
+        if (/\b(acougue|carnes bovinas|carnes suinas|carnes e aves|carnes, aves e peixes|peixaria|pescados|aves)\b/.test(catSegura) && !ehItemNaoAcougue && !/\bcongelados\s+carnes\b/.test(catSegura)) {
+          deptos.add('ACOUGUE');
+        }
+        if (/\b(frios|laticinios|queijos|embutidos|iogurtes|leites|manteiga|margarina|requeijao)\b/.test(catSegura) && !/\b(biscoito|macarrao|salgadinho|sorvete)\b/.test(nomeNorm)) {
+          deptos.add('FRIOS_LATICINIOS');
+        }
+        if (/\b(hortifruti|frutas|verduras|legumes|ovos|horta)\b/.test(catSegura) && !/\b(suco|refrigerante|gelatina|biscoito|iogurte|sabonete|shampoo|desinfetante)\b/.test(nomeNorm)) {
+          deptos.add('HORTIFRUTI');
+        }
+        if (/\b(limpeza|lavanderia|lava roupas|lava-roupas|amaciante|desinfetante|detergente|agua sanitaria|alvejante|inseticida)\b/.test(catSegura)) {
+          deptos.add('LIMPEZA');
+        }
+        if (/\b(higiene|beleza|cuidado pessoal|papel higienico|sabonetes|para cabelos|higiene bucal|desodorantes|barbearia|higiene intima)\b/.test(catSegura)) {
+          deptos.add('HIGIENE');
+        }
+        if (/\b(congelados|sorvetes|pratos prontos congelados|pizzas|lasanhas|empanados|hamburguer)\b/.test(catSegura)) {
+          deptos.add('CONGELADOS');
+        }
+        if (/\b(padaria|confeitaria|paes|bolos e tortas|panettone|chocottone|cucas)\b/.test(catSegura)) {
+          deptos.add('PADARIA');
+        }
+        if (/\b(bebe|mundo bebe|infantil|criancas|fraldas)\b/.test(catSegura)) {
+          deptos.add('BEBE');
+        }
+        if (/\b(casa|utilidades|bazar|descartaveis|churrasco|cama e banho|decoracao|jardinagem|automotivo|papelaria)\b/.test(catSegura)) {
+          deptos.add('CASA_UTILIDADES');
+        }
+        if (/\b(eletro|eletroportateis|eletronicos|climatizacao|informatica)\b/.test(catSegura)) {
+          deptos.add('ELETRO');
+        }
+      }
+
+      // Se o produto veio APENAS de vitrine de Ofertas sem departamento de loja, classifica SOMENTE pelo substantivo inicial do produto (nunca pelo sabor!)
+      const temDeptoReal = Array.from(deptos).some(d => d !== 'TODOS' && d !== 'OFERTAS');
+      if (!temDeptoReal) {
+        if (ehBebidaAlcoolicaReal && !ehBebidaNaoAlcoolica) deptos.add('ALCOOLICAS');
+        else if (ehBebidaNaoAlcoolica) deptos.add('BEBIDAS');
+        else if (/^(picanha|alcatra|maminha|contra file|contrafile|costela|coxao|patinho|acem|fraldinha|cupim|musculo|paleta|carne moida|bife|file mignon|frango inteiro|peito de frango|file de peito|filezinho|coxa|sobrecoxa|meio da asa|coxinha da asa|tulipa|pernil|lombo|bisteca|costelinha|linguica|salsicha|bacon|tilapia|salmao| postas? de |camarao|bacalhau)\b/i.test(nomeNorm) && !ehItemNaoAcougue) deptos.add('ACOUGUE');
+        else if (/^(leite |queijo |mussarela |presunto |mortadela |salame |iogurte |requeijao |manteiga |margarina |nata |bebida lactea )/i.test(nomeNorm)) deptos.add('FRIOS_LATICINIOS');
+        else if (/^(banana |maca |laranja |limao |uva |mamao |melancia |melao |abacaxi |morango |tomate |cebola |batata inglesa|batata lavada|batata doce|alho |cenoura |alface |ovos )\b/i.test(nomeNorm)) deptos.add('HORTIFRUTI');
+        else if (/^(sabao |lava roupas|lavaroupas|amaciante |detergente |agua sanitaria|alvejante |desinfetante |limpador |multiuso |esponja |saco para lixo|inseticida )\b/i.test(nomeNorm)) deptos.add('LIMPEZA');
+        else if (/^(papel higienico|sabonete |shampoo |condicionador |desodorante |creme dental|escova dental|enxaguante |absorvente )\b/i.test(nomeNorm)) deptos.add('HIGIENE');
+        else if (/^(pizza |lasanha |hamburguer |nuggets |empanado |tekitos |sorvete |picole |sanduiche |hot pocket|hot hit)\b/i.test(nomeNorm)) deptos.add('CONGELADOS');
+        else if (/^(pao |bisnaguinha |torrada |bolo |torta |panetone |panettone |chocotone |cuca )\b/i.test(nomeNorm)) deptos.add('PADARIA');
+        else if (/^(fralda |lenco umedecido|composto lacteo|formula infantil)\b/i.test(nomeNorm)) deptos.add('BEBE');
+        else deptos.add('MERCEARIA');
+      }
+
+      // Garantia final: aplica travas negativas absolutas
+      if (ehItemNaoAcougue) deptos.delete('ACOUGUE');
+      if (ehBebidaNaoAlcoolica) {
+        deptos.delete('ALCOOLICAS');
+        deptos.add('BEBIDAS');
+      }
+      if (ehBebidaAlcoolicaReal && !/\b(sem alcool|zero alcool|0,0%)\b/i.test(nomeNorm)) {
+        deptos.delete('BEBIDAS');
+        deptos.add('ALCOOLICAS');
+      }
+
+      return deptos;
+    }
+
+    function atendeSubcategoriaSelecionada(p, sub) {
+      if (!sub) return true;
+      if (sub === 'Maiores Descontos') return p.desconto > 0;
+      if (sub === 'Até R$ 5') return p.preco > 0 && p.preco <= 5;
+      if (sub === 'Até R$ 10') return p.preco > 0 && p.preco <= 10;
+      if (sub === 'Até R$ 20') return p.preco > 0 && p.preco <= 20;
+
+      const n = p._nomeNorm || '';
+      const c = p._catNorm || '';
+
+      switch (sub) {
+        // MERCEARIA
+        case 'Arroz & Feijão':
+          return (/\b(arroz|feijao|lentilha|grao de bico|ervilha seca)\b/.test(c) || /^(arroz|feijao|lentilha)\b/.test(n)) && !/\b(lamen|biscoito|racao|bebida)\b/.test(n);
+        case 'Macarrão & Molhos':
+          return /\b(macarrao|massas|instantaneo|miojo|lamen|espaguete|parafuso|penne|talharim|ninho|molho de tomate|extrato de tomate|polpa de tomate|passata)\b/.test(`${c} ${n}`) && !/\b(congelad[oa]|racao)\b/.test(`${c} ${n}`);
+        case 'Óleo & Azeite':
+          return /\b(oleo|azeite|vinagre)\b/.test(c) || /^(oleo de |azeite |vinagre )\b/.test(n);
+        case 'Café & Matinais':
+          return /\b(cafe|cappuccino|achocolatado|cereal matinal|aveia|granola|filtro de papel|cha )\b/.test(`${c} ${n}`);
+        case 'Biscoitos & Doces':
+          return /\b(biscoito|bolacha|cookie|wafer|rosquinha|chocolate|bombom|bala|chicle|doce|gelatina|leite condensado|creme de leite|achocolatado|salgadinho|snacks)\b/.test(`${c} ${n}`);
+        case 'Enlatados':
+          return /\b(enlatado|conserva|milho verde|ervilha|seleta|atum|sardinha|azeitona|palmito|cogumelo|pepino)\b/.test(`${c} ${n}`);
+
+        // BEBIDAS (NÃO ALCOÓLICAS)
+        case 'Refrigerante':
+          return (/\brefrigerante/.test(c) || /\b(refrigerante|coca cola|pepsi|fanta|sprite|guarana|sukita|schweppes|h2oh|itubaina)\b/.test(n)) && !REGEX_EH_ALCOOLICA_REAL.test(n);
+        case 'Suco & Néctar':
+          return (/\b(suco|nectar|refresco|agua de coco)\b/.test(c) || /\b(suco|nectar|refresco|del valle|kapo|tang|clight|maguary|prats|natural one|agua de coco|kero coco)\b/.test(n)) && !REGEX_EH_ALCOOLICA_REAL.test(n);
+        case 'Água':
+          return (/\bagua/.test(c) || /^(agua mineral|agua com gas|agua sem gas|agua tonica|agua saborizada)\b/.test(n)) && !/\b(agua sanitaria|agua micelar|agua oxigenada|colonia)\b/.test(n);
+        case 'Energético & Isotônico':
+          return (/\b(energetico|isotonico)\b/.test(c) || /\b(energetico|isotonico|red bull|monster|baly|tnt|reign|gatorade|powerade)\b/.test(n)) && !REGEX_EH_ALCOOLICA_REAL.test(n);
+
+        // ALCOÓLICAS
+        case 'Cerveja':
+          return /\b(cerveja|chope|chopp)\b/.test(`${c} ${n}`) && !REGEX_NAO_EH_ALCOOLICA.test(n);
+        case 'Vinho & Espumante':
+          return /\b(vinho|espumante|champagne|prosecco|frisante|lambrusco|sidra)\b/.test(`${c} ${n}`) && !/\bvinagre\b/.test(n);
+        case 'Whisky & Vodka':
+          return /\b(whisky|whiskey|vodka|bourbon)\b/.test(`${c} ${n}`);
+        case 'Destilados & Gin':
+          return /\b(gin|cachaca|aguardente|tequila|rum|licor|aperitivo|conhaque|campari|aperol|saque|destilado)\b/.test(`${c} ${n}`);
+
+        // AÇOUGUE
+        case 'Bovinos':
+          return !REGEX_NAO_EH_ACOUGUE.test(n) && (/\bcarnes? bovina/.test(c) || /\b(bovino|bovina|picanha bovina|alcatra|maminha|contra file|contrafile|costela bovina|coxao|patinho|acem|fraldinha|cupim|musculo|paleta|file mignon|carne moida)\b/.test(n));
+        case 'Frango':
+          return !REGEX_NAO_EH_ACOUGUE.test(n) && (/\b(aves|frango)\b/.test(c) || /\b(frango|peito de frango|file de peito|filezinho|coxa|sobrecoxa|asa de frango|meio da asa|coxinha da asa|tulipa|sassami|galinha|chester|peru)\b/.test(n));
+        case 'Suínos':
+          return !REGEX_NAO_EH_ACOUGUE.test(n) && (/\bcarnes? suina/.test(c) || /\b(suino|suina|pernil|lombo|bisteca|costelinha|panceta|paleta suina|picanha suina)\b/.test(n));
+        case 'Linguiça & Salsicha':
+          return !REGEX_NAO_EH_ACOUGUE.test(n) && /\b(linguica|salsicha|calabresa|toscana|paio|bacon)\b/.test(`${c} ${n}`);
+        case 'Peixes':
+          return !REGEX_NAO_EH_ACOUGUE.test(n) && (/\b(peixaria|peixes|pescados|frutos do mar)\b/.test(c) || /\b(peixe|tilapia|salmao|bacalhau|merluza|camarao|polvo|lula| sardinha fresca|posta de )\b/.test(n));
+
+        // FRIOS & LATICÍNIOS
+        case 'Leite':
+          return (/\bleites?\b/.test(c) || /^(leite uht|leite integral|leite desnatado|leite semidesnatado|leite zero lactose|leite em po|leite pasteurizado|leite fermentado)\b/.test(n)) && !/\b(doce de leite|creme de leite|leite condensado|leite de coco)\b/.test(n);
+        case 'Queijos':
+          return /\b(queijo|mussarela|prato|parmesao|provolone|gouda|brie|gorgonzola|coalho|minas|ricota|cotagge|cottage)\b/.test(`${c} ${n}`) && !/\b(pao de queijo|biscoito|salgadinho|macarrao|lasanha)\b/.test(n);
+        case 'Presunto & Embutidos':
+          return /\b(presunto|apresuntado|mortadela|salame|copa|peito de peru|blanquet|lombo defumado|embutido)\b/.test(`${c} ${n}`);
+        case 'Iogurte & Laticínios':
+          return /\b(iogurte|bebida lactea|petit suisse|chambinho|danoninho|coalhada|requeijao|nata|chantilly)\b/.test(`${c} ${n}`);
+        case 'Manteiga & Margarina':
+          return /\b(manteiga|margarina)\b/.test(`${c} ${n}`) && !/\b(biscoito|pipoca)\b/.test(n);
+
+        // HORTIFRUTI
+        case 'Frutas':
+          return /\bfrutas?\b/.test(c) || /^(banana|maca|laranja|limao|uva|mamao|melancia|melao|abacaxi|morango|manga|pera|kiwi|pessego|ameixa|abacate|goiaba|maracuja|tangerina|bergamota|coco)\b/.test(n);
+        case 'Verduras & Folhas':
+          return /\b(verdura|folha|horta)\b/.test(c) || /^(alface|rucula|agriao|couve|espinafre|repolho|brocolis|couve flor|acelga|salsa|cebolinha|coentro|hortela)\b/.test(n);
+        case 'Legumes':
+          return /\blegumes?\b/.test(c) || /^(tomate|cebola|batata|alho|cenoura|beterraba|abobrinha|berinjela|pepino|pimentao|chuchu|mandioca|aipim|inhame|abobora|milho|vagem)\b/.test(n);
+        case 'Ovos':
+          return /\bovos?\b/.test(`${c} ${n}`) && !/\b(macarrao|chocolate|pascoa)\b/.test(n);
+
+        // LIMPEZA
+        case 'Lava Roupas':
+          return /\b(lava roupas|lava-roupas|lavaroupas|sabao em po|sabao liquido|sabao em barra|tira manchas|alvejante)\b/.test(`${c} ${n}`);
+        case 'Amaciante':
+          return /\bamaciante\b/.test(`${c} ${n}`);
+        case 'Detergente & Esponja':
+          return /\b(detergente|lava loucas|lava-loucas|esponja|la de aco|limpa aluminio)\b/.test(`${c} ${n}`);
+        case 'Desinfetante & Multiuso':
+          return /\b(desinfetante|multiuso|limpador|desengordurante|agua sanitaria|cloro|pedra sanitaria|bloco sanitario|odorizador|inseticida)\b/.test(`${c} ${n}`);
+
+        // HIGIENE
+        case 'Papel Higiênico':
+          return /\b(papel higienico|lenco de papel)\b/.test(`${c} ${n}`);
+        case 'Sabonete & Banho':
+          return /\b(sabonete|esponja de banho|hidratante|locao corporal|talco)\b/.test(`${c} ${n}`);
+        case 'Cabelo':
+          return /\b(shampoo|condicionador|creme de pentear|creme para pentear|mascara capilar|tintura|coloracao|cabelo)\b/.test(`${c} ${n}`);
+        case 'Higiene Bucal':
+          return /\b(creme dental|pasta dental|escova dental|enxaguante bucal|fio dental|antisseptico bucal|bucal)\b/.test(`${c} ${n}`);
+        case 'Desodorante':
+          return /\b(desodorante|antitranspirante)\b/.test(`${c} ${n}`);
+
+        // CONGELADOS
+        case 'Pizza & Pratos Prontos':
+          return /\b(pizza|lasanha|pratos prontos|escondidinho|sanduiche|hot pocket|hot hit|yakisoba|nhoque)\b/.test(`${c} ${n}`);
+        case 'Hambúrguer & Empanados':
+          return /\b(hamburguer|empanado|nuggets|tekitos|steak|almondega|kibe)\b/.test(`${c} ${n}`);
+        case 'Batata Congelada':
+          return /\b(batata|mandioca|polenta|pao de queijo|vegetais congelados|legumes congelados|brocolis|ervilha congelada)\b/.test(`${c} ${n}`);
+        case 'Sorvete':
+          return /\b(sorvete|picole|acai|gelato|sobremesa congelada|torta gelada)\b/.test(`${c} ${n}`);
+
+        // PADARIA
+        case 'Pão de Forma':
+          return /\b(pao de forma|pao integral|pao fatiado|pao tradicional|pao 12 graos|pao 7 graos)\b/.test(`${c} ${n}`);
+        case 'Pães Variados':
+          return /\b(pao frances|pao de queijo|bisnaguinha|pao de leite|pao de cachorro quente|pao de hamburguer|pao sirio|rap10|tortilla|baguete|ciabatta)\b/.test(`${c} ${n}`);
+        case 'Bolos & Tortas':
+          return /\b(bolo|torta|panetone|panettone|chocotone|chocottone|cuca|sonho|docinho|pudim|rosca)\b/.test(`${c} ${n}`);
+        case 'Torradas':
+          return /\b(torrada|crouton)\b/.test(`${c} ${n}`);
+
+        // PET
+        case 'Ração para Cães':
+          return /\b(caes|cachorro|cachorros|dog|pedigree|keldog|chappi)\b/.test(`${c} ${n}`);
+        case 'Ração para Gatos':
+          return /\b(gatos|gato|cat|whiskas|friskies|fancy feast)\b/.test(`${c} ${n}`);
+        case 'Higiene Pet':
+          return /\b(areia sanitaria|granulado sanitario|tapete higienico|shampoo pet|acessorios|brinquedo)\b/.test(`${c} ${n}`);
+
+        // BEBÊ
+        case 'Fraldas':
+          return /\bfralda/.test(`${c} ${n}`);
+        case 'Lenço Umedecido':
+          return /\b(lenco umedecido|toalha umedecida|toalhinha|algodao|haste|sabonete infantil|shampoo infantil)\b/.test(`${c} ${n}`);
+        case 'Alimentação Infantil':
+          return /\b(alimento infantil|composto lacteo|formula infantil|papinha|mucilon|nestogeno|aptamil|nan |farinha lactea)\b/.test(`${c} ${n}`);
+
+        // CASA & UTILIDADES
+        case 'Churrasco & Carvão':
+          return /\b(carvao|acendedor|churrasco|espeto|grelha|sal grosso)\b/.test(`${c} ${n}`);
+        case 'Descartáveis':
+          return /\b(descartavel|descartaveis|copo|prato|talher|guardanapo|canudo|embalagem|saco)\b/.test(`${c} ${n}`);
+        case 'Papel Toalha & Alumínio':
+          return /\b(papel toalha|papel aluminio|filme de pvc|papel manteiga|filtro)\b/.test(`${c} ${n}`);
+        case 'Lâmpadas & Pilhas':
+          return /\b(lampada|pilha|bateria|extensao|adaptador|fita isolante)\b/.test(`${c} ${n}`);
+
+        default: {
+          const tSub = normalizarTexto(sub).split(' ').filter(x => x.length > 2);
+          return tSub.length === 0 || tSub.some(ts => c.includes(ts) || n.includes(ts));
+        }
+      }
+    }
 
     let MODO_PAGINA_ATUAL = 'mercado'; // 'mercado' | 'robo' | 'adm'
     let catalogo100PorcentoCarregado = false;
@@ -2133,7 +2415,7 @@
         }
         if (btnMob) btnMob.classList.remove('hidden');
       } else {
-        document.title = 'Mercaro • Comparador Fort Atacadista & SuperKoch';
+        document.title = 'Mercaro • Comparador Fort Atacadista, SuperKoch & Angeloni';
       }
     }
 
@@ -2247,25 +2529,8 @@
         : [];
       const _catNorm = categoriasLimpas.length > 0 ? normalizarTexto(categoriasLimpas.join(' ')) : '';
       const infoUnit = calcularPrecoUnitarioBase({ preco, unidade: p.unidade }, _nomeNorm);
-      
-      const _deptos = new Set(['TODOS']);
-      if (p.desconto > 0 || p.emPromocao) _deptos.add('OFERTAS');
-
-      // 1. Classificação ultrarrápida por categoria (O(1) substring)
-      if (_catNorm) {
-        for (let i = 2; i < DEPARTAMENTOS_IFOOD.length; i++) {
-          const d = DEPARTAMENTOS_IFOOD[i];
-          if (d.excluirCat && d.excluirCat.some(ex => _catNorm.includes(ex))) continue;
-          if (d.termosCat && d.termosCat.some(t => _catNorm.includes(t))) _deptos.add(d.id);
-        }
-      }
-      // 2. Só avalia regex no nome se o item veio sem categoria definida no banco
-      if (_deptos.size <= (_deptos.has('OFERTAS') ? 2 : 1)) {
-        for (let i = 2; i < DEPARTAMENTOS_IFOOD.length; i++) {
-          const d = DEPARTAMENTOS_IFOOD[i];
-          if (d.regexNome && d.regexNome.test(_nomeNorm)) _deptos.add(d.id);
-        }
-      }
+      const emOferta = Boolean(p.desconto > 0 || p.emPromocao);
+      const _deptos = classificarDepartamentosProduto(_nomeNorm, categoriasLimpas, emOferta);
 
       const idOriginal = String(p.idOriginal || p.id);
       const ehAngeloni = mercado.includes('ANGELONI');
@@ -2306,6 +2571,7 @@
         precoUnitarioBase: infoUnit ? infoUnit.valor : 999999,
         rotuloUnitario: infoUnit ? `R$ ${infoUnit.valor.toFixed(2).replace('.',',')}${infoUnit.rotulo}` : '',
         _nomeNorm,
+        _catNorm,
         _marcaNorm: normalizarTexto(p.marca),
         _palavras: null,
         _deptos
@@ -2750,18 +3016,18 @@
             ? Math.round(((maiorRef - menorPreco) / maiorRef) * 100)
             : 0;
 
-          const deptosCombinados = new Set([
-            ...(pKoch?._deptos || []),
-            ...(pFort?._deptos || []),
-            ...(pAng?._deptos || [])
-          ]);
-          if (economia > 0 || pctEconomia > 0) deptosCombinados.add('OFERTAS');
-
           const catsCombinadas = Array.from(new Set([
             ...(pFort?.categorias || []),
             ...(pKoch?.categorias || []),
             ...(pAng?.categorias || [])
           ]));
+          const nomeNormComb = `${pFort?._nomeNorm || ''} ${pKoch?._nomeNorm || ''} ${pAng?._nomeNorm || ''}`.trim();
+          const catNormComb = normalizarTexto(catsCombinadas.join(' '));
+          const deptosCombinados = classificarDepartamentosProduto(
+            prodVencedor._nomeNorm || nomeNormComb,
+            catsCombinadas,
+            Boolean(economia > 0 || pctEconomia > 0 || pKoch?.emPromocao || pFort?.emPromocao || pAng?.emPromocao)
+          );
 
           produtosUnificados.push({
             id: `comp_${kId || '0'}_${fId || '0'}${aId ? `_${aId}` : ''}`,
@@ -2821,7 +3087,8 @@
             motivoVinculo: vinc.motivo || 'Vínculo Automático',
             vinculoManual: Boolean(vinc.manual),
             _deptos: deptosCombinados,
-            _nomeNorm: `${pFort?._nomeNorm || ''} ${pKoch?._nomeNorm || ''} ${pAng?._nomeNorm || ''}`.trim(),
+            _nomeNorm: nomeNormComb,
+            _catNorm: catNormComb,
             _marcaNorm: `${pFort?._marcaNorm || ''} ${pKoch?._marcaNorm || ''} ${pAng?._marcaNorm || ''}`.trim(),
             _palavras: null,
             _pontosHistorico: null
@@ -4636,22 +4903,49 @@
 
       const rotaInicial = String(document.getElementById('inpConfigRotaInicial')?.value || '1');
 
-      // Limpa histórico de máquinas antigas antes de novo disparo
+      // Limpa histórico de máquinas antigas antes de novo disparo e pausa visualmente os outros mercados se o disparo for exclusivo
       const fbUrl = obterUrlFirebase();
       if (fbUrl && obterFirebaseSecret()) {
         try {
           const limpezas = [];
           if (mercadoAlvo === 'koch' || mercadoAlvo === 'ambos' || mercadoAlvo === 'todos') {
             limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_koch.json`), { method: 'DELETE' }).catch(() => null));
+          } else {
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_koch.json`), { method: 'DELETE' }).catch(() => null));
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/telemetria.json`), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'PAUSADO', mensagem: `Aguardando (Foco exclusivo em ${mercadoAlvo.toUpperCase()})`, heartbeatMs: 0 })
+            }).catch(() => null));
           }
+
           if (mercadoAlvo === 'fort' || mercadoAlvo === 'ambos' || mercadoAlvo === 'todos') {
             limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_fort.json`), { method: 'DELETE' }).catch(() => null));
+          } else {
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_fort.json`), { method: 'DELETE' }).catch(() => null));
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/telemetria_fort.json`), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'PAUSADO', mensagem: `Aguardando (Foco exclusivo em ${mercadoAlvo.toUpperCase()})`, heartbeatMs: 0 })
+            }).catch(() => null));
           }
+
           if (mercadoAlvo === 'angeloni' || mercadoAlvo === 'ambos' || mercadoAlvo === 'todos') {
             limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_angeloni.json`), { method: 'DELETE' }).catch(() => null));
+          } else {
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/enxame_angeloni.json`), { method: 'DELETE' }).catch(() => null));
+            limpezas.push(fetch(autUrl(`${fbUrl}/robo_controle/telemetria_angeloni.json`), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'PAUSADO', mensagem: `Aguardando (Foco exclusivo em ${mercadoAlvo.toUpperCase()})`, heartbeatMs: 0 })
+            }).catch(() => null));
           }
           await Promise.all(limpezas);
         } catch (_) {}
+      }
+
+      if (['ambos', 'koch', 'fort', 'angeloni'].includes(mercadoAlvo)) {
+        selecionarMercadoModalRobo(mercadoAlvo);
       }
 
       if (token) {
@@ -4680,15 +4974,16 @@
             })
           });
           if (resp.status === 204 || resp.ok) {
+            setTimeout(() => sincronizarTelemetriaRobo(true), 800);
             const mapaRotulo = {
-              AUTO: 'Ciclo Automático Inteligente (24h / 3h / 12h)',
+              AUTO: mercadoAlvo === 'ambos' ? 'Ciclo Automático Inteligente (24h / 3h / 12h)' : 'Busca Ampla Prioritária (10 Máquinas)',
               '24H': '24 Horas Sem Parar (1 Máq por Site • Mais Acessados & Promoções)',
               '2A': 'Busca Ampla (3 em 3h • 10 Máquinas por Site)',
               COMPLETA: 'Varredura Completa (12 em 12h • 10 Máquinas por Site)',
               RADAR: 'Radar Rápido de Ofertas'
             };
             const rotuloCamada = mapaRotulo[camadaEscolhida] || camadaEscolhida;
-            alert(`[Disparo Nuvem]\nMercado: ${mercadoAlvo.toUpperCase()}\nModo: ${rotuloCamada}\nMáquinas: ${camadaEscolhida === 'AUTO' ? 'Automático (1 ou 10 por site)' : totalMaquinas}\nSalvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para AO VIVO.`);
+            alert(`[Disparo Nuvem]\nMercado Exclusivo: ${mercadoAlvo.toUpperCase()}\nModo: ${rotuloCamada}\nMáquinas: ${camadaEscolhida === 'AUTO' && mercadoAlvo === 'ambos' ? 'Automático (1 ou 10 por site)' : totalMaquinas}\nSalvamento: 300 adicionados / 100 salvos\n\nEm ~25s o status mudará para AO VIVO.`);
             return;
           }
         } catch (e) {}
@@ -4698,12 +4993,12 @@
     }
 
     // =========================================================================
-    // INTELIGÊNCIA DE VINCULAÇÃO MULTI-FATOR DE ALTA COBERTURA + GESTÃO COMPLETA
+    // INTELIGÊNCIA DE VINCULAÇÃO MULTI-FATOR TRIPLA (MEDIDA E MARCA 100% EXATAS)
     // =========================================================================
     let configVinculosGlobal = {
-      scoreMinimo: 58,
-      tolGramaturaPct: 2,
-      maxRatioPreco: 2.65,
+      scoreMinimo: 65,
+      tolGramaturaPct: 0,
+      maxRatioPreco: 2.35,
       exigirMarcaOuFoto: true,
       autoVincularAoSincronizar: true
     };
@@ -4729,18 +5024,18 @@
       const inpRatio = document.getElementById('inpVincMaxRatioPreco');
       const chkMarca = document.getElementById('chkVincExigirMarcaOuFoto');
       const chkAuto = document.getElementById('chkVincAutoSync');
-      if (inpScore) inpScore.value = configVinculosGlobal.scoreMinimo ?? 58;
-      if (inpGram) inpGram.value = configVinculosGlobal.tolGramaturaPct ?? 2;
-      if (inpRatio) inpRatio.value = configVinculosGlobal.maxRatioPreco ?? 2.65;
+      if (inpScore) inpScore.value = configVinculosGlobal.scoreMinimo ?? 65;
+      if (inpGram) inpGram.value = configVinculosGlobal.tolGramaturaPct ?? 0;
+      if (inpRatio) inpRatio.value = configVinculosGlobal.maxRatioPreco ?? 2.35;
       if (chkMarca) chkMarca.checked = configVinculosGlobal.exigirMarcaOuFoto !== false;
       if (chkAuto) chkAuto.checked = configVinculosGlobal.autoVincularAoSincronizar !== false;
     }
 
     async function salvarConfigVinculos() {
       if (!await exigirSenhaRobo()) return;
-      const scoreMinimo = Math.max(40, Math.min(98, Number(document.getElementById('inpVincScoreMin')?.value) || 58));
-      const tolGramaturaPct = Math.max(0, Math.min(15, Number(document.getElementById('inpVincTolGram')?.value) || 2));
-      const maxRatioPreco = Math.max(1.2, Math.min(5.0, Number(document.getElementById('inpVincMaxRatioPreco')?.value) || 2.65));
+      const scoreMinimo = Math.max(55, Math.min(98, Number(document.getElementById('inpVincScoreMin')?.value) || 65));
+      const tolGramaturaPct = Math.max(0, Math.min(5, Number(document.getElementById('inpVincTolGram')?.value) || 0));
+      const maxRatioPreco = Math.max(1.2, Math.min(4.0, Number(document.getElementById('inpVincMaxRatioPreco')?.value) || 2.35));
       const exigirMarcaOuFoto = Boolean(document.getElementById('chkVincExigirMarcaOuFoto')?.checked);
       const autoVincularAoSincronizar = Boolean(document.getElementById('chkVincAutoSync')?.checked);
 
@@ -4774,22 +5069,68 @@
 
     const STOPWORDS_VINC = new Set([
       "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
-      "com", "para", "por", "um", "uma", "uns", "umas", "e", "ou",
-      "tipo", "sabor", "pacote", "pct", "unidade", "unid", "un", "unidades", "cx", "caixa",
+      "com", "para", "por", "um", "uma", "uns", "umas", "e", "ou", "ao", "aos",
+      "tipo", "sabor", "pacote", "pct", "pc", "unidade", "unid", "un", "unidades", "cx", "caixa",
       "embalagem", "emb", "pote", "pt", "garrafa", "gf", "gfa", "lata", "lt", "latinha",
-      "sachê", "sache", "sch", "frasco", "fr", "bandeja", "bdj", "bj", "kg", "gr", "g", "ml", "l",
+      "sachê", "sache", "sch", "sc", "frasco", "fr", "bandeja", "bdj", "bj", "kg", "gr", "g", "ml", "l",
       "litro", "litros", "kilo", "kilos", "grama", "gramas", "aprox", "aproximadamente",
       "pet", "vidro", "vd", "tp", "tetrapak", "tetra", "pak", "long", "neck", "ln",
-      "refil", "rf", "pouch", "cartela", "bisnaga", "display", "fardo", "fd"
+      "refil", "rf", "pouch", "cartela", "bisnaga", "display", "fardo", "fd",
+      "oferta", "leve", "pague", "especial", "extra", "preco", "novo", "nova"
     ]);
 
     const MARCAS_NEUTRAS_VINC = new Set([
-      "generico", "sem marca", "outros", "marca propria", "importado", "nacional",
-      "fruta delivery fort", "hortifruti", "hortifruti koch", "padaria", "padaria koch",
-      "padaria fort", "acougue", "acougue carne", "peixaria", "frios", "granel", "a granel",
-      "koch", "superkoch", "super koch", "fort", "fort atacadista", "delivery fort",
-      "cookie", "biscoito"
+      "generico", "sem marca", "outros", "marca propria", "producao propria", "importado", "nacional",
+      "fruta delivery fort", "hortifruti", "horti fruti", "hortifruti koch", "padaria", "padaria koch",
+      "padaria fort", "acougue", "acougue carne", "peixaria", "frios", "granel", "a granel", "in natura", "granjeiro",
+      "koch", "superkoch", "super koch", "fort", "fort atacadista", "delivery fort", "angeloni", "super angeloni",
+      "cookie", "biscoito", "confeitaria", "rotisseria", "fiambreria"
     ]);
+
+    const SUBMARCAS_VINC = new Set([
+      "nescau", "ninho", "moca", "kitkat", "passatempo", "bono", "nescafe", "maggi", "garoto",
+      "chambinho", "chandelle", "mucilon", "farinha lactea", "chokito", "prestigio", "alpino", "suflair", "galak", "classic", "charge", "lollo", "negresco", "tostines", "purina", "dog chow", "cat chow", "friskies", "fancy feast",
+      "oreo", "bis", "lacta", "tang", "clight", "trident", "halls", "club social", "philadelphia", "royal", "diamante negro", "laka", "ouro branco", "sonho de valsa", "trakinas", "belvita",
+      "elma chips", "ruffles", "doritos", "cheetos", "fandangos", "lays", "pingo douro", "cebolitos", "baconzitos", "stiksy", "sensacoes", "quaker", "toddy", "toddynho", "kero coco", "gatorade", "h2oh", "pepsi",
+      "omo", "comfort", "brilhante", "cif", "seda", "dove", "rexona", "lux", "clear", "hellmanns", "knorr", "maizena", "kibon", "arisco", "fofo", "surf", "axe", "suave", "closeup", "close up", "tresemme",
+      "veja", "vanish", "sbp", "bom ar", "harpic", "finish", "dettol", "poliflor", "nugget", "mortein", "veet",
+      "gillette", "oral b", "pampers", "always", "pantene", "downy", "ariel", "head shoulders", "aussie", "old spice", "vick",
+      "del valle", "kapo", "schweppes", "fanta", "sprite", "crystal", "monster", "ades", "powerade", "kuat",
+      "brahma", "skol", "antarctica", "stella artois", "budweiser", "corona", "spaten", "original", "bohemia", "patagonia", "colorado", "becks", "guarana antarctica",
+      "heineken", "amstel", "eisenbahn", "devassa", "baden baden", "schin", "glacial", "kaiser", "fys", "itubaina",
+      "sadia", "perdigao", "qualy", "deline", "claybom", "chester",
+      "seara", "doriana", "friboi", "maturatta", "swift", "massa leve", "rezende", "confianca",
+      "bauducco", "visconti", "tommy", "ype", "tixan", "atol", "assolan", "perfex",
+      "colgate", "palmolive", "sorriso", "protex", "ajax", "pinho sol", "ola", "tandy", "elmex",
+      "johnson", "johnsons", "listerine", "neutrogena", "sundown", "sempre livre", "carefree", "cotonetes", "band aid",
+      "glade", "raid", "off", "pato", "mr musculo", "bravo", "ziploc", "baygon",
+      "neve", "scott", "duramax", "huggies", "intimus", "plenitud", "kleenex"
+    ]);
+
+    const GRUPOS_TIPO_EQUIV_VINC = [
+      new Set(["biscoito", "cookie", "wafer", "rosquinha", "sequilho", "torrada", "cracker", "salgadinho", "snack", "batata"]),
+      new Set(["macarrao", "massa", "instantaneo", "espaguete", "parafuso", "penne", "talharim", "fettuccine", "lasanha", "ninho", "cabelo", "padre", "ave", "conchinha"]),
+      new Set(["sabao", "lavaroupas", "detergente", "lava", "alvejante", "amaciante", "tira"]),
+      new Set(["limpador", "multiuso", "desengordurante", "desinfetante", "agua", "cloro", "limpa"]),
+      new Set(["queijo", "mussarela", "prato", "parmesao", "provolone", "gouda", "brie", "gorgonzola", "coalho", "minas", "ricota", "requeijao", "catupiry", "cream"]),
+      new Set(["presunto", "apresuntado", "mortadela", "salame", "copa", "peito", "blanquet", "lombo", "fatiado"]),
+      new Set(["linguica", "calabresa", "toscana", "paio", "salsicha", "pernil", "costelinha", "bacon"]),
+      new Set(["frango", "file", "filezinho", "peito", "coxa", "sobrecoxa", "asa", "tulipa", "passarinho", "sassami", "coxinha"]),
+      new Set(["carne", "bife", "picanha", "alcatra", "maminha", "contra", "contrafile", "costela", "coxao", "patinho", "acem", "fraldinha", "cupim", "musculo", "paleta", "hamburguer", "almondega"]),
+      new Set(["iogurte", "bebida", "leite", "fermentado", "petit", "suisse", "coalhada", "nata", "creme", "chantilly"]),
+      new Set(["achocolatado", "composto", "cereal", "aveia", "granola", "farinha", "mingau"]),
+      new Set(["refrigerante", "suco", "nectar", "refresco", "agua", "energetico", "isotonico", "cha", "tonica"]),
+      new Set(["cerveja", "chope", "vinho", "espumante", "whisky", "vodka", "gin", "cachaca", "aguardente", "licor", "aperitivo", "sidra"]),
+      new Set(["pao", "bisnaguinha", "bolo", "torta", "panetone", "panettone", "chocotone", "chocottone", "sonho", "cuca", "rosca"]),
+      new Set(["papel", "toalha", "guardanapo", "lenco", "fralda", "absorvente", "algodao", "haste"]),
+      new Set(["creme", "pasta", "gel", "escova", "fio", "enxaguante", "antisseptico"]),
+      new Set(["shampoo", "condicionador", "sabonete", "desodorante", "hidratante", "locao", "oleo"]),
+      new Set(["molho", "extrato", "polpa", "passata", "ketchup", "mostarda", "maionese", "tempero", "caldo", "vinagre", "azeite"]),
+      new Set(["chocolate", "bombom", "tablete", "barra", "trufa", "bala", "chicle", "goma", "pirulito", "confeito", "drops"]),
+      new Set(["sorvete", "picole", "acai", "sobremesa", "gelato"]),
+      new Set(["pizza", "lasanha", "escondidinho", "empanado", "nuggets", "tekitos", "steak", "prato", "sanduiche", "hot"]),
+      new Set(["racao", "alimento", "petisco", "bifinho", "sache", "areia", "tapete"])
+    ];
 
     const ABREVIACOES_VINC = {
       "refrig": "refrigerante",
@@ -4799,7 +5140,11 @@
       "bisc": "biscoito",
       "bol": "biscoito",
       "bolacha": "biscoito",
+      "cookies": "cookie",
+      "wafers": "wafer",
       "mac": "macarrao",
+      "miojo": "instantaneo",
+      "lamen": "instantaneo",
       "marg": "margarina",
       "req": "requeijao",
       "cond": "condicionador",
@@ -4862,19 +5207,21 @@
     };
 
     const GRUPOS_CONFLITO_VINC = [
-      ["morango", "chocolate", "baunilha", "coco", "limao", "laranja", "uva", "abacaxi", "maracuja", "pessego", "framboesa", "manga", " maca ", "banana", "goiaba", "caju", "acerola", "tangerina", "guarana", "cola", "tutti"],
+      ["uva", "laranja", "limao", "morango", "maracuja", "abacaxi", "pessego", "manga", "guarana", "caju", " maca ", "frutas vermelhas", "tutti frutti", "baunilha", "flocos", "coco", "banana", "goiaba", "acerola", "tangerina", "framboesa", "amora", "cereja", "melancia", "melao", "kiwi", "pera", "ameixa"],
+      ["chocolate", "baunilha", "morango", "coco", "avela", "caramelo", "doce de leite", "limao", "maracuja", "brigadeiro", "prestigio", " beijinho "],
+      ["bovino", "bovina", "frango", "galinha", "suino", "suina", "peixe", "tilapia", "salmao", "peru", "bacalhau", "camarao", "costela", "picanha", "calabresa", "bacon"],
       ["integral", "desnatado", "semidesnatado"],
-      ["comgas", "semgas"],
-      ["comsal", "semsal"],
-      ["puro malte", "pilsen", "ipa", "lager", "weiss", "malzbier", "zeroalcool"],
+      ["carioca", "preto", "branco", "vermelho", "fradinho"],
+      ["parboilizado", "branco", "integral", "arboreo", "cateto", "negro"],
       ["tinto", "branco", "rose"],
-      ["suave", "seco"],
+      ["seco", "suave", "demi sec", "brut", "moscatel"],
+      ["pilsen", "ipa", "lager", "weiss", "malzbier", "stout", "bock"],
+      ["espaguete", "parafuso", "fusilli", "penne", "padre nosso", "ave maria", "cabelo de anjo", "talharim", "fettuccine", "ninho", "lasanha", "conchinha", "gravatinha", "instantaneo", "argolinha", "rigatoni"],
+      ["shampoo", "condicionador", "creme de pentear", "mascara", "tintura", "sabonete"],
+      ["aerosol", "rollon", "roll on", "stick", "creme"],
       ["caes", "gatos", "cachorro", "gato"],
       ["adulto", "filhote", "senior", "castrado"],
-      ["calabresa", "frango", "presunto", "peito de peru", "lombinho"],
-      ["caturra", "prata", "terra", "ouro"],
-      ["fuji", "gala", "verde"],
-      ["preto", "carioca", "parboilizado"]
+      ["folha dupla", "folha tripla", "folha simples"]
     ];
 
     function normalizarTextoVinculo(str) {
@@ -4902,16 +5249,37 @@
         .replace(/\bcom\s+gas\b/g, "comgas")
         .replace(/\bsem\s+gas\b/g, "semgas")
         .replace(/\bsem\s+sal\b/g, "semsal")
-        .replace(/\bcom\s+sal\b/g, "comsal");
-      return s;
+        .replace(/\bcom\s+sal\b/g, "comsal")
+        .replace(/\blava\s+roupas?\b/g, "lavaroupas")
+        .replace(/\blava\s+loucas?\b/g, "lavaloucas")
+        .replace(/\bpasta\s+de\s+dente\b|\bpasta\s+dental\b/g, "creme dental")
+        .replace(/\b3\s+coracoes\b/g, "tres coracoes")
+        .replace(/\bcoca\s+cola\b/g, "coca cola")
+        .replace(/\bdel\s+valle\b/g, "del valle")
+        .replace(/\bdr\s+oetker\b|\bdoutor\s+oetker\b/g, "dr oetker")
+        .replace(/\btixan\s+ype\b/g, "ype")
+        .replace(/\btio\s+urbano\b/g, "urbano")
+        .replace(/\bpingo\s+d\s+ouro\b/g, "pingo douro");
+      return s.replace(/\s+/g, " ").trim();
     }
 
     function normalizarMarcaVinculo(marca) {
       let m = normalizarTextoVinculo(marca);
       if (!m || MARCAS_NEUTRAS_VINC.has(m)) return "";
-      m = m.replace(/\b(alimentos|bebidas|laticinios|industria|comercio|ltda|sa|s a|brasil|delivery|atacadista|supermercados|supermercado|cosm|cosmeticos)\b/g, "").replace(/\s+/g, " ").trim();
+      m = m.replace(/\b(alimentos|bebidas|laticinios|industria|comercio|ltda|sa|s a|brasil|delivery|atacadista|supermercados|supermercado|cosm|cosmeticos|cia|grupo)\b/g, "").replace(/\s+/g, " ").trim();
       if (!m || MARCAS_NEUTRAS_VINC.has(m)) return "";
       return m;
+    }
+
+    function resolverMarcaCanonica(marcaNorm, nomeNorm) {
+      const padNome = ` ${nomeNorm} `;
+      if (marcaNorm && !["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "p g", "coca cola", "ambev", "brf", "jbs", "hypera", "kimberly", "kimberly clark", "sc johnson", "colgate palmolive", "m dias branco"].includes(marcaNorm)) {
+        return marcaNorm;
+      }
+      for (const sub of SUBMARCAS_VINC) {
+        if (padNome.includes(` ${sub} `)) return sub;
+      }
+      return marcaNorm || "";
     }
 
     function extrairAssetHash(urlImg) {
@@ -4923,41 +5291,78 @@
     function extrairGramatura(nome) {
       if (!nome) return null;
       const n = String(nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/\bleve\s*(\d+(?:[.,]\d+)?)\s*(?:kg|g|gr|l|lt|ml)?\s*pague\s*\d+(?:[.,]\d+)?\s*(kg|g|gr|l|lt|ml)\b/gi, "$1$2");
-      const mPack = n.match(/(\d+)\s*(?:x|un|unid|unidades\s*de|c\/|com)\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml)\b/i);
+        .replace(/\bleve\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\s*pague\s*\d+(?:[.,]\d+)?\s*(?:kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)?\b/gi, "$1$2")
+        .replace(/\bleve\s*(\d+)\s*pague\s*\d+\b/gi, "$1un");
+
+      const mPack = n.match(/\b(\d+)\s*(?:x|un\s*de|unid\s*de|unidades\s*de)\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/i);
       if (mPack) {
         const qtd = parseFloat(mPack[1]);
         const val = parseFloat(mPack[2].replace(",", "."));
         const un = mPack[3].toLowerCase();
-        const totalBase = (un.startsWith("k") || un === "l" || un === "lt" || un.startsWith("lit")) ? val * 1000 : val;
-        return { valorNorm: Math.round(qtd * totalBase), unidade: un.includes("l") ? "ml" : "g", str: `${qtd}x${val}${un}` };
+        const totalBase = (un.startsWith("k") || un.startsWith("l")) ? val * 1000 : val;
+        return {
+          valorNorm: Math.round(qtd * totalBase),
+          unidade: (un.startsWith("l") || un === "ml") ? "ml" : "g",
+          packQtd: qtd,
+          str: `${qtd}x${val}${un}`
+        };
       }
-      const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml|metros|m|un|unid|unidades|rolos|folhas)\b/i);
-      if (m) {
+
+      const todosPesosVol = [...n.matchAll(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/gi)];
+      if (todosPesosVol.length > 0) {
+        const m = todosPesosVol[todosPesosVol.length - 1];
         const val = parseFloat(m[1].replace(",", "."));
         const un = m[2].toLowerCase();
-        if (un.startsWith("k") || un === "l" || un === "lt" || un.startsWith("lit")) {
-          return { valorNorm: Math.round(val * 1000), unidade: un.includes("l") ? "ml" : "g", str: `${val}${un}` };
+        const valorNorm = (un.startsWith("k") || un.startsWith("l")) ? Math.round(val * 1000) : Math.round(val);
+        const unidade = (un.startsWith("l") || un === "ml") ? "ml" : "g";
+        const mQtdAux = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps)\b/i);
+        const packQtd = mQtdAux ? parseInt(mQtdAux[1], 10) : 1;
+        return {
+          valorNorm,
+          unidade,
+          packQtd: (packQtd > 1 && packQtd <= 100) ? packQtd : 1,
+          str: `${val}${un}`
+        };
+      }
+
+      const mRolosOvos = n.match(/\b(\d+)\s*(rolos|rolo|ovos|capsulas|caps|fraldas|tiras|absorventes)\b/i);
+      if (mRolosOvos) {
+        const val = parseInt(mRolosOvos[1], 10);
+        if (val >= 1 && val <= 500) {
+          return { valorNorm: val, unidade: "unid", packQtd: val, str: `${val}un` };
         }
-        if (un.startsWith("g") || un === "ml") {
-          return { valorNorm: Math.round(val), unidade: un === "ml" ? "ml" : "g", str: `${val}${un}` };
+      }
+
+      const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|folhas)\b/i);
+      if (mUn) {
+        const val = parseInt(mUn[1], 10);
+        if (val > 1 && val <= 500) {
+          return { valorNorm: val, unidade: "unid", packQtd: val, str: `${val}un` };
         }
-        return { valorNorm: Math.round(val), unidade: "un", str: `${val}${un}` };
+      }
+
+      const mMetros = n.match(/\b(\d+(?:[.,]\d+)?)\s*(metros|metro|m)\b/i);
+      if (mMetros) {
+        const val = Math.round(parseFloat(mMetros[1].replace(",", ".")));
+        if (val >= 1 && val <= 500) {
+          return { valorNorm: val, unidade: "m", packQtd: 1, str: `${val}m` };
+        }
       }
       return null;
     }
 
-    function temConflitoVariante(nomeK, nomeF, mesmaFoto = false) {
+    function temConflitoVariante(nomeK, nomeF) {
       const sK = ` ${normalizarTextoVinculo(nomeK)} `;
       const sF = ` ${normalizarTextoVinculo(nomeF)} `;
-      if (!mesmaFoto) {
-        const zK = /\b(zero|light)\b/.test(sK);
-        const zF = /\b(zero|light)\b/.test(sF);
-        if (zK !== zF) return true;
-        const alcK = /\bzeroalcool\b/.test(sK);
-        const alcF = /\bzeroalcool\b/.test(sF);
-        if (alcK !== alcF) return true;
-      }
+      const zK = /\b(zero|light)\b/.test(sK);
+      const zF = /\b(zero|light)\b/.test(sF);
+      if (zK !== zF) return true;
+      const lacK = /\bzerolactose\b/.test(sK);
+      const lacF = /\bzerolactose\b/.test(sF);
+      if (lacK !== lacF) return true;
+      const alcK = /\bzeroalcool\b/.test(sK);
+      const alcF = /\bzeroalcool\b/.test(sF);
+      if (alcK !== alcF) return true;
       if (/\bcomgas\b/.test(sK) !== /\bcomgas\b/.test(sF) && (/\bagua\b/.test(sK) || /\bagua\b/.test(sF))) return true;
       for (const grupo of GRUPOS_CONFLITO_VINC) {
         const achadosK = grupo.filter(t => sK.includes(` ${t.trim()} `));
@@ -4970,10 +5375,10 @@
       return false;
     }
 
-    function extrairTokensNucleo(nome, marca) {
-      const mTokens = new Set(normalizarMarcaVinculo(marca).split(" ").filter(Boolean));
+    function extrairTokensNucleo(nome, marcaNorm, marcaCanon = "") {
+      const mTokens = new Set(`${marcaNorm || ""} ${marcaCanon || ""}`.split(/\s+/).filter(w => w.length >= 2));
       const texto = normalizarTextoVinculo(nome)
-        .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml|metros|m|un|unid|unidades|rolos|folhas)\b/gi, " ");
+        .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|metros|metro|m|un|unid|unidades|rolos|rolo|folhas|cm|mm)\b/gi, " ");
       const words = texto.split(/\s+/).filter(w => {
         if (w.length < 2) return false;
         if (/^\d+$/.test(w)) return false;
@@ -4984,6 +5389,49 @@
       return Array.from(new Set(words));
     }
 
+    function tiposBaseCompativeis(listK, listF) {
+      if (!listK.length || !listF.length) return false;
+      const headK = listK.slice(0, 2);
+      const headF = listF.slice(0, 2);
+      for (const tk of headK) {
+        for (const tf of headF) {
+          if (tk === tf) return true;
+          if (tk.length >= 4 && tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) return true;
+        }
+      }
+      for (const grp of GRUPOS_TIPO_EQUIV_VINC) {
+        if (headK.some(t => grp.has(t)) && headF.some(t => grp.has(t))) return true;
+      }
+      return false;
+    }
+
+    function marcasSaoExatasUI(prodK, prodF) {
+      let mK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
+      let mF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
+      const nK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
+      const nF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
+      const cK = prodK._marcaCanon !== undefined ? prodK._marcaCanon : resolverMarcaCanonica(mK, nK);
+      const cF = prodF._marcaCanon !== undefined ? prodF._marcaCanon : resolverMarcaCanonica(mF, nF);
+
+      if (mK && mF && mK === mF) return { exata: true, marcaResolvida: mK };
+      if (cK && cF && cK === cF) return { exata: true, marcaResolvida: cK };
+
+      const padNK = ` ${nK} `;
+      const padNF = ` ${nF} `;
+
+      if (cK && cK.length >= 3 && padNF.includes(` ${cK} `) && (!mF || cF === cK || mF.includes(cK) || cK.includes(mF) || ["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "coca cola", "ambev", "brf", "jbs", "kimberly"].includes(mF))) {
+        return { exata: true, marcaResolvida: cK };
+      }
+      if (cF && cF.length >= 3 && padNK.includes(` ${cF} `) && (!mK || cK === cF || mK.includes(cF) || cF.includes(mK) || ["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "coca cola", "ambev", "brf", "jbs", "kimberly"].includes(mK))) {
+        return { exata: true, marcaResolvida: cF };
+      }
+
+      if (!mK && !mF && !cK && !cF) {
+        return { exata: true, marcaResolvida: "", granel: true };
+      }
+      return { exata: false, marcaResolvida: "" };
+    }
+
     function calcularScoreCasamento(prodK, prodF) {
       let score = 0;
       const motivos = [];
@@ -4992,13 +5440,16 @@
         return { score: 0, motivo: "Variante/sabor diferente" };
       }
 
-      // 1. Gramas / Litros / Medida: 100% IGUAL OBRIGATÓRIO
+      // 1. Gramas / Litros / Medida: 100% EXATA OBRIGATÓRIA
       const gramK = prodK._gramCache !== undefined ? prodK._gramCache : extrairGramatura(prodK.nome);
       const gramF = prodF._gramCache !== undefined ? prodF._gramCache : extrairGramatura(prodF.nome);
 
       if (gramK && gramF) {
         if (gramK.unidade !== gramF.unidade || gramK.valorNorm !== gramF.valorNorm) {
           return { score: 0, motivo: `Gramatura/litragem diferente (${gramK.str} vs ${gramF.str})` };
+        }
+        if (gramK.packQtd && gramF.packQtd && gramK.packQtd !== gramF.packQtd && (gramK.packQtd > 1 || gramF.packQtd > 1)) {
+          return { score: 0, motivo: `Quantidade no pack diferente (${gramK.packQtd}un vs ${gramF.packQtd}un)` };
         }
         score += 35;
         motivos.push(`Medida 100% (${gramK.str})`);
@@ -5008,7 +5459,7 @@
         if (unK !== unF) {
           return { score: 0, motivo: "Unidades de venda incompatíveis (KG vs UN)" };
         }
-        score += unK === "KG" ? 25 : 15;
+        score += unK === "KG" ? 28 : 18;
       } else {
         return { score: 0, motivo: "Medida ausente em um dos produtos (exige 100% igual)" };
       }
@@ -5022,46 +5473,24 @@
         motivos.push("Foto idêntica OSuper");
       }
 
-      // 3. Marca: 100% IGUAL OBRIGATÓRIO
-      let marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
-      let marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
-      const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
-      const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
-
-      if (!marcaK && marcaF && (` ${nomeNormK} `).includes(` ${marcaF} `)) {
-        marcaK = marcaF;
+      // 3. Marca: 100% EXATA OBRIGATÓRIA
+      const checkMarca = marcasSaoExatasUI(prodK, prodF);
+      if (!checkMarca.exata) {
+        return { score: 0, motivo: "Marcas diferentes" };
       }
-      if (!marcaF && marcaK && (` ${nomeNormF} `).includes(` ${marcaK} `)) {
-        marcaF = marcaK;
-      }
-
-      const ambasSemMarca = (!marcaK || (typeof MARCAS_NEUTRAS_GRANEL !== 'undefined' && MARCAS_NEUTRAS_GRANEL.has(marcaK))) && (!marcaF || (typeof MARCAS_NEUTRAS_GRANEL !== 'undefined' && MARCAS_NEUTRAS_GRANEL.has(marcaF)));
-      if (ambasSemMarca) {
-        score += 10;
+      if (checkMarca.granel) {
+        score += 12;
       } else {
-        if (!marcaK || !marcaF || marcaK !== marcaF) {
-          if (mesmaFoto && marcaK && marcaF && (marcaK.includes(marcaF) || marcaF.includes(marcaK))) {
-            score += 25;
-          } else {
-            return { score: 0, motivo: `Marcas diferentes (${marcaK || "Sem marca"} vs ${marcaF || "Sem marca"})` };
-          }
-        } else {
-          score += 30;
-          motivos.push(`Marca 100% (${prodF.marca || prodK.marca})`);
-        }
+        score += 30;
+        motivos.push(`Marca 100% (${checkMarca.marcaResolvida.toUpperCase()})`);
       }
 
       // 4. Tokens de Produto: Nome o mais parecido possível
-      const arrK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, marcaK || marcaF);
-      const arrF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, marcaF || marcaK);
+      const arrK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, prodK._marcaVinc, checkMarca.marcaResolvida);
+      const arrF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, prodF._marcaVinc, checkMarca.marcaResolvida);
 
       if (arrK.length === 0 || arrF.length === 0) {
         return { score: 0, motivo: "Sem termos de produto identificáveis" };
-      }
-
-      const mesmoTipo = arrK[0] === arrF[0] || (arrK[0].length >= 4 && arrF[0].length >= 4 && (arrK[0].startsWith(arrF[0]) || arrF[0].startsWith(arrK[0])));
-      if (!mesmoTipo && !mesmaFoto) {
-        return { score: 0, motivo: "Tipo base de produto diferente" };
       }
 
       const setF = new Set(arrF);
@@ -5085,7 +5514,12 @@
       const jaccard = uniao > 0 ? intersecao / uniao : 0;
       const sim = (dice * 0.45) + (containment * 0.35) + (jaccard * 0.20);
 
-      if (sim < 0.35 && !mesmaFoto) {
+      if (!tiposBaseCompativeis(arrK, arrF) && !mesmaFoto && containment < 0.75) {
+        return { score: 0, motivo: "Tipo base de produto diferente" };
+      }
+
+      const limiarSim = checkMarca.granel ? 0.75 : 0.42;
+      if (sim < limiarSim && !mesmaFoto) {
         return { score: 0, motivo: "Baixa similaridade de nome" };
       }
 
@@ -5098,7 +5532,7 @@
       const pF = Number(prodF.preco || 0);
       if (pK > 0 && pF > 0) {
         const ratio = Math.max(pK, pF) / Math.min(pK, pF);
-        if (ratio > 2.5 && !mesmaFoto) {
+        if (ratio > 2.35 && !mesmaFoto) {
           return { score: 0, motivo: "Discrepância extrema de preço (fardo vs unidade)" };
         }
       }
@@ -5155,14 +5589,17 @@
       vinculoEmEdicaoAtual = null;
       const box = document.getElementById('boxFormVinculoManual');
       const titulo = document.getElementById('tituloFormVinculoManual');
-      const inpK = document.getElementById('inpFiltroVincKoch');
-      const inpF = document.getElementById('inpFiltroVincFort');
-      if (titulo) titulo.textContent = 'Adicionar Novo Vínculo Manual';
+      const inpK = document.getElementById('inpBuscaVincKoch');
+      const inpF = document.getElementById('inpBuscaVincFort');
+      const inpA = document.getElementById('inpBuscaVincAngeloni');
+      if (titulo) titulo.textContent = 'Adicionar Novo Vínculo Manual (2 ou 3 Lojas)';
       if (inpK) inpK.value = '';
       if (inpF) inpF.value = '';
+      if (inpA) inpA.value = '';
       if (box) box.classList.remove('hidden');
       filtrarOpcoesVincKoch('');
       filtrarOpcoesVincFort('');
+      filtrarOpcoesVincAngeloni('');
     }
 
     function fecharFormVinculoManual() {
@@ -5180,22 +5617,26 @@
       }
     }
 
-    function iniciarEdicaoVinculo(idKoch, idFort) {
-      const sK = String(idKoch);
-      const sF = String(idFort);
-      vinculoEmEdicaoAtual = { idKochAntigo: sK, idFortAntigo: sF };
+    function iniciarEdicaoVinculo(idKoch, idFort, idAngeloni = '') {
+      const sK = idKoch ? String(idKoch) : '';
+      const sF = idFort ? String(idFort) : '';
+      const sA = idAngeloni ? String(idAngeloni) : '';
+      vinculoEmEdicaoAtual = { idKochAntigo: sK, idFortAntigo: sF, idAngeloniAntigo: sA };
 
-      const prodK = catalogoKochOriginal.find(p => String(p.idOriginal) === sK);
-      const prodF = catalogoFortOriginal.find(p => String(p.idOriginal) === sF);
+      const prodK = sK ? catalogoKochOriginal.find(p => String(p.idOriginal) === sK) : null;
+      const prodF = sF ? catalogoFortOriginal.find(p => String(p.idOriginal) === sF) : null;
+      const prodA = sA ? catalogoAngeloniOriginal.find(p => String(p.idOriginal) === sA) : null;
 
       const box = document.getElementById('boxFormVinculoManual');
       const titulo = document.getElementById('tituloFormVinculoManual');
-      const inpK = document.getElementById('inpFiltroVincKoch');
-      const inpF = document.getElementById('inpFiltroVincFort');
+      const inpK = document.getElementById('inpBuscaVincKoch');
+      const inpF = document.getElementById('inpBuscaVincFort');
+      const inpA = document.getElementById('inpBuscaVincAngeloni');
 
-      if (titulo) titulo.textContent = `Editando Vínculo: #${sK} (Koch) ⇄ #${sF} (Fort)`;
+      if (titulo) titulo.textContent = `Editando Vínculo: ${sK ? `#${sK} (Koch)` : ''} ${sF ? `#${sF} (Fort)` : ''} ${sA ? `#${sA} (Angeloni)` : ''}`;
       if (inpK) inpK.value = prodK ? prodK.nome.split(' ').slice(0, 3).join(' ') : '';
       if (inpF) inpF.value = prodF ? prodF.nome.split(' ').slice(0, 3).join(' ') : '';
+      if (inpA) inpA.value = prodA ? prodA.nome.split(' ').slice(0, 3).join(' ') : '';
       if (box) {
         box.classList.remove('hidden');
         box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -5203,6 +5644,7 @@
 
       filtrarOpcoesVincKoch(inpK ? inpK.value : '', sK);
       filtrarOpcoesVincFort(inpF ? inpF.value : '', sF);
+      filtrarOpcoesVincAngeloni(inpA ? inpA.value : '', sA);
     }
 
     async function fixarVinculoComoManual(idKoch, idFort) {
@@ -5226,7 +5668,7 @@
       const filtrados = catalogoKochOriginal
         .filter(p => !tNorm || p._nomeNorm.includes(tNorm) || p._marcaNorm.includes(tNorm) || String(p.idOriginal) === String(idSelecionado || ''))
         .slice(0, 45);
-      sel.innerHTML = filtrados.map(p => `
+      sel.innerHTML = `<option value="">-- Nenhum / Não selecionar --</option>` + filtrados.map(p => `
         <option value="${p.idOriginal}" ${String(p.idOriginal) === String(idSelecionado) ? 'selected' : ''}>R$ ${p.preco.toFixed(2).replace('.', ',')} • ${p.nome} (${p.marca})</option>
       `).join('');
     }
@@ -5238,34 +5680,56 @@
       const filtrados = catalogoFortOriginal
         .filter(p => !tNorm || p._nomeNorm.includes(tNorm) || p._marcaNorm.includes(tNorm) || String(p.idOriginal) === String(idSelecionado || ''))
         .slice(0, 45);
-      sel.innerHTML = filtrados.map(p => `
+      sel.innerHTML = `<option value="">-- Nenhum / Não selecionar --</option>` + filtrados.map(p => `
+        <option value="${p.idOriginal}" ${String(p.idOriginal) === String(idSelecionado) ? 'selected' : ''}>R$ ${p.preco.toFixed(2).replace('.', ',')} • ${p.nome} (${p.marca})</option>
+      `).join('');
+    }
+
+    function filtrarOpcoesVincAngeloni(termo, idSelecionado = null) {
+      const sel = document.getElementById('selVincProdAngeloni');
+      if (!sel) return;
+      const tNorm = normalizarTexto(termo);
+      const filtrados = catalogoAngeloniOriginal
+        .filter(p => !tNorm || p._nomeNorm.includes(tNorm) || p._marcaNorm.includes(tNorm) || String(p.idOriginal) === String(idSelecionado || ''))
+        .slice(0, 45);
+      sel.innerHTML = `<option value="">-- Nenhum / Não selecionar --</option>` + filtrados.map(p => `
         <option value="${p.idOriginal}" ${String(p.idOriginal) === String(idSelecionado) ? 'selected' : ''}>R$ ${p.preco.toFixed(2).replace('.', ',')} • ${p.nome} (${p.marca})</option>
       `).join('');
     }
 
     async function confirmarVinculoManual() {
       if (!await exigirSenhaRobo()) return;
-      const kId = document.getElementById('selVincProdKoch')?.value;
-      const fId = document.getElementById('selVincProdFort')?.value;
-      if (!kId || !fId) return alert('Selecione um produto do SuperKoch e um produto do Fort Atacadista.');
+      const kId = document.getElementById('selVincProdKoch')?.value || '';
+      const fId = document.getElementById('selVincProdFort')?.value || '';
+      const aId = document.getElementById('selVincProdAngeloni')?.value || '';
+      const qtdSel = [kId, fId, aId].filter(Boolean).length;
+      if (qtdSel < 2) return alert('Selecione produtos de pelo menos 2 mercados (SuperKoch, Fort ou Angeloni) para vincular.');
 
       if (vinculoEmEdicaoAtual) {
-        const chAntiga = `vinc_${vinculoEmEdicaoAtual.idKochAntigo}_${vinculoEmEdicaoAtual.idFortAntigo}`;
-        delete mapaVinculosProdutos[chAntiga];
+        for (const [ch, v] of Object.entries(mapaVinculosProdutos)) {
+          if (v && (
+            (vinculoEmEdicaoAtual.idKochAntigo && String(v.idKoch) === String(vinculoEmEdicaoAtual.idKochAntigo)) ||
+            (vinculoEmEdicaoAtual.idFortAntigo && String(v.idFort) === String(vinculoEmEdicaoAtual.idFortAntigo)) ||
+            (vinculoEmEdicaoAtual.idAngeloniAntigo && String(v.idAngeloni) === String(vinculoEmEdicaoAtual.idAngeloniAntigo))
+          )) {
+            delete mapaVinculosProdutos[ch];
+          }
+        }
       }
 
-      // Remove eventuais vínculos anteriores que usavam um desses IDs
       for (const [ch, v] of Object.entries(mapaVinculosProdutos)) {
-        if (v && (String(v.idKoch) === String(kId) || String(v.idFort) === String(fId))) {
+        if (!v) continue;
+        if ((kId && String(v.idKoch) === String(kId)) || (fId && String(v.idFort) === String(fId)) || (aId && String(v.idAngeloni) === String(aId))) {
           delete mapaVinculosProdutos[ch];
         }
       }
 
-      const chaveVinc = `vinc_${kId}_${fId}`;
-      delete rejeitadosVinculosGlobal[`${kId}__${fId}`];
+      const chaveVinc = (kId && fId) ? `vinc_${kId}_${fId}` : (kId && aId ? `vinc_k${kId}_a${aId}` : `vinc_f${fId}_a${aId}`);
+      if (kId && fId) delete rejeitadosVinculosGlobal[`${kId}__${fId}`];
       mapaVinculosProdutos[chaveVinc] = {
-        idKoch: String(kId),
-        idFort: String(fId),
+        idKoch: kId ? String(kId) : null,
+        idFort: fId ? String(fId) : null,
+        idAngeloni: aId ? String(aId) : null,
         score: 100,
         motivo: vinculoEmEdicaoAtual ? 'Vínculo editado manualmente' : 'Vínculo manual personalizado',
         manual: true,
@@ -5284,13 +5748,20 @@
       }
     }
 
-    async function desfazerVinculo(idKoch, idFort) {
+    async function desfazerVinculo(idKoch, idFort, idAngeloni = '') {
       if (!await exigirSenhaRobo()) return;
       if (!confirm('Deseja excluir este vínculo? Os produtos voltarão a aparecer separadamente e este par não será vinculado automaticamente.')) return;
 
-      const chaveVinc = `vinc_${idKoch}_${idFort}`;
-      delete mapaVinculosProdutos[chaveVinc];
-      rejeitadosVinculosGlobal[`${idKoch}__${idFort}`] = true;
+      for (const [ch, v] of Object.entries(mapaVinculosProdutos)) {
+        if (!v) continue;
+        const matchK = idKoch ? String(v.idKoch || '') === String(idKoch) : !v.idKoch;
+        const matchF = idFort ? String(v.idFort || '') === String(idFort) : !v.idFort;
+        const matchA = idAngeloni ? String(v.idAngeloni || '') === String(idAngeloni) : true;
+        if (matchK && matchF && matchA) delete mapaVinculosProdutos[ch];
+      }
+      if (idKoch && idFort) {
+        rejeitadosVinculosGlobal[`${idKoch}__${idFort}`] = true;
+      }
 
       try {
         await persistirVinculosNoFirebaseSilencioso();
@@ -5303,15 +5774,6 @@
 
     function filtrarTipoVinculoUI(tipo) {
       filtroTipoVinculoAtual = tipo || 'TODOS';
-      ['TODOS', 'MANUAIS', 'AUTO', 'FORT', 'KOCH'].forEach(k => {
-        const btn = document.getElementById(`btnFiltroVinc-${k}`);
-        if (!btn) return;
-        if (k === filtroTipoVinculoAtual) {
-          btn.className = 'px-2.5 py-1 rounded text-[11px] font-bold bg-[#163560] text-white border border-sky-500/40';
-        } else {
-          btn.className = 'px-2.5 py-1 rounded text-[11px] font-semibold text-slate-400 hover:text-white';
-        }
-      });
       renderizarAbaVinculosUI();
     }
 
@@ -5324,40 +5786,47 @@
 
       let vitoriasFort = 0;
       let vitoriasKoch = 0;
+      let vitoriasAngeloni = 0;
       let empates = 0;
       let totalManuais = 0;
-      let totalAuto = 0;
+      let totalTriplos = 0;
 
       compItens.forEach(p => {
         if (p.mercadoVencedor === 'FORT') vitoriasFort++;
         else if (p.mercadoVencedor === 'KOCH') vitoriasKoch++;
+        else if (p.mercadoVencedor === 'ANGELONI') vitoriasAngeloni++;
         else empates++;
         if (p.vinculoManual) totalManuais++;
-        else totalAuto++;
+        if (p.qtdMercadosComparados >= 3 || (p.itemKoch && p.itemFort && p.itemAngeloni)) totalTriplos++;
       });
 
       const pctFort = totalComp > 0 ? Math.round((vitoriasFort / totalComp) * 100) : 0;
       const pctKoch = totalComp > 0 ? Math.round((vitoriasKoch / totalComp) * 100) : 0;
+      const pctAngeloni = totalComp > 0 ? Math.round((vitoriasAngeloni / totalComp) * 100) : 0;
       const totalRejeitados = Object.keys(rejeitadosVinculosGlobal || {}).length;
 
       if (document.getElementById('badgeTotalVinculos')) document.getElementById('badgeTotalVinculos').textContent = `${totalComp} vinculados`;
       if (document.getElementById('tabCountVinculosConfig')) document.getElementById('tabCountVinculosConfig').textContent = totalComp;
-      if (document.getElementById('kpiTotalVinculos')) document.getElementById('kpiTotalVinculos').textContent = totalComp;
-      if (document.getElementById('kpiTotalVinculosSub')) document.getElementById('kpiTotalVinculosSub').textContent = `${totalManuais} manuais • ${totalAuto} auto`;
+      if (document.getElementById('kpiTotalVinculos')) document.getElementById('kpiTotalVinculos').textContent = totalComp.toLocaleString('pt-BR');
+      if (document.getElementById('kpiTotalVinculosSub')) document.getElementById('kpiTotalVinculosSub').textContent = `${totalTriplos} nas 3 lojas • ${totalManuais} manuais`;
       if (document.getElementById('kpiVitoriasFort')) document.getElementById('kpiVitoriasFort').textContent = `${vitoriasFort} itens`;
-      if (document.getElementById('kpiPctVitoriasFort')) document.getElementById('kpiPctVitoriasFort').textContent = `${pctFort}% das comparações`;
+      if (document.getElementById('kpiPctVitoriasFort')) document.getElementById('kpiPctVitoriasFort').textContent = `${pctFort}% mais barato`;
       if (document.getElementById('kpiVitoriasKoch')) document.getElementById('kpiVitoriasKoch').textContent = `${vitoriasKoch} itens`;
-      if (document.getElementById('kpiPctVitoriasKoch')) document.getElementById('kpiPctVitoriasKoch').textContent = `${pctKoch}% das comparações`;
+      if (document.getElementById('kpiPctVitoriasKoch')) document.getElementById('kpiPctVitoriasKoch').textContent = `${pctKoch}% mais barato`;
+      if (document.getElementById('kpiVitoriasAngeloni')) document.getElementById('kpiVitoriasAngeloni').textContent = `${vitoriasAngeloni} itens`;
+      if (document.getElementById('kpiPctVitoriasAngeloni')) document.getElementById('kpiPctVitoriasAngeloni').textContent = `${pctAngeloni}% mais barato`;
       if (document.getElementById('kpiEmpatesPreco')) document.getElementById('kpiEmpatesPreco').textContent = `${empates} itens`;
       if (document.getElementById('kpiRejeitadosCount')) document.getElementById('kpiRejeitadosCount').textContent = `${totalRejeitados} rejeitados`;
 
       const tBusca = normalizarTexto(termoBuscaVinculos);
       const itensFiltrados = compItens.filter(p => {
         if (filtroTipoVinculoAtual === 'MANUAIS' && !p.vinculoManual) return false;
-        if (filtroTipoVinculoAtual === 'AUTO' && p.vinculoManual) return false;
+        if ((filtroTipoVinculoAtual === 'AUTO' || filtroTipoVinculoAtual === 'AUTOMATICOS') && p.vinculoManual) return false;
+        if (filtroTipoVinculoAtual === 'TRIPLOS' && !(p.itemKoch && p.itemFort && p.itemAngeloni)) return false;
         if (filtroTipoVinculoAtual === 'FORT' && p.mercadoVencedor !== 'FORT') return false;
         if (filtroTipoVinculoAtual === 'KOCH' && p.mercadoVencedor !== 'KOCH') return false;
-        if (tBusca && !p._nomeNorm.includes(tBusca) && !p._marcaNorm.includes(tBusca) && !String(p.idKoch).includes(tBusca) && !String(p.idFort).includes(tBusca)) return false;
+        if (filtroTipoVinculoAtual === 'ANGELONI' && p.mercadoVencedor !== 'ANGELONI') return false;
+        if (tBusca && !p._nomeNorm.includes(tBusca) && !p._marcaNorm.includes(tBusca) && !String(p.idKoch || '').includes(tBusca) && !String(p.idFort || '').includes(tBusca) && !String(p.idAngeloni || '').includes(tBusca)) return false;
         return true;
       });
 
@@ -5384,6 +5853,10 @@
           ? `<span class="bg-amber-950/90 text-amber-300 border border-amber-700/70 text-[9px] font-bold px-1.5 py-0.5 rounded">Manual</span>`
           : `<span class="bg-[#0d2240] text-sky-300 border border-[#1c355e] text-[9px] font-mono px-1.5 py-0.5 rounded">${p.scoreVinculo}% auto</span>`;
 
+        const tagQtdLojas = (p.itemKoch && p.itemFort && p.itemAngeloni)
+          ? `<span class="bg-purple-950/80 text-purple-300 border border-purple-700/60 text-[9px] font-bold px-1.5 py-0.5 rounded">3 Lojas</span>`
+          : `<span class="bg-slate-900 text-slate-400 border border-slate-700 text-[9px] font-semibold px-1.5 py-0.5 rounded">2 Lojas</span>`;
+
         const btnFixarManual = (!p.vinculoManual && p.idKoch && p.idFort)
           ? `<button onclick="fixarVinculoComoManual('${p.idKoch}', '${p.idFort}')" title="Confirmar e fixar como vínculo manual" class="bg-[#0d2240] hover:bg-emerald-700 text-emerald-400 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -5401,6 +5874,7 @@
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span class="text-[10px] font-bold text-sky-300/80 uppercase truncate">${p.marca}</span>
+                  ${tagQtdLojas}
                   ${tagVencedor}
                   ${tagManual}
                 </div>
@@ -5415,13 +5889,12 @@
             </div>
             <div class="flex items-center justify-end gap-1.5 shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#1c355e]">
               ${btnFixarManual}
-              ${(p.idKoch && p.idFort) ? `
-              <button onclick="iniciarEdicaoVinculo('${p.idKoch}', '${p.idFort}')" title="Editar este vínculo" class="bg-[#0d2240] hover:bg-sky-600 text-sky-300 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
+              <button onclick="iniciarEdicaoVinculo('${p.idKoch || ''}', '${p.idFort || ''}', '${p.idAngeloni || ''}')" title="Editar este vínculo" class="bg-[#0d2240] hover:bg-sky-600 text-sky-300 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
-              <button onclick="desfazerVinculo('${p.idKoch}', '${p.idFort}')" title="Excluir este vínculo" class="bg-[#0d2240] hover:bg-red-700 text-red-400 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
+              <button onclick="desfazerVinculo('${p.idKoch || ''}', '${p.idFort || ''}', '${p.idAngeloni || ''}')" title="Excluir este vínculo" class="bg-[#0d2240] hover:bg-red-700 text-red-400 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>` : ''}
+              </button>
             </div>
           </div>
         `;
@@ -6791,15 +7264,7 @@
         }
 
         if(!p._deptos.has(departamentoSelecionado)) return false;
-        if(subcategoriaSelecionada) {
-          if (subcategoriaSelecionada === 'Até R$ 5' && p.preco > 5) return false;
-          else if (subcategoriaSelecionada === 'Até R$ 10' && p.preco > 10) return false;
-          else if (subcategoriaSelecionada === 'Até R$ 20' && p.preco > 20) return false;
-          else if (!['Maiores Descontos','Até R$ 5','Até R$ 10','Até R$ 20'].includes(subcategoriaSelecionada)) {
-            const tSub = normalizarTexto(subcategoriaSelecionada).split(' ').filter(x => x.length > 2);
-            if(tSub.length > 0 && !tSub.some(ts => p._nomeNorm.includes(ts) || p._marcaNorm.includes(ts))) return false;
-          }
-        }
+        if(subcategoriaSelecionada && !atendeSubcategoriaSelecionada(p, subcategoriaSelecionada)) return false;
         if(promocao && p.desconto <= 0) return false;
         if(marca !== 'TODAS' && p.marca !== marca) return false;
         if(query && !termos.every(t => p._nomeNorm.includes(t) || p._marcaNorm.includes(t))) return false;

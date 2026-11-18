@@ -22,6 +22,7 @@ const MERCADO_ALVO = (
 ).toLowerCase();
 const EH_FORT = MERCADO_ALVO === "fort";
 const EH_ANGELONI = MERCADO_ALVO === "angeloni";
+const EH_KOCH = !EH_FORT && !EH_ANGELONI;
 const MERCADO_NOME = EH_ANGELONI
   ? "Angeloni (Porto Belo 28)"
   : (EH_FORT ? "Fort Atacadista (Porto Belo 1644)" : "SuperKoch (Itapema 1408)");
@@ -911,7 +912,7 @@ async function enviarTelemetriaAoVivo(forcar = false) {
       body: JSON.stringify(payload)
     });
     // Se for SuperKoch, mantém telemetria.json sincronizado para retrocompatibilidade
-    if (!EH_FORT) {
+    if (EH_KOCH) {
       await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/telemetria.json`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -3151,21 +3152,27 @@ async function executarRoboCloud() {
 }
 
 // =========================================================================
-// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE KOCH × FORT (MÁXIMA COBERTURA)
+// ALGORITMO MULTI-FATOR DE VINCULAÇÃO INTELIGENTE TRIPLA (KOCH × FORT × ANGELONI)
+// Regras Rígidas:
+// 1. Medida (kg, g, l, ml, un) 100% EXATA
+// 2. Marca 100% EXATA (com equivalência de sub-marca quando presente nos 2 títulos)
+// 3. Nome do produto o mais parecido possível e bloqueio total de conflito de sabor/variante
 // =========================================================================
 const STOPWORDS = new Set([
   "de", "da", "do", "das", "dos", "com", "para", "em", "sem", "ao", "aos",
   "a", "o", "as", "os", "um", "uma", "uns", "umas", "e", "ou", "por", "sobre",
   "no", "na", "nos", "nas", "tipo", "sabor", "pacote", "pct", "pc", "unidade",
-  "unid", "un", "cx", "caixa", "pote", "pt", "garrafa", "gf", "lata", "lt",
-  "fardo", "fd", "sache", "sc", "bandeja", "bdj", "vidro", "vd", "pet", "tp",
-  "tetra", "pak", "embalagem", "emb", "oferta", "leve", "pague", "especial", "extra"
+  "unid", "un", "unidades", "cx", "caixa", "pote", "pt", "garrafa", "gf", "gfa",
+  "lata", "lt", "latinha", "fardo", "fd", "sache", "sch", "sc", "bandeja", "bdj",
+  "vidro", "vd", "pet", "tp", "tetra", "pak", "tetrapak", "embalagem", "emb",
+  "oferta", "leve", "pague", "especial", "extra", "preco", "novo", "nova",
+  "frasco", "fr", "bisnaga", "cartela", "display", "pouch", "long", "neck", "ln"
 ]);
 
 const MARCAS_NEUTRAS_GRANEL = new Set([
   "generico", "outros", "sem marca", "importado", "horti fruti", "hortifruti",
   "hortifruti koch", "fruta delivery fort", "delivery fort", "koch", "superkoch",
-  "super koch", "fort", "fort atacadista", "cookie", "biscoito",
+  "super koch", "fort", "fort atacadista", "angeloni", "super angeloni", "cookie", "biscoito",
   "granjeiro", "in natura", "a granel", "granel", "producao propria", "marca propria",
   "padaria", "acougue", "peixaria", "confeitaria", "rotisseria", "fiambreria", "nacional"
 ]);
@@ -3175,7 +3182,10 @@ const ABREVIACOES_MAP = [
   [/\bcerv\.?\b/g, "cerveja"],
   [/\bchoc\.?\b/g, "chocolate"],
   [/\bbisc\.?\b|\bbolacha\b/g, "biscoito"],
+  [/\bcookies\b/g, "cookie"],
+  [/\bwafers\b/g, "wafer"],
   [/\bmac\.?\b/g, "macarrao"],
+  [/\bmiojo\b|\blamen\b/g, "instantaneo"],
   [/\bmarg\.?\b/g, "margarina"],
   [/\breq\.?\b/g, "requeijao"],
   [/\bdeterg\.?\b|\bdet\b/g, "detergente"],
@@ -3209,22 +3219,100 @@ const ABREVIACOES_MAP = [
   [/\b(sem|zero|0)\s+(adicao\s+de\s+)?(acucar|acucares)\b/g, "zero"],
   [/\b(sem|zero|0)\s+(de\s+)?(gordura|gorduras)\b/g, "zero"],
   [/\b(sem|zero|0)\s+lactose\b|\blacfree\b|\bnolac\b|\bzerolac\b/g, "zero zerolactose"],
+  [/\b(sem|zero|0)\s+gluten\b/g, "zerogluten"],
+  [/\b(sem|zero|0)\s+alcool\b/g, "zeroalcool"],
+  [/\bcom\s+gas\b/g, "comgas"],
+  [/\bsem\s+gas\b/g, "semgas"],
+  [/\bsem\s+sal\b/g, "semsal"],
+  [/\bcom\s+sal\b/g, "comsal"],
+  [/\blava[\s-]+roupas?\b/g, "lavaroupas"],
+  [/\blava[\s-]+loucas?\b/g, "lavaloucas"],
+  [/\bpasta\s+de\s+dente\b|\bpasta\s+dental\b/g, "creme dental"],
   [/\bfronteira\b/g, "frontera"],
   [/\brodabrill\b/g, "rodabril"],
   [/\bc\/\s*/g, "com "],
   [/\bs\/\s*/g, "sem "],
   [/\b3\s+coracoes\b/g, "tres coracoes"],
-  [/\bcoca[\s-]+cola\b/g, "coca cola"]
+  [/\bcoca[\s-]+cola\b/g, "coca cola"],
+  [/\bdel[\s-]+valle\b/g, "del valle"],
+  [/\bdr\.?\s*oetker\b|\bdoutor\s+oetker\b/g, "dr oetker"],
+  [/\btixan\s+ype\b/g, "ype"],
+  [/\btio\s+urbano\b/g, "urbano"],
+  [/\bl[\s']*or\b|\blor\b/g, "lor"],
+  [/\bpingo\s+d[\s']*ouro\b/g, "pingo douro"],
+  [/\blay[\s']*s\b/g, "lays"],
+  [/\bkellogg[\s']*s\b/g, "kelloggs"],
+  [/\bhellmann[\s']*s\b/g, "hellmanns"],
+  [/\bhershey[\s']*s\b/g, "hersheys"],
+  [/\bm\s*&\s*m[\s']*s?\b/g, "mms"],
+  [/\bmc\s*cain\b/g, "mccain"]
 ];
 
 const GRUPOS_CONFLITO_SABOR = [
-  ["uva", "laranja", "limao", "morango", "maracuja", "abacaxi", "pessego", "manga", "guarana", "caju", " maca ", "frutas vermelhas", "tutti frutti", "baunilha", "flocos", "coco"],
-  ["bovino", "bovina", "frango", "suino", "suina", "peixe", "tilapia", "salmao", "peru", "bacalhau"],
+  ["uva", "laranja", "limao", "morango", "maracuja", "abacaxi", "pessego", "manga", "guarana", "caju", " maca ", "frutas vermelhas", "tutti frutti", "baunilha", "flocos", "coco", "banana", "goiaba", "acerola", "tangerina", "framboesa", "amora", "cereja", "melancia", "melao", "kiwi", "pera", "ameixa"],
+  ["chocolate", "baunilha", "morango", "coco", "avela", "caramelo", "doce de leite", "limao", "maracuja", "brigadeiro", "prestigio", " beijinho "],
+  ["bovino", "bovina", "frango", "galinha", "suino", "suina", "peixe", "tilapia", "salmao", "peru", "bacalhau", "camarao", "costela", "picanha", "calabresa", "bacon"],
   ["integral", "desnatado", "semidesnatado"],
   ["carioca", "preto", "branco", "vermelho", "fradinho"],
-  ["parboilizado", "branco", "integral", "arboreo"],
-  ["tinto", "branco", "rose"]
+  ["parboilizado", "branco", "integral", "arboreo", "cateto", "negro"],
+  ["tinto", "branco", "rose"],
+  ["seco", "suave", "demi sec", "brut", "moscatel"],
+  ["pilsen", "ipa", "lager", "weiss", "malzbier", "stout", "bock"],
+  ["espaguete", "parafuso", "fusilli", "penne", "padre nosso", "ave maria", "cabelo de anjo", "talharim", "fettuccine", "ninho", "lasanha", "conchinha", "gravatinha", "instantaneo", "argolinha", "rigatoni"],
+  ["shampoo", "condicionador", "creme de pentear", "mascara", "tintura", "sabonete"],
+  ["aerosol", "rollon", "roll on", "stick", "creme"],
+  ["caes", "gatos", "cachorro", "gato"],
+  ["adulto", "filhote", "senior", "castrado"],
+  ["folha dupla", "folha tripla", "folha simples"]
 ];
+
+// Grupos de sinônimos de tipo base de produto para evitar rejeição quando um mercado omite o prefixo
+const GRUPOS_TIPO_EQUIVALENTE = [
+  new Set(["biscoito", "cookie", "wafer", "rosquinha", "sequilho", "torrada", "cracker", " salgadinho ", "snack", "batata"]),
+  new Set(["macarrao", "massa", "instantaneo", "espaguete", "parafuso", "penne", "talharim", "fettuccine", "lasanha", "ninho", "cabelo", "padre", "ave", "conchinha"]),
+  new Set(["sabao", "lavaroupas", "detergente", "lava", "alvejante", "amaciante", "tira"]),
+  new Set(["limpador", "multiuso", "desengordurante", "desinfetante", "agua", "cloro", "limpa"]),
+  new Set(["queijo", "mussarela", "prato", "parmesao", "provolone", "gouda", "brie", "gorgonzola", "coalho", "minas", "ricota", "requeijao", "catupiry", "cream"]),
+  new Set(["presunto", "apresuntado", "mortadela", "salame", "copa", "peito", "blanquet", "lombo", "fatiado"]),
+  new Set(["linguica", "calabresa", "toscana", "paio", "salsicha", "pernil", "costelinha", "bacon"]),
+  new Set(["frango", "file", "filezinho", "peito", "coxa", "sobrecoxa", "asa", "tulipa", "passarinho", "sassami", "coxinha"]),
+  new Set(["carne", "bife", "picanha", "alcatra", "maminha", "contra", "contrafile", "costela", "coxao", "patinho", "acem", "fraldinha", "cupim", "musculo", "paleta", "hamburguer", "almobdega", "almondega"]),
+  new Set(["iogurte", "bebida", "leite", "fermentado", "petit", "suisse", "coalhada", "nata", "creme", "chantilly"]),
+  new Set(["achocolatado", "composto", "cereal", "aveia", "granola", "farinha", "mingau"]),
+  new Set(["refrigerante", "suco", "nectar", "refresco", "agua", "energetico", "isotonico", "cha", "tonica"]),
+  new Set(["cerveja", "chope", "vinho", "espumante", "whisky", "vodka", "gin", "cachaca", "aguardente", "licor", "aperitivo", "sidra"]),
+  new Set(["pao", "bisnaguinha", "bolo", "torta", "panetone", "panettone", "chocotone", "chocottone", "sonho", "cuca", "rosca"]),
+  new Set(["papel", "toalha", "guardanapo", "lenco", "fralda", "absorvente", "algodao", "haste"]),
+  new Set(["creme", "pasta", "gel", "escova", "fio", "enxaguante", "antisseptico"]),
+  new Set(["shampoo", "condicionador", "sabonete", "desodorante", "hidratante", "locao", "oleo"]),
+  new Set(["molho", "extrato", "polpa", "passata", "ketchup", "mostarda", "maionese", "tempero", "caldo", "vinagre", "azeite"]),
+  new Set(["chocolate", "bombom", "tablete", "barra", "trufa", "bala", "chicle", "goma", "pirulito", "confeito", "drops"]),
+  new Set(["sorvete", "picole", "acai", "sobremesa", "gelato"]),
+  new Set(["pizza", "lasanha", "escondidinho", "empanado", "nuggets", "tekitos", "steak", "prato", "sanduiche", "hot"]),
+  new Set(["racao", "alimento", "petisco", "bifinho", "sache", "areia", "tapete"])
+];
+
+// Marcas corporativas (conglomerados) e suas sub-marcas diretas
+const SUBMARCAS_CONHECIMENTOS = new Set([
+  "nescau", "ninho", "moca", "kitkat", "passatempo", "bono", "nescafe", "maggi", "garoto",
+  "chambinho", "chandelle", "mucilon", "farinha lactea", "chokito", "prestigio", "alpino", "suflair", "galak", "classic", "charge", "lollo", "negresco", "tostines", "purina", "dog chow", "cat chow", "friskies", "fancy feast",
+  "oreo", "bis", "lacta", "tang", "clight", "trident", "halls", "club social", "philadelphia", "royal", "diamante negro", "laka", "ouro branco", "sonho de valsa", "trakinas", "belvita",
+  "elma chips", "ruffles", "doritos", "cheetos", "fandangos", "lays", "pingo douro", "cebolitos", "baconzitos", "stiksy", "sensacoes", "quaker", "toddy", "toddynho", "kero coco", "gatorade", "h2oh", "pepsi",
+  "omo", "comfort", "brilhante", "cif", "seda", "dove", "rexona", "lux", "clear", "hellmanns", "knorr", "maizena", "kibon", "arisco", "fofo", "surf", "axe", "suave", "closeup", "close up", "tresemme",
+  "veja", "vanish", "sbp", "bom ar", "harpic", "finish", "dettol", "poliflor", "nugget", "mortein", "veet",
+  "gillette", "oral b", "pampers", "always", "pantene", "downy", "ariel", "head shoulders", "aussie", "old spice", "vick",
+  "del valle", "kapo", "schweppes", "fanta", "sprite", "crystal", "monster", "ades", "powerade", "kuat",
+  "brahma", "skol", "antarctica", "stella artois", "budweiser", "corona", "spaten", "original", "bohemia", "patagonia", "colorado", "becks", "guarana antarctica",
+  "heineken", "amstel", "eisenbahn", "devassa", "baden baden", "schin", "glacial", "kaiser", "fys", "itubaina",
+  "sadia", "perdigao", "qualy", "deline", "claybom", "chester",
+  "seara", "doriana", "friboi", "maturatta", "swift", "massa leve", "rezende", "confianca",
+  "bauducco", "visconti", "tommy",
+  "ype", "tixan", "atol", "assolan", "perfex",
+  "colgate", "palmolive", "sorriso", "protex", "ajax", "pinho sol", "ola", "tandy", "elmex",
+  "johnson", "johnsons", "listerine", "neutrogena", "sundown", "sempre livre", "carefree", "cotonetes", "band aid",
+  "glade", "raid", "off", "pato", "mr musculo", "bravo", "ziploc", "baygon",
+  "neve", "scott", "duramax", "huggies", "intimus", "plenitud", "kleenex"
+]);
 
 function normalizarTexto(str) {
   return String(str || "")
@@ -3249,42 +3337,24 @@ function normalizarTextoVinculo(str) {
 
 function normalizarMarcaVinculo(marca) {
   const m = normalizarTextoVinculo(marca)
-    .replace(/\b(s\s*a|ltda|brasil|alimentos|bebidas|laticinios|industria|comercio|cia|grupo)\b/g, "")
+    .replace(/\b(s\s*a|ltda|brasil|alimentos|bebidas|laticinios|industria|comercio|cia|grupo|supermercados|supermercado|atacadista|delivery|cosm|cosmeticos)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
   if (!m || MARCAS_NEUTRAS_GRANEL.has(m)) return "";
   return m;
 }
 
-function marcasSaoCompativeis(marcaK, marcaF, nomeNormK, nomeNormF) {
-  if (!marcaK && !marcaF) return { compativel: true, confirmada: false };
-  if (marcaK && marcaF) {
-    if (marcaK === marcaF || marcaK.includes(marcaF) || marcaF.includes(marcaK)) {
-      return { compativel: true, confirmada: true };
-    }
-    const palavrasK = marcaK.split(" ").filter((w) => w.length >= 3);
-    const palavrasF = marcaF.split(" ").filter((w) => w.length >= 3);
-    if (palavrasK.some((w) => palavrasF.includes(w))) {
-      return { compativel: true, confirmada: true };
-    }
-    if (nomeNormF.includes(marcaK) || nomeNormK.includes(marcaF)) {
-      return { compativel: true, confirmada: true };
-    }
-    return { compativel: false, confirmada: false };
+function resolverMarcaCanonica(marcaNorm, nomeNorm) {
+  const padNome = ` ${nomeNorm} `;
+  // Se a marca já é uma sub-marca específica ou marca direta
+  if (marcaNorm && !["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "p g", "coca cola", "ambev", "brf", "jbs", "hypera", "kimberly", "kimberly clark", "sc johnson", "colgate palmolive", "m dias branco"].includes(marcaNorm)) {
+    return marcaNorm;
   }
-  if (marcaK && !marcaF) {
-    if (nomeNormF.includes(marcaK) || marcaK.split(" ").some((w) => w.length >= 4 && nomeNormF.includes(w))) {
-      return { compativel: true, confirmada: true };
-    }
-    return { compativel: true, confirmada: false };
+  // Tenta identificar sub-marca consagrada dentro do nome do produto
+  for (const sub of SUBMARCAS_CONHECIMENTOS) {
+    if (padNome.includes(` ${sub} `)) return sub;
   }
-  if (!marcaK && marcaF) {
-    if (nomeNormK.includes(marcaF) || marcaF.split(" ").some((w) => w.length >= 4 && nomeNormK.includes(w))) {
-      return { compativel: true, confirmada: true };
-    }
-    return { compativel: true, confirmada: false };
-  }
-  return { compativel: true, confirmada: false };
+  return marcaNorm || "";
 }
 
 function extrairAssetHash(urlImg) {
@@ -3295,31 +3365,69 @@ function extrairAssetHash(urlImg) {
 
 function extrairGramatura(nome) {
   if (!nome) return null;
-  const n = normalizarTexto(nome).replace(/\bleve\s*(\d+(?:[.,]\d+)?)\s*(?:kg|g|gr|l|lt|ml)?\s*pague\s*\d+(?:[.,]\d+)?\s*(kg|g|gr|l|lt|ml)\b/gi, "$1$2");
-  const mPack = n.match(/(\d+)\s*(?:x|un|unid|unidades\s*de)\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|ml)\b/i);
+  const n = normalizarTexto(nome)
+    .replace(/\bleve\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\s*pague\s*\d+(?:[.,]\d+)?\s*(?:kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)?\b/gi, "$1$2")
+    .replace(/\bleve\s*(\d+)\s*pague\s*\d+\b/gi, "$1un");
+
+  // 1. Multipack explícito: ex "6x350ml", "12 x 269ml", "3 unidades de 70g", "c/ 3 de 90g"
+  const mPack = n.match(/\b(\d+)\s*(?:x|un\s*de|unid\s*de|unidades\s*de)\s*(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/i);
   if (mPack) {
     const qtd = parseFloat(mPack[1]);
     const val = parseFloat(mPack[2].replace(",", "."));
     const un = mPack[3].toLowerCase();
-    const totalBase = un.startsWith("k") || un === "l" || un === "lt" || un.startsWith("lit") ? val * 1000 : val;
-    return { valorNorm: Math.round(qtd * totalBase), unidade: un.includes("l") ? "ml" : "g", str: `${qtd}x${val}${un}` };
+    const totalBase = (un.startsWith("k") || un.startsWith("l")) ? val * 1000 : val;
+    return {
+      valorNorm: Math.round(qtd * totalBase),
+      unidade: (un.startsWith("l") || un === "ml") ? "ml" : "g",
+      packQtd: qtd,
+      str: `${qtd}x${val}${un}`
+    };
   }
-  const m = n.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/i);
-  if (m) {
+
+  // 2. Peso ou Volume (PRIORIDADE MÁXIMA sobre contagem de unidades/metros)
+  const todosPesosVol = [...n.matchAll(/\b(\d+(?:[.,]\d+)?)\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml)\b/gi)];
+  if (todosPesosVol.length > 0) {
+    const m = todosPesosVol[todosPesosVol.length - 1];
     const val = parseFloat(m[1].replace(",", "."));
     const un = m[2].toLowerCase();
-    if (un.startsWith("k") || un.startsWith("l")) {
-      return { valorNorm: Math.round(val * 1000), unidade: un.startsWith("l") ? "ml" : "g", str: `${val}${un}` };
-    }
-    return { valorNorm: Math.round(val), unidade: un === "ml" ? "ml" : "g", str: `${val}${un}` };
+    const valorNorm = (un.startsWith("k") || un.startsWith("l")) ? Math.round(val * 1000) : Math.round(val);
+    const unidade = (un.startsWith("l") || un === "ml") ? "ml" : "g";
+    // Verifica se há também contagem de pack ("com 3 unidades", "pack 3 un")
+    const mQtdAux = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps)\b/i);
+    const packQtd = mQtdAux ? parseInt(mQtdAux[1], 10) : 1;
+    return {
+      valorNorm,
+      unidade,
+      packQtd: (packQtd > 1 && packQtd <= 100) ? packQtd : 1,
+      str: `${val}${un}`
+    };
   }
-  const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|rolos|rolo|capsulas|caps|ovos|folhas)\b/i);
+
+  // 3. Contagem de Rolos / Ovos / Fraldas / Unidades (quando não há g/ml)
+  const mRolosOvos = n.match(/\b(\d+)\s*(rolos|rolo|ovos|capsulas|caps|fraldas|tiras|absorventes)\b/i);
+  if (mRolosOvos) {
+    const val = parseInt(mRolosOvos[1], 10);
+    if (val >= 1 && val <= 500) {
+      return { valorNorm: val, unidade: "unid", packQtd: val, str: `${val}un` };
+    }
+  }
+
+  const mUn = n.match(/\b(\d+)\s*(un|unid|unidades|folhas)\b/i);
   if (mUn) {
     const val = parseInt(mUn[1], 10);
     if (val > 1 && val <= 500) {
-      return { valorNorm: val, unidade: "unid", str: `${val}un` };
+      return { valorNorm: val, unidade: "unid", packQtd: val, str: `${val}un` };
     }
   }
+
+  const mMetros = n.match(/\b(\d+(?:[.,]\d+)?)\s*(metros|metro|m)\b/i);
+  if (mMetros) {
+    const val = Math.round(parseFloat(mMetros[1].replace(",", ".")));
+    if (val >= 1 && val <= 500) {
+      return { valorNorm: val, unidade: "m", packQtd: 1, str: `${val}m` };
+    }
+  }
+
   return null;
 }
 
@@ -3327,34 +3435,50 @@ function temConflitoVariante(nomeK, nomeF) {
   const nk = ` ${normalizarTextoVinculo(nomeK)} `;
   const nf = ` ${normalizarTextoVinculo(nomeF)} `;
 
-  const zeroK = /\b(zero|diet|light|sem acucar)\b/.test(nk);
-  const zeroF = /\b(zero|diet|light|sem acucar)\b/.test(nf);
+  const zeroK = /\b(zero|diet|light)\b/.test(nk);
+  const zeroF = /\b(zero|diet|light)\b/.test(nf);
   if (zeroK !== zeroF) return true;
 
-  const lacK = /\b(sem lactose|zero lactose|nolac|lacfree)\b/.test(nk);
-  const lacF = /\b(sem lactose|zero lactose|nolac|lacfree)\b/.test(nf);
+  const lacK = /\bzerolactose\b/.test(nk);
+  const lacF = /\bzerolactose\b/.test(nf);
   if (lacK !== lacF) return true;
 
-  const gasK = /\bcom gas\b/.test(nk) ? 1 : (/\bsem gas\b/.test(nk) ? -1 : 0);
-  const gasF = /\bcom gas\b/.test(nf) ? 1 : (/\bsem gas\b/.test(nf) ? -1 : 0);
+  const alcK = /\bzeroalcool\b/.test(nk);
+  const alcF = /\bzeroalcool\b/.test(nf);
+  if (alcK !== alcF) return true;
+
+  const gasK = /\bcomgas\b/.test(nk) ? 1 : (/\bsemgas\b/.test(nk) ? -1 : 0);
+  const gasF = /\bcomgas\b/.test(nf) ? 1 : (/\bsemgas\b/.test(nf) ? -1 : 0);
   if (gasK !== 0 && gasF !== 0 && gasK !== gasF) return true;
 
+  const salK = /\bcomsal\b/.test(nk) ? 1 : (/\bsemsal\b/.test(nk) ? -1 : 0);
+  const salF = /\bcomsal\b/.test(nf) ? 1 : (/\bsemsal\b/.test(nf) ? -1 : 0);
+  if (salK !== 0 && salF !== 0 && salK !== salF) return true;
+
   for (const grupo of GRUPOS_CONFLITO_SABOR) {
-    let achouK = null;
-    let achouF = null;
+    const achadosK = [];
+    const achadosF = [];
     for (const termo of grupo) {
-      if (nk.includes(` ${termo.trim()} `)) achouK = termo.trim();
-      if (nf.includes(` ${termo.trim()} `)) achouF = termo.trim();
+      const t = termo.trim();
+      if (nk.includes(` ${t} `)) achadosK.push(t);
+      if (nf.includes(` ${t} `)) achadosF.push(t);
     }
-    if (achouK && achouF && achouK !== achouF) return true;
+    if (achadosK.length > 0 && achadosF.length > 0) {
+      const comum = achadosK.some((t) => achadosF.includes(t));
+      if (!comum) return true;
+    }
   }
   return false;
 }
 
-function extrairTokensNucleo(nome, marcaNorm) {
+function extrairTokensNucleo(nome, marcaNorm, marcaCanon = "") {
   const texto = normalizarTextoVinculo(nome)
-    .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|un|unid|unidades|rolos|rolo|folhas|m|cm|mm)\b/gi, " ");
-  const marcaTokens = new Set((marcaNorm || "").split(/\s+/).filter((w) => w.length >= 3));
+    .replace(/\b\d+(?:[.,]\d+)?\s*(kg|kilos|g|gr|gramas|l|lt|litros|litro|ml|un|unid|unidades|rolos|rolo|folhas|metros|metro|m|cm|mm)\b/gi, " ");
+  const marcaTokens = new Set(
+    `${marcaNorm || ""} ${marcaCanon || ""}`
+      .split(/\s+/)
+      .filter((w) => w.length >= 2)
+  );
   const tokens = [];
   for (const w of texto.split(/\s+/)) {
     if (w.length < 2) continue;
@@ -3366,6 +3490,56 @@ function extrairTokensNucleo(nome, marcaNorm) {
   return Array.from(new Set(tokens));
 }
 
+function tiposBaseCompativeis(listK, listF) {
+  if (!listK.length || !listF.length) return false;
+  // Se compartilham qualquer um dos 2 primeiros tokens principais
+  const headK = listK.slice(0, 2);
+  const headF = listF.slice(0, 2);
+  for (const tk of headK) {
+    for (const tf of headF) {
+      if (tk === tf) return true;
+      if (tk.length >= 4 && tf.length >= 4 && (tk.startsWith(tf) || tf.startsWith(tk))) return true;
+    }
+  }
+  // Verifica se pertencem ao mesmo grupo de tipo equivalente de produto
+  for (const grp of GRUPOS_TIPO_EQUIVALENTE) {
+    const kIn = headK.some((t) => grp.has(t));
+    const fIn = headF.some((t) => grp.has(t));
+    if (kIn && fIn) return true;
+  }
+  return false;
+}
+
+function marcasSaoExatas(prodK, prodF) {
+  let mK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
+  let mF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
+  const nK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
+  const nF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
+  const cK = prodK._marcaCanon !== undefined ? prodK._marcaCanon : resolverMarcaCanonica(mK, nK);
+  const cF = prodF._marcaCanon !== undefined ? prodF._marcaCanon : resolverMarcaCanonica(mF, nF);
+
+  if (mK && mF && mK === mF) return { exata: true, marcaResolvida: mK };
+  if (cK && cF && cK === cF) return { exata: true, marcaResolvida: cK };
+
+  const padNK = ` ${nK} `;
+  const padNF = ` ${nF} `;
+
+  // Se uma das marcas veio de conglomerado ou genérica, mas a marca exata do outro consta como palavra inteira nos dois
+  if (cK && cK.length >= 3 && padNF.includes(` ${cK} `) && (!mF || cF === cK || mF.includes(cK) || cK.includes(mF) || ["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "coca cola", "ambev", "brf", "jbs", "kimberly"].includes(mF))) {
+    return { exata: true, marcaResolvida: cK };
+  }
+  if (cF && cF.length >= 3 && padNK.includes(` ${cF} `) && (!mK || cK === cF || mK.includes(cF) || cF.includes(mK) || ["nestle", "mondelez", "pepsico", "unilever", "reckitt", "procter", "coca cola", "ambev", "brf", "jbs", "kimberly"].includes(mK))) {
+    return { exata: true, marcaResolvida: cF };
+  }
+
+  // Hortifruti / Açougue a granel sem marca de fabricante
+  if (!mK && !mF && !cK && !cF) {
+    return { exata: true, marcaResolvida: "", granel: true };
+  }
+
+  return { exata: false, marcaResolvida: "" };
+}
+
 function calcularScoreCasamento(prodK, prodF) {
   let score = 0;
   const motivos = [];
@@ -3374,13 +3548,16 @@ function calcularScoreCasamento(prodK, prodF) {
     return { score: 0, motivo: "Variante/sabor conflitante" };
   }
 
-  // 1. Gramas / Litros / Medida: 100% IGUAL OBRIGATÓRIO
+  // 1. Gramas / Litros / Medida: 100% EXATA OBRIGATÓRIA
   const gramK = prodK._gramCache !== undefined ? prodK._gramCache : extrairGramatura(prodK.nome);
   const gramF = prodF._gramCache !== undefined ? prodF._gramCache : extrairGramatura(prodF.nome);
 
   if (gramK && gramF) {
     if (gramK.unidade !== gramF.unidade || gramK.valorNorm !== gramF.valorNorm) {
       return { score: 0, motivo: `Gramatura/litragem diferente (${gramK.str} vs ${gramF.str})` };
+    }
+    if (gramK.packQtd && gramF.packQtd && gramK.packQtd !== gramF.packQtd && (gramK.packQtd > 1 || gramF.packQtd > 1)) {
+      return { score: 0, motivo: `Quantidade no pack diferente (${gramK.packQtd}un vs ${gramF.packQtd}un)` };
     }
     score += 35;
     motivos.push(`Medida 100% (${gramK.str})`);
@@ -3390,54 +3567,35 @@ function calcularScoreCasamento(prodK, prodF) {
     if (unK !== unF) {
       return { score: 0, motivo: "Unidades de venda incompatíveis (KG vs UN)" };
     }
-    score += unK === "KG" ? 25 : 15;
+    score += unK === "KG" ? 28 : 18;
   } else {
-    // Um tem gramatura e o outro não tem -> Não é 100% igual!
     return { score: 0, motivo: "Medida ausente em um dos produtos (exige 100% igual)" };
   }
 
   // 2. Hash da Imagem no Catálogo OSuper
   const hashK = prodK._hashCache !== undefined ? prodK._hashCache : extrairAssetHash(prodK.imagem);
   const hashF = prodF._hashCache !== undefined ? prodF._hashCache : extrairAssetHash(prodF.imagem);
-  if (hashK && hashF && hashK === hashF) {
+  const mesmaFoto = Boolean(hashK && hashF && hashK === hashF);
+  if (mesmaFoto) {
     score += 25;
     motivos.push("Foto idêntica");
   }
 
-  // 3. Marca: 100% IGUAL OBRIGATÓRIO
-  let marcaK = prodK._marcaVinc !== undefined ? prodK._marcaVinc : normalizarMarcaVinculo(prodK.marca);
-  let marcaF = prodF._marcaVinc !== undefined ? prodF._marcaVinc : normalizarMarcaVinculo(prodF.marca);
-  const nomeNormK = prodK._nomeVinc !== undefined ? prodK._nomeVinc : normalizarTextoVinculo(prodK.nome);
-  const nomeNormF = prodF._nomeVinc !== undefined ? prodF._nomeVinc : normalizarTextoVinculo(prodF.nome);
-
-  // Se a marca veio vazia do cadastro, tenta extrair se estiver presente no título
-  if (!marcaK && marcaF && (` ${nomeNormK} `).includes(` ${marcaF} `)) {
-    marcaK = marcaF;
+  // 3. Marca: 100% EXATA OBRIGATÓRIA
+  const checkMarca = marcasSaoExatas(prodK, prodF);
+  if (!checkMarca.exata) {
+    return { score: 0, motivo: "Marcas diferentes" };
   }
-  if (!marcaF && marcaK && (` ${nomeNormF} `).includes(` ${marcaK} `)) {
-    marcaF = marcaK;
-  }
-
-  const ambasSemMarca = (!marcaK || MARCAS_NEUTRAS_GRANEL.has(marcaK)) && (!marcaF || MARCAS_NEUTRAS_GRANEL.has(marcaF));
-  if (ambasSemMarca) {
-    score += 10;
+  if (checkMarca.granel) {
+    score += 12;
   } else {
-    if (!marcaK || !marcaF || marcaK !== marcaF) {
-      // Se tiver imagem idêntica OSuper confirmada, tolera marca abreviada se contiver raiz
-      if (hashK && hashF && hashK === hashF && marcaK && marcaF && (marcaK.includes(marcaF) || marcaF.includes(marcaK))) {
-        score += 25;
-      } else {
-        return { score: 0, motivo: `Marcas diferentes (${marcaK || "Sem marca"} vs ${marcaF || "Sem marca"})` };
-      }
-    } else {
-      score += 30;
-      motivos.push(`Marca 100% (${prodF.marca || prodK.marca})`);
-    }
+    score += 30;
+    motivos.push(`Marca 100% (${checkMarca.marcaResolvida.toUpperCase()})`);
   }
 
   // 4. Tokens de Produto: Nome o mais parecido possível
-  const listK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, marcaK || marcaF);
-  const listF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, marcaF || marcaK);
+  const listK = prodK._tokensVinc !== undefined ? prodK._tokensVinc : extrairTokensNucleo(prodK.nome, prodK._marcaVinc, checkMarca.marcaResolvida);
+  const listF = prodF._tokensVinc !== undefined ? prodF._tokensVinc : extrairTokensNucleo(prodF.nome, prodF._marcaVinc, checkMarca.marcaResolvida);
   const tokensK = new Set(listK);
   const tokensF = new Set(listF);
 
@@ -3466,17 +3624,13 @@ function calcularScoreCasamento(prodK, prodF) {
   const dice = (tokensK.size + tokensF.size) > 0 ? (2 * intersecao) / (tokensK.size + tokensF.size) : 0;
   const combinado = (dice * 0.45) + (containment * 0.35) + (jaccard * 0.20);
 
-  // Tipo básico inicial (ex: arroz, leite, sabonete, etc.)
-  const mesmoTipoInicial = Boolean(listK[0] && listF[0] && (
-    listK[0] === listF[0] ||
-    (listK[0].length >= 4 && listF[0].length >= 4 && (listK[0].startsWith(listF[0]) || listF[0].startsWith(listK[0])))
-  ));
-
-  if (!mesmoTipoInicial && (!hashK || hashK !== hashF)) {
+  if (!tiposBaseCompativeis(listK, listF) && !mesmaFoto && containment < 0.75) {
     return { score: 0, motivo: "Tipo de produto diferente" };
   }
 
-  if (combinado < 0.35 && (!hashK || hashK !== hashF)) {
+  // Para produtos sem marca (granel/hortifruti/açougue), exige similaridade de nome altíssima (>= 0.75)
+  const limiarSim = checkMarca.granel ? 0.75 : 0.42;
+  if (combinado < limiarSim && !mesmaFoto) {
     return { score: 0, motivo: "Baixa similaridade de nome" };
   }
 
@@ -3484,13 +3638,13 @@ function calcularScoreCasamento(prodK, prodF) {
   score += ptsTokens;
   motivos.push(`Similaridade (${Math.round(combinado * 100)}%)`);
 
-  // 5. Coerência de Preço
+  // 5. Coerência de Preço (impede vincular fardo/caixa fechada com unidade avulsa)
   const pK = Number(prodK.preco || 0);
   const pF = Number(prodF.preco || 0);
   if (pK > 0 && pF > 0) {
     const razao = Math.max(pK, pF) / Math.min(pK, pF);
-    if (razao > 2.5 && (!hashK || hashK !== hashF)) {
-      return { score: 0, motivo: "Discrepância extrema de preço" };
+    if (razao > 2.35 && !mesmaFoto) {
+      return { score: 0, motivo: "Discrepância extrema de preço (fardo vs unidade)" };
     }
   }
 
@@ -3500,8 +3654,68 @@ function calcularScoreCasamento(prodK, prodF) {
   };
 }
 
+function prepararCacheVinculoLista(lista) {
+  const porMarcaMedida = new Map();
+  const porMedidaToken = new Map();
+  const porAsset = new Map();
+
+  for (const p of lista) {
+    if (!p || !p.id) continue;
+    p._gramCache = extrairGramatura(p.nome);
+    p._hashCache = extrairAssetHash(p.imagem);
+    p._nomeVinc = normalizarTextoVinculo(p.nome);
+    p._marcaVinc = normalizarMarcaVinculo(p.marca);
+    p._marcaCanon = resolverMarcaCanonica(p._marcaVinc, p._nomeVinc);
+    p._tokensVinc = extrairTokensNucleo(p.nome, p._marcaVinc, p._marcaCanon);
+    p._medidaChave = p._gramCache
+      ? `${p._gramCache.unidade}_${p._gramCache.valorNorm}`
+      : `UN_${String(p.unidade || "UN").toUpperCase()}`;
+
+    if (p._hashCache) {
+      if (!porAsset.has(p._hashCache)) porAsset.set(p._hashCache, []);
+      porAsset.get(p._hashCache).push(p);
+    }
+
+    const marcasIndexar = new Set([p._marcaVinc, p._marcaCanon].filter((m) => m && m.length >= 2));
+    for (const m of marcasIndexar) {
+      const kMM = `${m}__${p._medidaChave}`;
+      if (!porMarcaMedida.has(kMM)) porMarcaMedida.set(kMM, []);
+      porMarcaMedida.get(kMM).push(p);
+    }
+
+    for (let i = 0; i < Math.min(3, p._tokensVinc.length); i++) {
+      const kMT = `${p._medidaChave}__${p._tokensVinc[i]}`;
+      if (!porMedidaToken.has(kMT)) porMedidaToken.set(kMT, []);
+      porMedidaToken.get(kMT).push(p);
+    }
+  }
+
+  return { porMarcaMedida, porMedidaToken, porAsset };
+}
+
+function obterCandidatosIndexados(prodOrigem, indiceDestino) {
+  const cands = new Set();
+  if (prodOrigem._hashCache && indiceDestino.porAsset.has(prodOrigem._hashCache)) {
+    for (const d of indiceDestino.porAsset.get(prodOrigem._hashCache)) cands.add(d);
+  }
+  const marcas = new Set([prodOrigem._marcaVinc, prodOrigem._marcaCanon].filter((m) => m && m.length >= 2));
+  for (const m of marcas) {
+    const kMM = `${m}__${prodOrigem._medidaChave}`;
+    const arr = indiceDestino.porMarcaMedida.get(kMM);
+    if (arr) for (const d of arr) cands.add(d);
+  }
+  if (cands.size < 15) {
+    for (let i = 0; i < Math.min(3, prodOrigem._tokensVinc.length); i++) {
+      const kMT = `${prodOrigem._medidaChave}__${prodOrigem._tokensVinc[i]}`;
+      const arr = indiceDestino.porMedidaToken.get(kMT);
+      if (arr && arr.length <= 180) for (const d of arr) cands.add(d);
+    }
+  }
+  return cands;
+}
+
 export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE) {
-  console.log("🔗 Iniciando vinculação inteligente de alta cobertura Koch × Fort × Angeloni...");
+  console.log("🔗 Iniciando vinculação inteligente tripla (Koch × Fort × Angeloni) com Medida e Marca 100% Exatas...");
 
   let respKoch = null;
   let respFort = null;
@@ -3544,13 +3758,13 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
   const manuaisExistentes = { ...(dadosVinc?.manuais || {}) };
   const rejeitadosExistentes = { ...(dadosVinc?.rejeitados || {}) };
   const configVinculos = dadosVinc?.configVinculos || {
-    scoreMinimo: 52,
-    tolGramaturaPct: 3,
-    maxRatioPreco: 2.85,
-    exigirMarcaOuFoto: false,
+    scoreMinimo: 65,
+    tolGramaturaPct: 0,
+    maxRatioPreco: 2.35,
+    exigirMarcaOuFoto: true,
     autoVincularAoSincronizar: true
   };
-  const scoreMinimoAceito = Math.max(48, Math.min(90, Number(configVinculos.scoreMinimo || 52)));
+  const scoreMinimoAceito = Math.max(60, Math.min(92, Number(configVinculos.scoreMinimo || 65)));
 
   if (dadosVinc && typeof dadosVinc === "object") {
     if (Array.isArray(dadosVinc.vinculos)) {
@@ -3567,218 +3781,72 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     }
   }
 
-  const mapaFortPorAsset = new Map();
-  const mapaFortPorMarca = new Map();
-  const mapaFortPorMarcaPalavra = new Map();
-  const mapaFortPorToken = new Map();
-  const mapaFortPorTokenEGram = new Map();
+  // Indexação ultrarrápida em O(N) por (Marca Canônica + Medida Exata) e (Medida Exata + Token Principal)
+  const idxKoch = prepararCacheVinculoLista(prodsKoch);
+  const idxFort = prepararCacheVinculoLista(prodsFort);
+  const idxAng = prepararCacheVinculoLista(prodsAngeloni);
 
-  for (const f of prodsFort) {
-    if (!f || !f.id) continue;
-    f._gramCache = extrairGramatura(f.nome);
-    f._hashCache = extrairAssetHash(f.imagem);
-    f._marcaVinc = normalizarMarcaVinculo(f.marca);
-    f._nomeVinc = normalizarTextoVinculo(f.nome);
-    f._tokensVinc = extrairTokensNucleo(f.nome, f._marcaVinc);
-
-    if (f._hashCache) {
-      if (!mapaFortPorAsset.has(f._hashCache)) mapaFortPorAsset.set(f._hashCache, []);
-      mapaFortPorAsset.get(f._hashCache).push(f);
-    }
-    if (f._marcaVinc && f._marcaVinc.length >= 2) {
-      if (!mapaFortPorMarca.has(f._marcaVinc)) mapaFortPorMarca.set(f._marcaVinc, []);
-      mapaFortPorMarca.get(f._marcaVinc).push(f);
-      for (const wMarca of f._marcaVinc.split(" ")) {
-        if (wMarca.length >= 3) {
-          if (!mapaFortPorMarcaPalavra.has(wMarca)) mapaFortPorMarcaPalavra.set(wMarca, []);
-          mapaFortPorMarcaPalavra.get(wMarca).push(f);
-        }
-      }
-    }
-    for (let i = 0; i < Math.min(5, f._tokensVinc.length); i++) {
-      const tk = f._tokensVinc[i];
-      if (!mapaFortPorToken.has(tk)) mapaFortPorToken.set(tk, []);
-      mapaFortPorToken.get(tk).push(f);
-      if (f._gramCache) {
-        const chGram = `${tk}_${f._gramCache.unidade}_${f._gramCache.valorNorm}`;
-        if (!mapaFortPorTokenEGram.has(chGram)) mapaFortPorTokenEGram.set(chGram, []);
-        mapaFortPorTokenEGram.get(chGram).push(f);
-      }
-    }
-  }
-
-  const vinculosFinais = [];
-  const mapaFlatVinculos = {};
+  // 1. Pareamento Koch ⇄ Fort
   const mapaKochParaFort = {};
   const mapaFortParaKoch = {};
-  const fortJaCasados = new Set();
-
-  const registrarParVinculo = (objVinc) => {
-    const idK = String(objVinc.idKoch);
-    const idF = String(objVinc.idFort);
-    if (mapaKochParaFort[idK] || fortJaCasados.has(idF)) return;
-    if (rejeitadosExistentes[`${idK}__${idF}`]) return;
-    mapaKochParaFort[idK] = idF;
-    mapaFortParaKoch[idF] = idK;
-    fortJaCasados.add(idF);
-    const item = {
-      idKoch: idK,
-      idFort: idF,
-      score: objVinc.score || 100,
-      motivo: objVinc.motivo || "Vínculo Automático",
-      manual: Boolean(objVinc.manual),
-      data: objVinc.data || new Date().toISOString()
-    };
-    vinculosFinais.push(item);
-    mapaFlatVinculos[`vinc_${idK}_${idF}`] = item;
-  };
+  const fortUsadosKF = new Set();
+  const paresKF = [];
 
   for (const [idK, idF] of Object.entries(manuaisExistentes)) {
-    registrarParVinculo({
-      idKoch: String(idK),
-      idFort: String(idF),
-      score: 100,
-      motivo: "Vínculo Manual Confirmado",
-      manual: true
-    });
+    const sK = String(idK);
+    const sF = String(idF);
+    if (!rejeitadosExistentes[`${sK}__${sF}`]) {
+      mapaKochParaFort[sK] = sF;
+      mapaFortParaKoch[sF] = sK;
+      fortUsadosKF.add(sF);
+    }
   }
-
-  // Coleta TODOS os pares candidatos válidos e ordena pelos maiores scores globais primeiro
-  const paresCandidatos = [];
 
   for (const k of prodsKoch) {
     if (!k || !k.id) continue;
     const idK = String(k.id);
     if (mapaKochParaFort[idK]) continue;
 
-    k._gramCache = extrairGramatura(k.nome);
-    k._hashCache = extrairAssetHash(k.imagem);
-    k._marcaVinc = normalizarMarcaVinculo(k.marca);
-    k._nomeVinc = normalizarTextoVinculo(k.nome);
-    k._tokensVinc = extrairTokensNucleo(k.nome, k._marcaVinc);
-
-    const candidatos = new Set();
-    if (k._hashCache && mapaFortPorAsset.has(k._hashCache)) {
-      for (const f of mapaFortPorAsset.get(k._hashCache)) candidatos.add(f);
-    }
-    if (k._marcaVinc) {
-      if (mapaFortPorMarca.has(k._marcaVinc)) {
-        for (const f of mapaFortPorMarca.get(k._marcaVinc)) candidatos.add(f);
-      }
-      for (const wMarca of k._marcaVinc.split(" ")) {
-        if (wMarca.length >= 3 && mapaFortPorMarcaPalavra.has(wMarca)) {
-          const arrM = mapaFortPorMarcaPalavra.get(wMarca);
-          if (arrM.length <= 450) {
-            for (const f of arrM) candidatos.add(f);
-          }
-        }
-      }
-    }
-    if (k._gramCache) {
-      for (let i = 0; i < Math.min(4, k._tokensVinc.length); i++) {
-        const chGram = `${k._tokensVinc[i]}_${k._gramCache.unidade}_${k._gramCache.valorNorm}`;
-        const arrG = mapaFortPorTokenEGram.get(chGram);
-        if (arrG) {
-          for (const f of arrG) candidatos.add(f);
-        }
-      }
-    }
-    for (let i = 0; i < Math.min(4, k._tokensVinc.length); i++) {
-      const listaTk = mapaFortPorToken.get(k._tokensVinc[i]);
-      if (listaTk && (listaTk.length <= 700 || candidatos.size < 40)) {
-        for (const f of listaTk) candidatos.add(f);
-      }
-    }
-
-    for (const f of candidatos) {
+    for (const f of obterCandidatosIndexados(k, idxFort)) {
       const idF = String(f.id);
-      if (fortJaCasados.has(idF)) continue;
+      if (fortUsadosKF.has(idF)) continue;
       if (rejeitadosExistentes[`${idK}__${idF}`]) continue;
 
       const res = calcularScoreCasamento(k, f);
       if (res.score >= scoreMinimoAceito) {
-        paresCandidatos.push({
-          idKoch: idK,
-          idFort: idF,
-          score: res.score,
-          motivo: res.motivo
-        });
+        paresKF.push({ idK, idF, score: res.score, motivo: res.motivo });
       }
     }
   }
 
-  paresCandidatos.sort((a, b) => b.score - a.score);
-  for (const par of paresCandidatos) {
-    registrarParVinculo({
-      ...par,
-      manual: false,
-      data: new Date().toISOString()
-    });
+  paresKF.sort((a, b) => b.score - a.score);
+  const metaKF = {};
+  for (const p of paresKF) {
+    if (mapaKochParaFort[p.idK] || fortUsadosKF.has(p.idF)) continue;
+    mapaKochParaFort[p.idK] = p.idF;
+    mapaFortParaKoch[p.idF] = p.idK;
+    fortUsadosKF.add(p.idF);
+    metaKF[`${p.idK}__${p.idF}`] = { score: p.score, motivo: p.motivo };
   }
 
-  // Cruzamento adicional com Angeloni Porto Belo (Loja 28)
+  // 2. Pareamento Koch ⇄ Angeloni e Fort ⇄ Angeloni
   const mapaKochParaAngeloni = {};
   const mapaAngeloniParaKoch = {};
   const mapaFortParaAngeloni = {};
   const mapaAngeloniParaFort = {};
+  const metaKA = {};
+  const metaFA = {};
 
   if (prodsAngeloni.length > 0) {
-    const mapaAngPorMarca = new Map();
-    const mapaAngPorTokenEGram = new Map();
-    const mapaAngPorToken = new Map();
-
-    for (const a of prodsAngeloni) {
-      if (!a || !a.id) continue;
-      a._gramCache = extrairGramatura(a.nome);
-      a._hashCache = extrairAssetHash(a.imagem);
-      a._marcaVinc = normalizarMarcaVinculo(a.marca);
-      a._nomeVinc = normalizarTextoVinculo(a.nome);
-      a._tokensVinc = extrairTokensNucleo(a.nome, a._marcaVinc);
-
-      if (a._marcaVinc && a._marcaVinc.length >= 2) {
-        if (!mapaAngPorMarca.has(a._marcaVinc)) mapaAngPorMarca.set(a._marcaVinc, []);
-        mapaAngPorMarca.get(a._marcaVinc).push(a);
-      }
-      for (let i = 0; i < Math.min(5, a._tokensVinc.length); i++) {
-        const tk = a._tokensVinc[i];
-        if (!mapaAngPorToken.has(tk)) mapaAngPorToken.set(tk, []);
-        mapaAngPorToken.get(tk).push(a);
-        if (a._gramCache) {
-          const chGram = `${tk}_${a._gramCache.unidade}_${a._gramCache.valorNorm}`;
-          if (!mapaAngPorTokenEGram.has(chGram)) mapaAngPorTokenEGram.set(chGram, []);
-          mapaAngPorTokenEGram.get(chGram).push(a);
-        }
-      }
-    }
-
-    const buscarCandidatosAngeloni = (prodRef) => {
-      const cands = new Set();
-      if (prodRef._marcaVinc && mapaAngPorMarca.has(prodRef._marcaVinc)) {
-        for (const a of mapaAngPorMarca.get(prodRef._marcaVinc)) cands.add(a);
-      }
-      if (prodRef._gramCache) {
-        for (let i = 0; i < Math.min(4, prodRef._tokensVinc.length); i++) {
-          const chG = `${prodRef._tokensVinc[i]}_${prodRef._gramCache.unidade}_${prodRef._gramCache.valorNorm}`;
-          const arrG = mapaAngPorTokenEGram.get(chG);
-          if (arrG) for (const a of arrG) cands.add(a);
-        }
-      }
-      if (cands.size < 25) {
-        for (let i = 0; i < Math.min(3, prodRef._tokensVinc.length); i++) {
-          const arrT = mapaAngPorToken.get(prodRef._tokensVinc[i]);
-          if (arrT && arrT.length <= 400) for (const a of arrT) cands.add(a);
-        }
-      }
-      return cands;
-    };
-
     const paresKA = [];
     for (const k of prodsKoch) {
-      if (!k || !k.id || !k._tokensVinc) continue;
-      for (const a of buscarCandidatosAngeloni(k)) {
+      if (!k || !k.id) continue;
+      const idK = String(k.id);
+      for (const a of obterCandidatosIndexados(k, idxAng)) {
+        const idA = String(a.id);
         const res = calcularScoreCasamento(k, a);
         if (res.score >= scoreMinimoAceito) {
-          paresKA.push({ idK: String(k.id), idA: String(a.id), score: res.score });
+          paresKA.push({ idK, idA, score: res.score, motivo: res.motivo });
         }
       }
     }
@@ -3789,15 +3857,18 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       mapaKochParaAngeloni[p.idK] = p.idA;
       mapaAngeloniParaKoch[p.idA] = p.idK;
       angUsadosK.add(p.idA);
+      metaKA[`${p.idK}__${p.idA}`] = { score: p.score, motivo: p.motivo };
     }
 
     const paresFA = [];
     for (const f of prodsFort) {
-      if (!f || !f.id || !f._tokensVinc) continue;
-      for (const a of buscarCandidatosAngeloni(f)) {
+      if (!f || !f.id) continue;
+      const idF = String(f.id);
+      for (const a of obterCandidatosIndexados(f, idxAng)) {
+        const idA = String(a.id);
         const res = calcularScoreCasamento(f, a);
         if (res.score >= scoreMinimoAceito) {
-          paresFA.push({ idF: String(f.id), idA: String(a.id), score: res.score });
+          paresFA.push({ idF, idA, score: res.score, motivo: res.motivo });
         }
       }
     }
@@ -3808,19 +3879,102 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
       mapaFortParaAngeloni[p.idF] = p.idA;
       mapaAngeloniParaFort[p.idA] = p.idF;
       angUsadosF.add(p.idA);
+      metaFA[`${p.idF}__${p.idA}`] = { score: p.score, motivo: p.motivo };
+    }
+  }
+
+  // 3. Consolidação Tripla Unificada (3 Lojas: K+F+A, e 2 Lojas: K+F, K+A, F+A)
+  const vinculosFinais = [];
+  const mapaFlatVinculos = {};
+  const kConsolidados = new Set();
+  const fConsolidados = new Set();
+  const aConsolidados = new Set();
+  const agoraIso = new Date().toISOString();
+
+  // 3A. Vínculos que possuem Koch + Fort (e opcionalmente Angeloni = 3 lojas!)
+  for (const [idK, idF] of Object.entries(mapaKochParaFort)) {
+    const idA = mapaKochParaAngeloni[idK] || mapaFortParaAngeloni[idF] || null;
+    const idAFinal = (idA && !aConsolidados.has(idA)) ? idA : null;
+    kConsolidados.add(idK);
+    fConsolidados.add(idF);
+    if (idAFinal) aConsolidados.add(idAFinal);
+
+    const ehManual = Boolean(manuaisExistentes[idK] === idF);
+    const info = metaKF[`${idK}__${idF}`] || { score: 100, motivo: "Vínculo Manual Confirmado" };
+    const item = {
+      idKoch: idK,
+      idFort: idF,
+      ...(idAFinal ? { idAngeloni: idAFinal } : {}),
+      score: ehManual ? 100 : info.score,
+      motivo: ehManual ? "Vínculo Manual Confirmado" : info.motivo,
+      manual: ehManual,
+      data: agoraIso
+    };
+    const ch = `vinc_${idK}_${idF}`;
+    vinculosFinais.push(item);
+    mapaFlatVinculos[ch] = item;
+  }
+
+  // 3B. Vínculos Koch + Angeloni (onde o produto não tinha no Fort, ou seja, 2 lojas: Koch × Angeloni)
+  for (const [idK, idA] of Object.entries(mapaKochParaAngeloni)) {
+    if (kConsolidados.has(idK) || aConsolidados.has(idA)) continue;
+    // Se esse Angeloni também casou com algum Fort solto, forma grupo de 3 lojas!
+    const idF = mapaAngeloniParaFort[idA];
+    const idFFinal = (idF && !fConsolidados.has(idF) && !rejeitadosExistentes[`${idK}__${idF}`]) ? idF : null;
+
+    kConsolidados.add(idK);
+    aConsolidados.add(idA);
+    if (idFFinal) {
+      fConsolidados.add(idFFinal);
+      mapaKochParaFort[idK] = idFFinal;
+      mapaFortParaKoch[idFFinal] = idK;
     }
 
-    for (const v of vinculosFinais) {
-      const idA = mapaKochParaAngeloni[v.idKoch] || mapaFortParaAngeloni[v.idFort] || null;
-      if (idA) v.idAngeloni = idA;
-    }
-    console.log(`🔗 Vínculos Angeloni Porto Belo: ${Object.keys(mapaKochParaAngeloni).length} com Koch | ${Object.keys(mapaFortParaAngeloni).length} com Fort.`);
+    const info = metaKA[`${idK}__${idA}`] || { score: 90, motivo: "Vínculo Exato Koch × Angeloni" };
+    const ch = idFFinal ? `vinc_${idK}_${idFFinal}` : `vinc_k${idK}_a${idA}`;
+    const item = {
+      idKoch: idK,
+      idFort: idFFinal || null,
+      idAngeloni: idA,
+      score: info.score,
+      motivo: info.motivo,
+      manual: false,
+      data: agoraIso
+    };
+    vinculosFinais.push(item);
+    mapaFlatVinculos[ch] = item;
   }
+
+  // 3C. Vínculos Fort + Angeloni (onde o produto não tinha no Koch, ou seja, 2 lojas: Fort × Angeloni)
+  for (const [idF, idA] of Object.entries(mapaFortParaAngeloni)) {
+    if (fConsolidados.has(idF) || aConsolidados.has(idA)) continue;
+    fConsolidados.add(idF);
+    aConsolidados.add(idA);
+
+    const info = metaFA[`${idF}__${idA}`] || { score: 90, motivo: "Vínculo Exato Fort × Angeloni" };
+    const ch = `vinc_f${idF}_a${idA}`;
+    const item = {
+      idKoch: null,
+      idFort: idF,
+      idAngeloni: idA,
+      score: info.score,
+      motivo: info.motivo,
+      manual: false,
+      data: agoraIso
+    };
+    vinculosFinais.push(item);
+    mapaFlatVinculos[ch] = item;
+  }
+
+  const totalTriplos = vinculosFinais.filter((v) => v.idKoch && v.idFort && v.idAngeloni).length;
+  console.log(`🔗 Resultado da Vinculação Tripla: ${vinculosFinais.length} grupos comparativos totais (${totalTriplos} nas 3 lojas | ${Object.keys(mapaKochParaFort).length} K×F | ${Object.keys(mapaKochParaAngeloni).length} K×A | ${Object.keys(mapaFortParaAngeloni).length} F×A).`);
 
   const payload = {
     ...mapaFlatVinculos,
-    atualizadoEm: new Date().toISOString(),
+    atualizadoEm: agoraIso,
     totalVinculos: vinculosFinais.length,
+    totalVinculosTriplos: totalTriplos,
+    totalVinculosKochFort: Object.keys(mapaKochParaFort).length,
     totalVinculosKochAngeloni: Object.keys(mapaKochParaAngeloni).length,
     totalVinculosFortAngeloni: Object.keys(mapaFortParaAngeloni).length,
     vinculos: vinculosFinais,
@@ -3835,15 +3989,33 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     configVinculos
   };
 
-  try {
-    await fetch(authUrl(FIREBASE_VINCULOS_ENDPOINT), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    console.log(`✅ Sucesso! ${vinculosFinais.length} vínculos de produtos salvos no Firebase (${FIREBASE_VINCULOS_ENDPOINT}).`);
-  } catch (err) {
-    console.log(`❌ Erro ao salvar vínculos no Firebase: ${err.message}`);
+  const bodyStr = JSON.stringify(payload);
+  let salvouOk = false;
+  for (let tent = 1; tent <= 3; tent++) {
+    try {
+      const rPut = await fetch(authUrl(FIREBASE_VINCULOS_ENDPOINT), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Connection": "close"
+        },
+        body: bodyStr,
+        signal: AbortSignal.timeout(45000)
+      });
+      if (rPut.ok) {
+        salvouOk = true;
+        console.log(`✅ Sucesso! ${vinculosFinais.length} vínculos de produtos salvos no Firebase (${FIREBASE_VINCULOS_ENDPOINT}).`);
+        break;
+      } else {
+        console.log(`⚠️ Tentativa ${tent}/3 ao salvar vínculos retornou HTTP ${rPut.status}`);
+      }
+    } catch (err) {
+      console.log(`⚠️ Tentativa ${tent}/3 falhou ao salvar vínculos no Firebase: ${err.message}`);
+      await new Promise((r) => setTimeout(r, 2000 * tent));
+    }
+  }
+  if (!salvouOk) {
+    console.log("❌ Erro definitivo ao salvar vínculos no Firebase após 3 tentativas.");
   }
 
   return payload;
