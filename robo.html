@@ -2281,6 +2281,7 @@
       return {
         id: idUnico,
         idOriginal,
+        ean: String(p.ean || '').trim(),
         mercadoOrigem: mercado,
         mercadoSigla: ehAngeloni ? 'ANGELONI' : (ehFort ? 'FORT' : 'KOCH'),
         nome: nomeLimpo,
@@ -2496,7 +2497,117 @@
         novosDescobertos++;
       }
 
+      if (mapaAngeloni && mapaAngeloni.size > 0) {
+        novosDescobertos += vincularAngeloniEmMemoria(mapaKoch, mapaFort, mapaAngeloni, vinculosAtuais);
+      }
+
       return novosDescobertos;
+    }
+
+    function vincularAngeloniEmMemoria(mapaKoch, mapaFort, mapaAngeloni, vinculosAtuais) {
+      if (!mapaAngeloni || mapaAngeloni.size === 0) return 0;
+      const angJaCasados = new Set();
+      const vincPorKoch = new Map();
+      const vincPorFort = new Map();
+
+      for (const [ch, v] of Object.entries(vinculosAtuais)) {
+        if (!v) continue;
+        if (v.idAngeloni) angJaCasados.add(String(v.idAngeloni));
+        if (v.idKoch) vincPorKoch.set(String(v.idKoch), ch);
+        if (v.idFort) vincPorFort.set(String(v.idFort), ch);
+      }
+
+      const eanParaKoch = new Map();
+      const marcaGramParaKoch = new Map();
+      mapaKoch.forEach((k, kId) => {
+        if (k.ean && k.ean.length >= 8) eanParaKoch.set(k.ean, kId);
+        k._gramCache = k._gramCache !== undefined ? k._gramCache : extrairGramatura(k.nome);
+        k._marcaVinc = k._marcaVinc !== undefined ? k._marcaVinc : normalizarMarcaVinculo(k.marca);
+        if (k._marcaVinc && k._gramCache) {
+          const mg = `${k._marcaVinc}_${k._gramCache.unidade}_${k._gramCache.valorNorm}`;
+          if (!marcaGramParaKoch.has(mg)) marcaGramParaKoch.set(mg, []);
+          marcaGramParaKoch.get(mg).push(k);
+        }
+      });
+
+      const eanParaFort = new Map();
+      const marcaGramParaFort = new Map();
+      mapaFort.forEach((f, fId) => {
+        if (f.ean && f.ean.length >= 8) eanParaFort.set(f.ean, fId);
+        f._gramCache = f._gramCache !== undefined ? f._gramCache : extrairGramatura(f.nome);
+        f._marcaVinc = f._marcaVinc !== undefined ? f._marcaVinc : normalizarMarcaVinculo(f.marca);
+        if (f._marcaVinc && f._gramCache) {
+          const mg = `${f._marcaVinc}_${f._gramCache.unidade}_${f._gramCache.valorNorm}`;
+          if (!marcaGramParaFort.has(mg)) marcaGramParaFort.set(mg, []);
+          marcaGramParaFort.get(mg).push(f);
+        }
+      });
+
+      let adicionados = 0;
+      mapaAngeloni.forEach((a, aId) => {
+        if (angJaCasados.has(aId)) return;
+        let kMatch = (a.ean && a.ean.length >= 8) ? (eanParaKoch.get(a.ean) || null) : null;
+        let fMatch = (a.ean && a.ean.length >= 8) ? (eanParaFort.get(a.ean) || null) : null;
+        let motivoAng = (kMatch || fMatch) ? `EAN 100% (${a.ean})` : '';
+        let scoreAng = (kMatch || fMatch) ? 100 : 0;
+
+        if (!kMatch && !fMatch && typeof calcularScoreCasamento === 'function') {
+          a._gramCache = a._gramCache !== undefined ? a._gramCache : extrairGramatura(a.nome);
+          a._marcaVinc = a._marcaVinc !== undefined ? a._marcaVinc : normalizarMarcaVinculo(a.marca);
+          a._tokensVinc = a._tokensVinc !== undefined ? a._tokensVinc : extrairTokensNucleo(a.nome, a.marca);
+          if (a._marcaVinc && a._gramCache) {
+            const mg = `${a._marcaVinc}_${a._gramCache.unidade}_${a._gramCache.valorNorm}`;
+            const candK = marcaGramParaKoch.get(mg) || [];
+            let melhorK = null, scK = 0, motK = '';
+            for (const k of candK) {
+              const r = calcularScoreCasamento(a, k);
+              if (r.score > scK) { scK = r.score; melhorK = k; motK = r.motivo; }
+            }
+            if (scK >= 72 && melhorK) {
+              kMatch = String(melhorK.idOriginal);
+              scoreAng = scK;
+              motivoAng = motK;
+            }
+            const candF = marcaGramParaFort.get(mg) || [];
+            let melhorF = null, scF = 0, motF = '';
+            for (const f of candF) {
+              const r = calcularScoreCasamento(a, f);
+              if (r.score > scF) { scF = r.score; melhorF = f; motF = r.motivo; }
+            }
+            if (scF >= 72 && melhorF) {
+              fMatch = String(melhorF.idOriginal);
+              if (scF > scoreAng) { scoreAng = scF; motivoAng = motF; }
+            }
+          }
+        }
+
+        if (!kMatch && !fMatch) return;
+        const chExist = (kMatch && vincPorKoch.get(kMatch)) || (fMatch && vincPorFort.get(fMatch)) || null;
+        if (chExist && vinculosAtuais[chExist]) {
+          if (!vinculosAtuais[chExist].idAngeloni) {
+            vinculosAtuais[chExist].idAngeloni = aId;
+            angJaCasados.add(aId);
+            adicionados++;
+          }
+        } else {
+          const chNovo = kMatch && fMatch ? `vinc_${kMatch}_${fMatch}` : (kMatch ? `vinc_k${kMatch}_a${aId}` : `vinc_f${fMatch}_a${aId}`);
+          vinculosAtuais[chNovo] = {
+            idKoch: kMatch || null,
+            idFort: fMatch || null,
+            idAngeloni: aId,
+            score: scoreAng || 95,
+            motivo: motivoAng || 'Vínculo Automático Angeloni',
+            manual: false,
+            data: new Date().toISOString()
+          };
+          if (kMatch) vincPorKoch.set(kMatch, chNovo);
+          if (fMatch) vincPorFort.set(fMatch, chNovo);
+          angJaCasados.add(aId);
+          adicionados++;
+        }
+      });
+
+      return adicionados;
     }
 
     let rejeitadosVinculosGlobal = {};
@@ -2782,7 +2893,11 @@
       }
       catalogoAngeloniOriginal = Array.from(mapaAngeloni.values());
 
-      // Monta o catálogo instantaneamente em O(N) com os vínculos já salvos no Firebase
+      if (mapaAngeloni.size > 0) {
+        vincularAngeloniEmMemoria(mapaKoch, mapaFort, mapaAngeloni, mapaVinculosProdutos);
+      }
+
+      // Monta o catálogo instantaneamente em O(N) com os vínculos já salvos no Firebase + Angeloni
       montarCatalogoUnificadoEmMemoria(mapaKoch, mapaFort, mapaAngeloni);
 
       const modalRobo = document.getElementById('modalCentralRobo');
@@ -5028,8 +5143,10 @@
       catalogoKochOriginal.forEach(k => mapaKoch.set(String(k.idOriginal), k));
       const mapaFort = new Map();
       catalogoFortOriginal.forEach(f => mapaFort.set(String(f.idOriginal), f));
+      const mapaAngeloni = new Map();
+      catalogoAngeloniOriginal.forEach(a => mapaAngeloni.set(String(a.idOriginal), a));
 
-      const novosCasamentos = vincularAutomaticamenteEmMemoria(mapaKoch, mapaFort, mapaVinculosProdutos, rejeitadosVinculosGlobal);
+      const novosCasamentos = vincularAutomaticamenteEmMemoria(mapaKoch, mapaFort, mapaVinculosProdutos, rejeitadosVinculosGlobal, mapaAngeloni);
       await persistirVinculosNoFirebaseSilencioso();
       return novosCasamentos;
     }
@@ -5257,6 +5374,8 @@
           tagVencedor = `<span class="bg-emerald-950/90 text-emerald-300 border border-emerald-700/70 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">Fort -R$ ${p.economiaValor.toFixed(2).replace('.', ',')}</span>`;
         } else if (p.mercadoVencedor === 'KOCH') {
           tagVencedor = `<span class="bg-sky-950/90 text-sky-300 border border-sky-700/70 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">Koch -R$ ${p.economiaValor.toFixed(2).replace('.', ',')}</span>`;
+        } else if (p.mercadoVencedor === 'ANGELONI') {
+          tagVencedor = `<span class="bg-cyan-950/90 text-cyan-300 border border-cyan-700/70 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">Angeloni -R$ ${p.economiaValor.toFixed(2).replace('.', ',')}</span>`;
         } else {
           tagVencedor = `<span class="bg-slate-800 text-slate-300 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">Empate</span>`;
         }
@@ -5265,7 +5384,7 @@
           ? `<span class="bg-amber-950/90 text-amber-300 border border-amber-700/70 text-[9px] font-bold px-1.5 py-0.5 rounded">Manual</span>`
           : `<span class="bg-[#0d2240] text-sky-300 border border-[#1c355e] text-[9px] font-mono px-1.5 py-0.5 rounded">${p.scoreVinculo}% auto</span>`;
 
-        const btnFixarManual = !p.vinculoManual
+        const btnFixarManual = (!p.vinculoManual && p.idKoch && p.idFort)
           ? `<button onclick="fixarVinculoComoManual('${p.idKoch}', '${p.idFort}')" title="Confirmar e fixar como vínculo manual" class="bg-[#0d2240] hover:bg-emerald-700 text-emerald-400 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
               <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </button>`
@@ -5275,8 +5394,9 @@
           <div class="bg-[#0a192f] border border-[#1c355e] hover:border-sky-500/50 rounded-xl p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 transition">
             <div class="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer" onclick="fecharCentralRobo(); abrirDetalheProduto('${p.id}')">
               <div class="flex items-center -space-x-2 shrink-0">
-                <img src="${p.imagemFort || p.imagem}" class="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-300 z-10" onerror="this.src='${FALLBACK_IMG}'" title="Foto Fort">
-                <img src="${p.imagemKoch || p.imagem}" class="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-300" onerror="this.src='${FALLBACK_IMG}'" title="Foto Koch">
+                ${p.imagemFort ? `<img src="${p.imagemFort}" class="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-300 z-20" onerror="this.src='${FALLBACK_IMG}'" title="Foto Fort">` : ''}
+                ${p.imagemKoch ? `<img src="${p.imagemKoch}" class="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-300 z-10" onerror="this.src='${FALLBACK_IMG}'" title="Foto Koch">` : ''}
+                ${p.imagemAngeloni ? `<img src="${p.imagemAngeloni}" class="w-10 h-10 object-contain rounded-lg bg-white p-0.5 border border-slate-300" onerror="this.src='${FALLBACK_IMG}'" title="Foto Angeloni">` : ''}
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -5286,20 +5406,22 @@
                 </div>
                 <div class="text-xs font-bold text-white truncate mt-0.5">${p.nome}</div>
                 <div class="flex items-center gap-3 text-[11px] mt-0.5 flex-wrap">
-                  <span class="${p.mercadoVencedor === 'FORT' ? 'text-emerald-400 font-bold' : 'text-slate-400'}">Fort (#${p.idFort}): R$ ${p.precoFort.toFixed(2).replace('.', ',')}</span>
-                  <span class="${p.mercadoVencedor === 'KOCH' ? 'text-sky-400 font-bold' : 'text-slate-400'}">Koch (#${p.idKoch}): R$ ${p.precoKoch.toFixed(2).replace('.', ',')}</span>
+                  ${p.precoFort > 0 ? `<span class="${p.mercadoVencedor === 'FORT' ? 'text-emerald-400 font-bold' : 'text-slate-400'}">Fort (#${p.idFort}): R$ ${p.precoFort.toFixed(2).replace('.', ',')}</span>` : ''}
+                  ${p.precoKoch > 0 ? `<span class="${p.mercadoVencedor === 'KOCH' ? 'text-sky-400 font-bold' : 'text-slate-400'}">Koch (#${p.idKoch}): R$ ${p.precoKoch.toFixed(2).replace('.', ',')}</span>` : ''}
+                  ${p.precoAngeloni > 0 ? `<span class="${p.mercadoVencedor === 'ANGELONI' ? 'text-cyan-400 font-bold' : 'text-slate-400'}">Angeloni (#${p.idAngeloni}): R$ ${p.precoAngeloni.toFixed(2).replace('.', ',')}</span>` : ''}
                   ${p.motivoVinculo ? `<span class="text-[10px] text-slate-500 truncate max-w-[220px]">• ${p.motivoVinculo}</span>` : ''}
                 </div>
               </div>
             </div>
             <div class="flex items-center justify-end gap-1.5 shrink-0 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-[#1c355e]">
               ${btnFixarManual}
+              ${(p.idKoch && p.idFort) ? `
               <button onclick="iniciarEdicaoVinculo('${p.idKoch}', '${p.idFort}')" title="Editar este vínculo" class="bg-[#0d2240] hover:bg-sky-600 text-sky-300 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button onclick="desfazerVinculo('${p.idKoch}', '${p.idFort}')" title="Excluir este vínculo" class="bg-[#0d2240] hover:bg-red-700 text-red-400 hover:text-white p-1.5 rounded-lg border border-[#1c355e] transition flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              </button>
+              </button>` : ''}
             </div>
           </div>
         `;
