@@ -1,24 +1,70 @@
 import fs from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { ROTAS_PADRAO_KOCH, ROTAS_PADRAO_FORT, ROTAS_RADAR_KOCH, ROTAS_RADAR_FORT, obterRotasPorCamada } from "./rotas-mercados.mjs";
+import {
+  ROTAS_PADRAO_KOCH,
+  ROTAS_PADRAO_FORT,
+  ROTAS_PADRAO_ANGELONI,
+  ROTAS_RADAR_KOCH,
+  ROTAS_RADAR_FORT,
+  ROTAS_RADAR_ANGELONI,
+  obterRotasPorCamada
+} from "./rotas-mercados.mjs";
 
 const execFileAsync = promisify(execFile);
 
 // =========================================================================
-// CONFIGURAÇÃO MULTI-MERCADO: SUPERKOCH (LOJA 1408) & FORT ATACADISTA (LOJA 1644)
+// CONFIGURAÇÃO MULTI-MERCADO: SUPERKOCH (1408) • FORT (1644) • ANGELONI PORTO BELO (28)
 // =========================================================================
-const MERCADO_ALVO = (process.env.MERCADO || (process.argv.includes("--fort") ? "fort" : "koch")).toLowerCase();
+const MERCADO_ALVO = (
+  process.env.MERCADO ||
+  (process.argv.includes("--angeloni") ? "angeloni" : (process.argv.includes("--fort") ? "fort" : "koch"))
+).toLowerCase();
 const EH_FORT = MERCADO_ALVO === "fort";
-const MERCADO_NOME = EH_FORT ? "Fort Atacadista (Porto Belo 1644)" : "SuperKoch (Itapema 1408)";
-const CONTA_ID = EH_FORT ? "334" : "295";
-const LOJA_ID = EH_FORT ? "1644" : "1408";
-const SITE_URL = EH_FORT ? "https://www.fortatacadista.com.br" : "https://www.superkoch.com.br";
-const GRAPHQL_URL = EH_FORT ? "https://api.fortatacadista.com.br/storefront/graphql" : "https://api.superkoch.com.br/storefront/graphql";
-const COOKIE_LOJA_NOME = `st_${CONTA_ID}`;
-const COOKIE_LOJA_VALOR = `%7B%22id%22%3A%22${LOJA_ID}%22%2C%22userSelected%22%3Atrue%7D`;
-const COOKIE_LOJA_DOMINIO = EH_FORT ? ".fortatacadista.com.br" : ".superkoch.com.br";
-const DEFAULT_STORE_PATH = EH_FORT ? "/334/1644/v2/search" : "/295/1408/v2/search";
+const EH_ANGELONI = MERCADO_ALVO === "angeloni";
+const MERCADO_NOME = EH_ANGELONI
+  ? "Angeloni (Porto Belo 28)"
+  : (EH_FORT ? "Fort Atacadista (Porto Belo 1644)" : "SuperKoch (Itapema 1408)");
+const CONTA_ID = EH_ANGELONI ? "superangeloni" : (EH_FORT ? "334" : "295");
+const LOJA_ID = EH_ANGELONI ? "28" : (EH_FORT ? "1644" : "1408");
+const SITE_URL = EH_ANGELONI
+  ? "https://super.angeloni.com.br"
+  : (EH_FORT ? "https://www.fortatacadista.com.br" : "https://www.superkoch.com.br");
+const GRAPHQL_URL = EH_ANGELONI
+  ? "https://super.angeloni.com.br/api/catalog_system/pub/category/tree/3"
+  : (EH_FORT ? "https://api.fortatacadista.com.br/storefront/graphql" : "https://api.superkoch.com.br/storefront/graphql");
+
+// Regionalização Oficial VTEX para Angeloni Porto Belo (Loja 28 • BR-101 • CEP 88210-000 / 88220-000)
+const ANGELONI_CEP_PORTO_BELO = "88210000";
+const ANGELONI_REGION_ID = "v2.DC9332CCEDF88DFCE5B68FFB43DC60CA";
+const ANGELONI_DELIVERY_HASH = "27265eb54b4cbc05b1eb0ab9d044902c";
+const ANGELONI_PICKUP_HASH = "72781b63183e98f3834d792ea07b989d";
+const ANGELONI_SEGMENT_TOKEN = Buffer.from(JSON.stringify({
+  campaigns: null,
+  channel: "1",
+  priceTables: null,
+  regionId: ANGELONI_REGION_ID,
+  utm_campaign: null,
+  utm_source: null,
+  utmi_campaign: null,
+  currencyCode: "BRL",
+  currencySymbol: "R$",
+  countryCode: "BRA",
+  cultureInfo: "pt-BR",
+  channelPrivacy: "public",
+  facets: `deliveryZonesHash=${ANGELONI_DELIVERY_HASH};pickupPointsHash=${ANGELONI_PICKUP_HASH};zip-code=${ANGELONI_CEP_PORTO_BELO};country=BRA;coordinates=-48.57570266723633,-27.157468795776367;`
+})).toString("base64");
+
+const COOKIE_LOJA_NOME = EH_ANGELONI ? "vtex_segment" : `st_${CONTA_ID}`;
+const COOKIE_LOJA_VALOR = EH_ANGELONI
+  ? ANGELONI_SEGMENT_TOKEN
+  : `%7B%22id%22%3A%22${LOJA_ID}%22%2C%22userSelected%22%3Atrue%7D`;
+const COOKIE_LOJA_DOMINIO = EH_ANGELONI
+  ? ".angeloni.com.br"
+  : (EH_FORT ? ".fortatacadista.com.br" : ".superkoch.com.br");
+const DEFAULT_STORE_PATH = EH_ANGELONI
+  ? "/api/io/_v/api/intelligent-search/product_search/trade-policy/1"
+  : (EH_FORT ? "/334/1644/v2/search" : "/295/1408/v2/search");
 const HEADER_TOKEN_NAME = "x-osuper-search-token";
 
 const FIREBASE_BASE = (process.env.FIREBASE_URL || "https://mercaro-e6035-default-rtdb.firebaseio.com").replace(/\/$/, "");
@@ -30,12 +76,24 @@ function authUrl(url) {
   return `${url}${sep}auth=${encodeURIComponent(FIREBASE_SECRET)}`;
 }
 
-const FIREBASE_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/fort_loja_1644.json` : `${FIREBASE_BASE}/koch_loja_1408.json`;
-const FIREBASE_TELEMETRIA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/telemetria_fort.json` : `${FIREBASE_BASE}/robo_controle/telemetria_koch.json`;
-const FIREBASE_COMANDOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/comandos_fort.json` : `${FIREBASE_BASE}/robo_controle/comandos.json`;
-const FIREBASE_FILA_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/fila_custom_fort.json` : `${FIREBASE_BASE}/robo_controle/fila_custom.json`;
-const FIREBASE_ENXAME_BASE = EH_FORT ? `${FIREBASE_BASE}/robo_controle/enxame_fort` : `${FIREBASE_BASE}/robo_controle/enxame_koch`;
-const FIREBASE_PESOS_ENDPOINT = EH_FORT ? `${FIREBASE_BASE}/robo_controle/pesos_categorias_fort.json` : `${FIREBASE_BASE}/robo_controle/pesos_categorias_koch.json`;
+const FIREBASE_ENDPOINT = EH_ANGELONI
+  ? `${FIREBASE_BASE}/angeloni_loja_28.json`
+  : (EH_FORT ? `${FIREBASE_BASE}/fort_loja_1644.json` : `${FIREBASE_BASE}/koch_loja_1408.json`);
+const FIREBASE_TELEMETRIA_ENDPOINT = EH_ANGELONI
+  ? `${FIREBASE_BASE}/robo_controle/telemetria_angeloni.json`
+  : (EH_FORT ? `${FIREBASE_BASE}/robo_controle/telemetria_fort.json` : `${FIREBASE_BASE}/robo_controle/telemetria_koch.json`);
+const FIREBASE_COMANDOS_ENDPOINT = EH_ANGELONI
+  ? `${FIREBASE_BASE}/robo_controle/comandos_angeloni.json`
+  : (EH_FORT ? `${FIREBASE_BASE}/robo_controle/comandos_fort.json` : `${FIREBASE_BASE}/robo_controle/comandos.json`);
+const FIREBASE_FILA_ENDPOINT = EH_ANGELONI
+  ? `${FIREBASE_BASE}/robo_controle/fila_custom_angeloni.json`
+  : (EH_FORT ? `${FIREBASE_BASE}/robo_controle/fila_custom_fort.json` : `${FIREBASE_BASE}/robo_controle/fila_custom.json`);
+const FIREBASE_ENXAME_BASE = EH_ANGELONI
+  ? `${FIREBASE_BASE}/robo_controle/enxame_angeloni`
+  : (EH_FORT ? `${FIREBASE_BASE}/robo_controle/enxame_fort` : `${FIREBASE_BASE}/robo_controle/enxame_koch`);
+const FIREBASE_PESOS_ENDPOINT = EH_ANGELONI
+  ? `${FIREBASE_BASE}/robo_controle/pesos_categorias_angeloni.json`
+  : (EH_FORT ? `${FIREBASE_BASE}/robo_controle/pesos_categorias_fort.json` : `${FIREBASE_BASE}/robo_controle/pesos_categorias_koch.json`);
 const FIREBASE_AGENDAMENTO_ENDPOINT = `${FIREBASE_BASE}/robo_controle/agendamento_auto.json`;
 const FIREBASE_VINCULOS_ENDPOINT = `${FIREBASE_BASE}/vinculos_produtos.json`;
 
@@ -93,7 +151,9 @@ const CONFIG = {
   dryRun: String(process.env.DRY_RUN || "false").toLowerCase() === "true"
 };
 
-const ROTAS_PADRAO_SEQUENCIAIS = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
+const ROTAS_PADRAO_SEQUENCIAIS = EH_ANGELONI
+  ? ROTAS_PADRAO_ANGELONI
+  : (EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH);
 
 function sincronizarIdsOficiaisNasRotas(rotas = []) {
   if (!Array.isArray(rotas)) return rotas;
@@ -107,7 +167,7 @@ function sincronizarIdsOficiaisNasRotas(rotas = []) {
 
   for (const r of rotas) {
     if (!r || r.tipo === "promocoes" || r.tipo === "promocao" || r.tipo === "home" || r.tipo === "categorias_index") {
-      if (r && (r.tipo === "promocoes" || r.tipo === "promocao") && !EH_FORT) r.id = null;
+      if (r && (r.tipo === "promocoes" || r.tipo === "promocao") && !EH_FORT && !EH_ANGELONI) r.id = null;
       continue;
     }
     const refPad = (r.pathReal && mapaPadraoPorPath.get(String(r.pathReal).toLowerCase())) ||
@@ -126,6 +186,87 @@ function sincronizarIdsOficiaisNasRotas(rotas = []) {
 
 async function sincronizarArvoreCategoriasGraphQL(rotas = []) {
   try {
+    if (EH_ANGELONI) {
+      const resAng = await fetch(GRAPHQL_URL, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          "Cookie": `${COOKIE_LOJA_NOME}=${COOKIE_LOJA_VALOR}`
+        },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (!resAng.ok) return false;
+      const arvore = await resAng.json();
+      if (!Array.isArray(arvore) || arvore.length === 0) return false;
+
+      const mapaVtex = new Map();
+      const listaVtexCompleta = [];
+      for (const d of arvore) {
+        if (!d || !d.id || !d.url || String(d.name || "").startsWith("Z:")) continue;
+        let pathD = "";
+        try { pathD = new URL(d.url).pathname.toLowerCase(); } catch { continue; }
+        const dName = String(d.name || "").trim();
+        const objD = {
+          id: String(d.id),
+          tipo: "depto",
+          depto: dName,
+          hierarquia: dName,
+          nome: `${dName} (Categoria Inteira)`,
+          url: `${SITE_URL}${pathD}`,
+          pathReal: pathD
+        };
+        mapaVtex.set(pathD, objD);
+        listaVtexCompleta.push(objD);
+        if (Array.isArray(d.children)) {
+          for (const s of d.children) {
+            if (!s || !s.id || !s.url) continue;
+            let pathS = "";
+            try { pathS = new URL(s.url).pathname.toLowerCase(); } catch { continue; }
+            const sName = String(s.name || "").trim();
+            const objS = {
+              id: String(s.id),
+              tipo: "sub",
+              depto: dName,
+              hierarquia: `${dName} > ${sName}`,
+              nome: `${dName} > ${sName}`,
+              url: `${SITE_URL}${pathS}`,
+              pathReal: pathS
+            };
+            mapaVtex.set(pathS, objS);
+            listaVtexCompleta.push(objS);
+          }
+        }
+      }
+
+      const pathsExistentes = new Set();
+      let atualizadas = 0;
+      for (const r of rotas) {
+        if (!r || !r.pathReal) continue;
+        const pLow = String(r.pathReal).toLowerCase();
+        pathsExistentes.add(pLow);
+        const info = mapaVtex.get(pLow);
+        if (info) {
+          r.id = info.id;
+          r.depto = info.depto;
+          r.hierarquia = info.hierarquia;
+          r.url = info.url;
+          atualizadas++;
+        }
+      }
+
+      const modoUp = String(CONFIG.modoFila || "").toUpperCase();
+      if (modoUp === "COMPLETA" || modoUp === "12H" || modoUp === "3") {
+        for (const itemVtex of listaVtexCompleta) {
+          if (!pathsExistentes.has(itemVtex.pathReal)) {
+            rotas.push({ ...itemVtex });
+            pathsExistentes.add(itemVtex.pathReal);
+            atualizadas++;
+          }
+        }
+      }
+      return atualizadas > 0;
+    }
+
     const queryGql = {
       operationName: "MenuCats",
       variables: { storeId: String(LOJA_ID) },
@@ -329,7 +470,7 @@ const sessao = {
 function registrarLog(tipo, contexto, mensagem, detalhe = "") {
   const hora = horaAtualBR();
   const tipoNorm = tipo === "ERRO" ? "INESPERADO" : (tipo === "AVISO" ? "ESPERADO" : tipo);
-  const tagMercado = EH_FORT ? "FORT" : "KOCH";
+  const tagMercado = EH_ANGELONI ? "ANGELONI" : (EH_FORT ? "FORT" : "KOCH");
   const tagMaq = `[MÁQ #${WORKER_ID}${WORKER_PUBLIC_IP && !WORKER_PUBLIC_IP.startsWith("Desc") ? ` • ${WORKER_PUBLIC_IP}` : ""}]`;
   sessao.ultimosLogs.unshift({
     hora,
@@ -1418,7 +1559,9 @@ async function carregarProtegerFirebaseInicial() {
   const dados = await resp.json();
   if (dados && Array.isArray(dados.produtos)) {
     if (SOU_MAESTRO) {
-      const arqBackup = EH_FORT ? "backup_fort_1644_antes.json" : "backup_koch_1408_antes.json";
+      const arqBackup = EH_ANGELONI
+        ? "backup_angeloni_28_antes.json"
+        : (EH_FORT ? "backup_fort_1644_antes.json" : "backup_koch_1408_antes.json");
       try {
         fs.writeFileSync(arqBackup, JSON.stringify(dados), "utf-8");
       } catch {}
@@ -1728,6 +1871,7 @@ function processarHits(hits, rotaContexto = null) {
 
     const objProduto = {
       id: item.id,
+      ean: item.ean || existente?.ean || "",
       nome: nomeLimpo,
       marca: marcaStr,
       preco: precoSeguro,
@@ -1844,7 +1988,7 @@ async function gravarComSegurancaNoFirebase(motivo = "") {
         ...(enxame.precosListaCombinada || sessao.ultimosPrecosAlterados).slice(0, 45),
         ...(enxame.novosListaCombinada || sessao.ultimosNovos).slice(0, 35)
       ];
-      await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/ultimas_alteracoes_${EH_FORT ? "fort" : "koch"}.json`), {
+      await fetch(authUrl(`${FIREBASE_BASE}/robo_controle/ultimas_alteracoes_${MERCADO_ALVO}.json`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1907,9 +2051,136 @@ async function verificarAutoSaveInteligente(contextoCurto = "", fimDeRota = fals
   await gravarComSegurancaNoFirebase(motivoDetalhe);
 }
 
-function montarUrlOficial({ storePath = DEFAULT_STORE_PATH, promo = false, size = CONFIG.size, from = 0, categoryId = "", categoryName = "" }) {
-  const base = `https://sense.osuper.com.br${storePath}`;
+function normalizarProdutoAngeloniParaHit(prod) {
+  if (!prod || typeof prod !== "object") return null;
+  const id = String(prod.productId || prod.itemId || prod.productReference || "").trim();
+  if (!id) return null;
+
+  const itemsArr = Array.isArray(prod.items) ? prod.items : [];
+  const sku = itemsArr.find((it) => {
+    const of = it?.sellers?.[0]?.commertialOffer;
+    return Number(of?.AvailableQuantity || 0) > 0 && Number(of?.Price || 0) > 0;
+  }) || itemsArr[0] || {};
+
+  const sellersArr = Array.isArray(sku.sellers) ? sku.sellers : [];
+  const seller = sellersArr.find((s) => s?.sellerId === "superangeloni28" || s?.sellerDefault) || sellersArr[0] || {};
+  const offer = seller.commertialOffer || prod.offer || {};
+
+  // Sempre utiliza commertialOffer.Price / ListPrice (preço regionalizado de Porto Belo e preço/kg correto em pesáveis)
+  const precoAtivo = Number(offer.Price || 0);
+  const precoLista = Number(offer.ListPrice || precoAtivo || 0);
+  const estoque = Number(offer.AvailableQuantity ?? (precoAtivo > 0 ? 100 : 0));
+
+  if (precoAtivo <= 0 || estoque <= 0) return null;
+
+  const precoOriginal = precoLista > precoAtivo ? precoLista : precoAtivo;
+  const unMedida = String(sku.measurementUnit || prod.measurementUnit || "UN").toUpperCase();
+  const saleUnit = unMedida === "KG" ? "KG" : "UN";
+  const imgUrl = sku.images?.[0]?.imageUrl || prod.images?.[0]?.imageUrl || prod.image || "";
+
+  const setCats = new Set();
+  if (Array.isArray(prod.categories)) {
+    for (const cPath of prod.categories) {
+      const partes = String(cPath || "").split("/").map((s) => s.trim()).filter(Boolean);
+      if (partes.length > 0) {
+        setCats.add(partes[0]);
+        if (partes.length > 1) {
+          setCats.add(`${partes[0]} > ${partes[1]}`);
+          setCats.add(partes[partes.length - 1]);
+        }
+      }
+    }
+  }
+
+  return {
+    id,
+    ean: String(sku.ean || prod.ean || "").trim(),
+    name: String(prod.productName || sku.name || prod.name || "").trim(),
+    brandName: String(prod.brand || prod.brandName || "GENÉRICO").trim(),
+    pricing: {
+      price: precoOriginal,
+      normalPrice: precoOriginal,
+      promotionalPrice: precoAtivo,
+      promotion: precoOriginal > precoAtivo + 0.009
+    },
+    activePrice: precoAtivo,
+    quantity: { inStock: estoque },
+    saleUnit,
+    image: imgUrl,
+    categories: Array.from(setCats),
+    slug: String(prod.link || prod.linkText || "").replace(/^https?:\/\/[^/]+/, "")
+  };
+}
+
+function normalizarRespostaAngeloni(dados) {
+  if (!dados || typeof dados !== "object") return null;
+  if (Array.isArray(dados.hits) && dados._angeloniNorm) return dados;
+
+  const rawArr = Array.isArray(dados.products)
+    ? dados.products
+    : (Array.isArray(dados?.data?.productSearch?.products)
+      ? dados.data.productSearch.products
+      : (Array.isArray(dados) ? dados : []));
+
+  const hits = rawArr.map(normalizarProdutoAngeloniParaHit).filter(Boolean);
+  const totalBruto = Number(
+    dados.recordsFiltered ??
+    dados?.data?.productSearch?.recordsFiltered ??
+    dados.total ??
+    hits.length
+  );
+
+  return {
+    _angeloniNorm: true,
+    total: totalBruto,
+    hits,
+    products: hits,
+    fimEstoqueCategoria: rawArr.length > 0 && hits.length === 0
+  };
+}
+
+function montarUrlOficial({
+  storePath = DEFAULT_STORE_PATH,
+  promo = false,
+  size = CONFIG.size,
+  from = 0,
+  pag = 1,
+  rota = null,
+  usarCatalogFallback = false,
+  categoryId = "",
+  categoryName = ""
+}) {
   const sizeSeguro = Math.max(12, Math.min(20, Number(size) || 20));
+
+  if (EH_ANGELONI) {
+    const pathRota = String(rota?.pathReal || "").replace(/^\/+|\/+$/g, "").trim();
+    const pagCalc = Math.max(1, Number(pag) || (Math.floor(Math.max(0, Number(from) || 0) / sizeSeguro) + 1));
+
+    // Fallback: API VTEX Catalog System (/api/catalog_system/pub/products/search/...)
+    if (usarCatalogFallback) {
+      const fromSeg = Math.max(0, Number(from) || 0);
+      const toSeg = fromSeg + sizeSeguro - 1;
+      if (promo) {
+        const clusterId = (categoryId && /^\d+$/.test(String(categoryId))) ? String(categoryId) : "144";
+        return `${SITE_URL}/api/catalog_system/pub/products/search?fq=productClusterIds:${clusterId}&O=OrderByTopSaleDESC&_from=${fromSeg}&_to=${toSeg}`;
+      }
+      const slugLimpo = pathRota || "mercearia";
+      return `${SITE_URL}/api/catalog_system/pub/products/search/${slugLimpo}?O=OrderByTopSaleDESC&_from=${fromSeg}&_to=${toSeg}`;
+    }
+
+    // Primário: API VTEX Intelligent Search Regionalizada (Angeloni Porto Belo Loja 28 • CEP 88210-000)
+    const baseIS = `${SITE_URL}/api/io/_v/api/intelligent-search/product_search/trade-policy/1`;
+    const qsRegional = `sort=orders:desc&count=${sizeSeguro}&page=${pagCalc}&deliveryZonesHash=${ANGELONI_DELIVERY_HASH}&pickupPointHash=${ANGELONI_PICKUP_HASH}`;
+    if (promo) {
+      const clusterId = (categoryId && /^\d+$/.test(String(categoryId))) ? String(categoryId) : (rota?.id || "144");
+      return `${baseIS}/productClusterIds/${encodeURIComponent(clusterId)}?${qsRegional}`;
+    }
+    const partes = (pathRota || "mercearia").split("/").filter(Boolean);
+    const rotaCategoriasIS = partes.map((seg, idx) => `category-${idx + 1}/${encodeURIComponent(seg)}`).join("/");
+    return `${baseIS}/${rotaCategoriasIS}?${qsRegional}`;
+  }
+
+  const base = `https://sense.osuper.com.br${storePath}`;
   const q = [];
   if (promo) q.push("promotion=true");
   q.push("brands=");
@@ -1970,9 +2241,9 @@ async function executarRoboCloud() {
   let context = null;
   let page = null;
   let browserPronto = false;
-  let tokenCapturado = "";
+  let tokenCapturado = EH_ANGELONI ? ANGELONI_SEGMENT_TOKEN : "";
   let storePath = DEFAULT_STORE_PATH;
-  let motorPreferido = "playwright_eval"; // Inicia priorizando o navegador real (bypassa Cloudflare TLS JA3/JA4)
+  let motorPreferido = EH_ANGELONI ? "curl_http2" : "playwright_eval";
   let filaRespostasInterceptadas = [];
 
   async function garantirNavegadorFallback() {
@@ -2004,18 +2275,27 @@ async function executarRoboCloud() {
       Object.defineProperty(navigator, "webdriver", { get: () => undefined });
       window.chrome = window.chrome || { runtime: {} };
     });
-    await context.addCookies([
+    const cookiesIniciais = [
       {
         name: COOKIE_LOJA_NOME,
         value: COOKIE_LOJA_VALOR,
         domain: COOKIE_LOJA_DOMINIO,
         path: "/"
       }
-    ]);
+    ];
+    if (EH_ANGELONI) {
+      cookiesIniciais.push({
+        name: "vtex_segment",
+        value: ANGELONI_SEGMENT_TOKEN,
+        url: SITE_URL
+      });
+    }
+    await context.addCookies(cookiesIniciais);
     page = await context.newPage();
     browserPronto = true;
 
     page.on("request", (req) => {
+      if (EH_ANGELONI) return;
       const url = req.url();
       if (url.includes("sense.osuper.com.br") && url.includes("/v2/search")) {
         try {
@@ -2040,6 +2320,17 @@ async function executarRoboCloud() {
     page.on("response", async (res) => {
       try {
         const url = res.url();
+        if (EH_ANGELONI) {
+          if ((url.includes("/intelligent-search/product_search") || url.includes("operationName=productSearchV3") || url.includes("/api/catalog_system/pub/products/search")) && res.status() >= 200 && res.status() < 300) {
+            const bruto = await res.json().catch(() => null);
+            const norm = normalizarRespostaAngeloni(bruto);
+            if (norm && Array.isArray(norm.hits) && norm.hits.length > 0) {
+              filaRespostasInterceptadas.push({ url, data: norm, ts: Date.now() });
+              if (filaRespostasInterceptadas.length > 30) filaRespostasInterceptadas.shift();
+            }
+          }
+          return;
+        }
         if (url.includes("sense.osuper.com.br") && url.includes("/v2/search") && res.status() === 200) {
           const dadosJson = await res.json().catch(() => null);
           if (dadosJson && (Array.isArray(dadosJson.hits) || Array.isArray(dadosJson.products))) {
@@ -2055,8 +2346,35 @@ async function executarRoboCloud() {
     try {
       registrarLog("OK", "Sessão", `${motivoRenovacao} — Sincronizando sessão da loja ${LOJA_ID} (${MERCADO_NOME})...`);
 
+      if (EH_ANGELONI) {
+        tokenCapturado = ANGELONI_SEGMENT_TOKEN;
+        persistirTokenFirebase(tokenCapturado);
+        // Sincroniza CEP 88210-000 (Porto Belo - SC • Loja 28) na sessão VTEX se o navegador estiver ativo
+        if (browserPronto && page) {
+          const urlAlvo = urlNavegacao || SITE_URL;
+          await page.goto(urlAlvo, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
+          await page.evaluate(async ({ cep, regId }) => {
+            try {
+              await fetch("/api/sessions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  public: {
+                    country: { value: "BRA" },
+                    postalCode: { value: cep },
+                    regionId: { value: regId }
+                  }
+                })
+              });
+            } catch {}
+          }, { cep: ANGELONI_CEP_PORTO_BELO, regId: ANGELONI_REGION_ID }).catch(() => {});
+          await dormirHumano(900);
+        }
+        registrarLog("OK", "Região Porto Belo", `Sessão Angeloni Porto Belo (Loja 28 • CEP 88210-000 • Region ${ANGELONI_REGION_ID.slice(0, 14)}...) configurada.`);
+        return;
+      }
+
       // 1. Coleta rápida do token via HTML da loja (com cookie oficial st_295 ou st_334)
-      // Tanto SuperKoch (295/1408) quanto Fort Atacadista (334/1644) usam searchEngineToken (v1.<CONTA>.<LOJA>...)
       try {
         const resHome = await fetch(SITE_URL, {
           headers: {
@@ -2135,7 +2453,9 @@ async function executarRoboCloud() {
       "-H", "Sec-Fetch-Mode: cors",
       "-H", "Sec-Fetch-Site: same-site"
     ];
-    if (tokenCapturado) {
+    if (EH_ANGELONI) {
+      args.push("-H", `Cookie: vtex_segment=${ANGELONI_SEGMENT_TOKEN}`);
+    } else if (tokenCapturado) {
       args.push("-H", `x-osuper-search-token: ${tokenCapturado}`);
     }
     args.push(url);
@@ -2148,8 +2468,9 @@ async function executarRoboCloud() {
       if (idx === -1) return { ok: false, status: 0, error: "Sem código HTTP no curl" };
       const corpo = texto.slice(0, idx).trim();
       const status = Number(texto.slice(idx + marcador.length).trim()) || 0;
-      if (status >= 200 && status < 300 && corpo.startsWith("{")) {
-        const data = JSON.parse(corpo);
+      if (status >= 200 && status < 300 && (corpo.startsWith("{") || corpo.startsWith("["))) {
+        const rawData = JSON.parse(corpo);
+        const data = EH_ANGELONI ? normalizarRespostaAngeloni(rawData) : rawData;
         return { ok: true, status: 200, data, motor: "curl_http2" };
       }
       return { ok: false, status, error: `HTTP ${status} (curl)` };
@@ -2162,21 +2483,26 @@ async function executarRoboCloud() {
   async function executarMotorPlaywrightEval(url) {
     try {
       await garantirNavegadorFallback();
-      const res = await page.evaluate(async ({ targetUrl, tk }) => {
+      const res = await page.evaluate(async ({ targetUrl, tk, ehAng }) => {
         try {
           const h = { accept: "application/json, text/plain, */*" };
-          const tokenEfetivo = tk || window.INITIAL_STATE?.app?.searchEngineToken || window.INITIAL_STATE?.auth?.searchIdentityToken || "";
-          if (tokenEfetivo) {
-            h["x-osuper-search-token"] = tokenEfetivo;
+          if (!ehAng) {
+            const tokenEfetivo = tk || window.INITIAL_STATE?.app?.searchEngineToken || window.INITIAL_STATE?.auth?.searchIdentityToken || "";
+            if (tokenEfetivo) {
+              h["x-osuper-search-token"] = tokenEfetivo;
+            }
           }
-          const r = await fetch(targetUrl, { method: "GET", headers: h, mode: "cors", credentials: "omit" });
+          const r = await fetch(targetUrl, { method: "GET", headers: h, mode: "cors", credentials: ehAng ? "include" : "omit" });
           if (!r.ok) return { ok: false, status: r.status, error: `HTTP ${r.status}` };
           const data = await r.json();
           return { ok: true, status: 200, data, motor: "playwright_eval" };
         } catch (err) {
           return { ok: false, status: 0, error: err.message };
         }
-      }, { targetUrl: url, tk: tokenCapturado });
+      }, { targetUrl: url, tk: tokenCapturado, ehAng: EH_ANGELONI });
+      if (res && res.ok && res.data && EH_ANGELONI) {
+        res.data = normalizarRespostaAngeloni(res.data);
+      }
       return res || { ok: false, status: 0, error: "Eval vazio" };
     } catch (e) {
       return { ok: false, status: 0, error: e.message };
@@ -2193,10 +2519,15 @@ async function executarRoboCloud() {
         "Origin": SITE_URL,
         "Referer": refererUrl || `${SITE_URL}/`
       };
-      if (tokenCapturado) headers[HEADER_TOKEN_NAME] = tokenCapturado;
+      if (EH_ANGELONI) {
+        headers["Cookie"] = `vtex_segment=${ANGELONI_SEGMENT_TOKEN}`;
+      } else if (tokenCapturado) {
+        headers[HEADER_TOKEN_NAME] = tokenCapturado;
+      }
       const res = await fetch(url, { method: "GET", headers, signal: AbortSignal.timeout(10000) });
       if (res.ok) {
-        const data = await res.json();
+        const rawData = await res.json();
+        const data = EH_ANGELONI ? normalizarRespostaAngeloni(rawData) : rawData;
         return { ok: true, status: 200, data, motor: "node_fetch" };
       }
       return { ok: false, status: res.status, error: `HTTP ${res.status}` };
@@ -2370,6 +2701,8 @@ async function executarRoboCloud() {
             promo: ehPromo,
             size: CONFIG.size,
             from: offsetDom,
+            pag: pagRolagem,
+            rota,
             categoryId: catId,
             categoryName: (!ehPromo && !catId) ? hier : ""
           });
@@ -2543,6 +2876,9 @@ async function executarRoboCloud() {
           promo: ehPromo,
           size: CONFIG.size,
           from,
+          pag,
+          rota,
+          usarCatalogFallback: EH_ANGELONI && usarFiltroPorHierarquia,
           categoryId: usarFiltroPorHierarquia ? "" : categoryIdParam,
           categoryName: (!ehPromo && (usarFiltroPorHierarquia || !categoryIdParam)) ? hierarquiaOficial : ""
         });
@@ -2553,16 +2889,19 @@ async function executarRoboCloud() {
 
         let dados = await consultarAPINoPontoExato(urlAPI, rotulo, pag, from, rota.url);
 
-        // Fallback 1 na Pág Inicial da Fatia: Se categoryId retornou 0 itens ou falhou, tenta pelo nome hierárquico oficial ("Hortifruti > Frutas")
+        // Fallback 1 na Pág Inicial da Fatia: Se categoryId/IntelligentSearch retornou 0 itens ou falhou, tenta pelo nome hierárquico / Catalog System
         const hitsIniciais = dados ? (Array.isArray(dados.hits) ? dados.hits : (Array.isArray(dados.products) ? dados.products : [])) : [];
-        if (pag === pagInicioRota && hitsIniciais.length === 0 && !ehPromo && hierarquiaOficial && !usarFiltroPorHierarquia) {
+        if (pag === pagInicioRota && hitsIniciais.length === 0 && (!ehPromo || EH_ANGELONI) && (hierarquiaOficial || EH_ANGELONI) && !usarFiltroPorHierarquia) {
           usarFiltroPorHierarquia = true;
           const urlHierarquia = montarUrlOficial({
             storePath,
-            promo: false,
+            promo: ehPromo,
             size: CONFIG.size,
             from,
-            categoryId: "",
+            pag,
+            rota,
+            usarCatalogFallback: EH_ANGELONI,
+            categoryId: categoryIdParam,
             categoryName: hierarquiaOficial
           });
           const dadosHier = await consultarAPINoPontoExato(urlHierarquia, rotulo, pag, from, rota.url);
@@ -2675,7 +3014,9 @@ async function executarRoboCloud() {
 
       // Rede de Segurança de Subcategorias: se uma Categoria Inteira (depto) na fatia inicial retornou 0 itens, varre automaticamente suas subcategorias!
       if (totalLidosRota === 0 && offsetInicioRota === 0 && rota.tipo === "depto" && !sessao.pularRotaAtual && !sessao.canceladoRemoto) {
-        const listaCompletaMercado = EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH;
+        const listaCompletaMercado = EH_ANGELONI
+          ? ROTAS_PADRAO_ANGELONI
+          : (EH_FORT ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH);
         const subRotasDepto = listaCompletaMercado.filter((sr) => sr.tipo === "sub" && sr.depto === rota.depto);
         if (subRotasDepto.length > 0) {
           registrarLog("AVISO", rotulo, `Ativando varredura de segurança nas ${subRotasDepto.length} subcategorias de ${rota.depto}...`);
@@ -2691,6 +3032,8 @@ async function executarRoboCloud() {
                 promo: false,
                 size: CONFIG.size,
                 from: fromSub,
+                pag: pagSub,
+                rota: subRota,
                 categoryId: subCatId,
                 categoryName: !subCatId ? (subRota.hierarquia || "") : ""
               });
@@ -3158,16 +3501,18 @@ function calcularScoreCasamento(prodK, prodF) {
 }
 
 export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE) {
-  console.log("🔗 Iniciando vinculação inteligente de alta cobertura Koch × Fort...");
+  console.log("🔗 Iniciando vinculação inteligente de alta cobertura Koch × Fort × Angeloni...");
 
   let respKoch = null;
   let respFort = null;
+  let respAng = null;
   let respVinc = null;
 
   try {
-    [respKoch, respFort, respVinc] = await Promise.all([
-      fetch(authUrl(`${firebaseBase}/koch_loja_1408.json`)),
-      fetch(authUrl(`${firebaseBase}/fort_loja_1644.json`)),
+    [respKoch, respFort, respAng, respVinc] = await Promise.all([
+      fetch(authUrl(`${firebaseBase}/koch_loja_1408.json`)).catch(() => null),
+      fetch(authUrl(`${firebaseBase}/fort_loja_1644.json`)).catch(() => null),
+      fetch(authUrl(`${firebaseBase}/angeloni_loja_28.json`)).catch(() => null),
       fetch(authUrl(`${firebaseBase}/vinculos_produtos.json`)).catch(() => null)
     ]);
   } catch (err) {
@@ -3176,23 +3521,25 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
   }
 
   if (!respKoch || !respKoch.ok || !respFort || !respFort.ok) {
-    console.log("⚠️ Um dos catálogos ainda não está disponível no Firebase para vincular.");
+    console.log("⚠️ Um dos catálogos principais ainda não está disponível no Firebase para vincular.");
     return null;
   }
 
   const dadosKoch = await respKoch.json();
   const dadosFort = await respFort.json();
-  const dadosVinc = respVinc && respVinc.ok ? await respVinc.json() : null;
+  const dadosAng = respAng && respAng.ok ? await respAng.json().catch(() => null) : null;
+  const dadosVinc = respVinc && respVinc.ok ? await respVinc.json().catch(() => null) : null;
 
   const prodsKoch = Array.isArray(dadosKoch?.produtos) ? dadosKoch.produtos : [];
   const prodsFort = Array.isArray(dadosFort?.produtos) ? dadosFort.produtos : [];
+  const prodsAngeloni = Array.isArray(dadosAng?.produtos) ? dadosAng.produtos : [];
 
   if (prodsKoch.length === 0 || prodsFort.length === 0) {
     console.log("⚠️ Catálogos insuficientes para cruzamento.");
     return null;
   }
 
-  console.log(`📊 Cruzando ${prodsKoch.length} itens do Koch com ${prodsFort.length} itens do Fort...`);
+  console.log(`📊 Cruzando ${prodsKoch.length} itens do Koch × ${prodsFort.length} do Fort × ${prodsAngeloni.length} do Angeloni Porto Belo...`);
 
   const manuaisExistentes = { ...(dadosVinc?.manuais || {}) };
   const rejeitadosExistentes = { ...(dadosVinc?.rejeitados || {}) };
@@ -3369,13 +3716,120 @@ export async function executarVinculacaoInteligente(firebaseBase = FIREBASE_BASE
     });
   }
 
+  // Cruzamento adicional com Angeloni Porto Belo (Loja 28)
+  const mapaKochParaAngeloni = {};
+  const mapaAngeloniParaKoch = {};
+  const mapaFortParaAngeloni = {};
+  const mapaAngeloniParaFort = {};
+
+  if (prodsAngeloni.length > 0) {
+    const mapaAngPorMarca = new Map();
+    const mapaAngPorTokenEGram = new Map();
+    const mapaAngPorToken = new Map();
+
+    for (const a of prodsAngeloni) {
+      if (!a || !a.id) continue;
+      a._gramCache = extrairGramatura(a.nome);
+      a._hashCache = extrairAssetHash(a.imagem);
+      a._marcaVinc = normalizarMarcaVinculo(a.marca);
+      a._nomeVinc = normalizarTextoVinculo(a.nome);
+      a._tokensVinc = extrairTokensNucleo(a.nome, a._marcaVinc);
+
+      if (a._marcaVinc && a._marcaVinc.length >= 2) {
+        if (!mapaAngPorMarca.has(a._marcaVinc)) mapaAngPorMarca.set(a._marcaVinc, []);
+        mapaAngPorMarca.get(a._marcaVinc).push(a);
+      }
+      for (let i = 0; i < Math.min(5, a._tokensVinc.length); i++) {
+        const tk = a._tokensVinc[i];
+        if (!mapaAngPorToken.has(tk)) mapaAngPorToken.set(tk, []);
+        mapaAngPorToken.get(tk).push(a);
+        if (a._gramCache) {
+          const chGram = `${tk}_${a._gramCache.unidade}_${a._gramCache.valorNorm}`;
+          if (!mapaAngPorTokenEGram.has(chGram)) mapaAngPorTokenEGram.set(chGram, []);
+          mapaAngPorTokenEGram.get(chGram).push(a);
+        }
+      }
+    }
+
+    const buscarCandidatosAngeloni = (prodRef) => {
+      const cands = new Set();
+      if (prodRef._marcaVinc && mapaAngPorMarca.has(prodRef._marcaVinc)) {
+        for (const a of mapaAngPorMarca.get(prodRef._marcaVinc)) cands.add(a);
+      }
+      if (prodRef._gramCache) {
+        for (let i = 0; i < Math.min(4, prodRef._tokensVinc.length); i++) {
+          const chG = `${prodRef._tokensVinc[i]}_${prodRef._gramCache.unidade}_${prodRef._gramCache.valorNorm}`;
+          const arrG = mapaAngPorTokenEGram.get(chG);
+          if (arrG) for (const a of arrG) cands.add(a);
+        }
+      }
+      if (cands.size < 25) {
+        for (let i = 0; i < Math.min(3, prodRef._tokensVinc.length); i++) {
+          const arrT = mapaAngPorToken.get(prodRef._tokensVinc[i]);
+          if (arrT && arrT.length <= 400) for (const a of arrT) cands.add(a);
+        }
+      }
+      return cands;
+    };
+
+    const paresKA = [];
+    for (const k of prodsKoch) {
+      if (!k || !k.id || !k._tokensVinc) continue;
+      for (const a of buscarCandidatosAngeloni(k)) {
+        const res = calcularScoreCasamento(k, a);
+        if (res.score >= scoreMinimoAceito) {
+          paresKA.push({ idK: String(k.id), idA: String(a.id), score: res.score });
+        }
+      }
+    }
+    paresKA.sort((x, y) => y.score - x.score);
+    const angUsadosK = new Set();
+    for (const p of paresKA) {
+      if (mapaKochParaAngeloni[p.idK] || angUsadosK.has(p.idA)) continue;
+      mapaKochParaAngeloni[p.idK] = p.idA;
+      mapaAngeloniParaKoch[p.idA] = p.idK;
+      angUsadosK.add(p.idA);
+    }
+
+    const paresFA = [];
+    for (const f of prodsFort) {
+      if (!f || !f.id || !f._tokensVinc) continue;
+      for (const a of buscarCandidatosAngeloni(f)) {
+        const res = calcularScoreCasamento(f, a);
+        if (res.score >= scoreMinimoAceito) {
+          paresFA.push({ idF: String(f.id), idA: String(a.id), score: res.score });
+        }
+      }
+    }
+    paresFA.sort((x, y) => y.score - x.score);
+    const angUsadosF = new Set();
+    for (const p of paresFA) {
+      if (mapaFortParaAngeloni[p.idF] || angUsadosF.has(p.idA)) continue;
+      mapaFortParaAngeloni[p.idF] = p.idA;
+      mapaAngeloniParaFort[p.idA] = p.idF;
+      angUsadosF.add(p.idA);
+    }
+
+    for (const v of vinculosFinais) {
+      const idA = mapaKochParaAngeloni[v.idKoch] || mapaFortParaAngeloni[v.idFort] || null;
+      if (idA) v.idAngeloni = idA;
+    }
+    console.log(`🔗 Vínculos Angeloni Porto Belo: ${Object.keys(mapaKochParaAngeloni).length} com Koch | ${Object.keys(mapaFortParaAngeloni).length} com Fort.`);
+  }
+
   const payload = {
     ...mapaFlatVinculos,
     atualizadoEm: new Date().toISOString(),
     totalVinculos: vinculosFinais.length,
+    totalVinculosKochAngeloni: Object.keys(mapaKochParaAngeloni).length,
+    totalVinculosFortAngeloni: Object.keys(mapaFortParaAngeloni).length,
     vinculos: vinculosFinais,
     mapaKochParaFort,
     mapaFortParaKoch,
+    mapaKochParaAngeloni,
+    mapaAngeloniParaKoch,
+    mapaFortParaAngeloni,
+    mapaAngeloniParaFort,
     manuais: manuaisExistentes,
     rejeitados: rejeitadosExistentes,
     configVinculos

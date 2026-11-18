@@ -421,14 +421,230 @@ export const ROTAS_24H_FORT = [
 ];
 
 // =========================================================================
-// SELETOR UNIVERSAL DE CAMADAS:
+// ROTAS OFICIAIS ANGELONI (LOJA 28 PORTO BELO • CEP 88210-000 / BR-101)
+// =========================================================================
+export const ROTAS_PADRAO_ANGELONI = [
+  { url: "https://super.angeloni.com.br/super-ofertas", pathReal: "/super-ofertas", tipo: "promocoes", id: "144", depto: "Ofertas", hierarquia: "Ofertas", nome: "Promoções (Super Ofertas da Semana)" },
+  { url: "https://super.angeloni.com.br/ofertas-super-noite", pathReal: "/ofertas-super-noite", tipo: "promocoes", id: "146", depto: "Ofertas", hierarquia: "Ofertas", nome: "Promoções (Ofertas Super Noite)" },
+  { url: "https://super.angeloni.com.br/mercearia", pathReal: "/mercearia", tipo: "depto", id: "2", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/mercearia/arroz", pathReal: "/mercearia/arroz", tipo: "sub", id: "43", depto: "Mercearia", hierarquia: "Mercearia > Arroz", nome: "Mercearia > Arroz" },
+  { url: "https://super.angeloni.com.br/mercearia/feijao", pathReal: "/mercearia/feijao", tipo: "sub", id: "240", depto: "Mercearia", hierarquia: "Mercearia > Feijão", nome: "Mercearia > Feijão" },
+  { url: "https://super.angeloni.com.br/mercearia/massas", pathReal: "/mercearia/massas", tipo: "sub", id: "242", depto: "Mercearia", hierarquia: "Mercearia > Massas", nome: "Mercearia > Massas" },
+  { url: "https://super.angeloni.com.br/mercearia/azeites", pathReal: "/mercearia/azeites", tipo: "sub", id: "243", depto: "Mercearia", hierarquia: "Mercearia > Azeites", nome: "Mercearia > Azeites" },
+  { url: "https://super.angeloni.com.br/mercearia/oleos", pathReal: "/mercearia/oleos", tipo: "sub", id: "244", depto: "Mercearia", hierarquia: "Mercearia > Óleos", nome: "Mercearia > Óleos" },
+  { url: "https://super.angeloni.com.br/mercearia/vinagre-e-aceto", pathReal: "/mercearia/vinagre-e-aceto", tipo: "sub", id: "245", depto: "Mercearia", hierarquia: "Mercearia > Vinagre e Aceto", nome: "Mercearia > Vinagre e Aceto" },
+  { url: "https://super.angeloni.com.br/mercearia/acucar-e-adocantes", pathReal: "/mercearia/acucar-e-adocantes", tipo: "sub", id: "239", depto: "Mercearia", hierarquia: "Mercearia > Açúcar e Adoçantes", nome: "Mercearia > Açúcar e Adoçantes" },
+  { url: "https://super.angeloni.com.br/mercearia/cafes-e-chas", pathReal: "/mercearia/cafes-e-chas", tipo: "sub", id: "250", depto: "Mercearia", hierarquia: "Mercearia > Cafés e Chás", nome: "Mercearia > Cafés e Chás" },
+  { url: "https://super.angeloni.com.br/mercearia/biscoitos-e-snacks", pathReal: "/mercearia/biscoitos-e-snacks", tipo: "sub", id: "246", depto: "Mercearia", hierarquia: "Mercearia > Biscoitos e Snacks", nome: "Mercearia > Biscoitos e Snacks" },
+  { url: "https://super.angeloni.com.br/mercearia/chocolates", pathReal: "/mercearia/chocolates", tipo: "sub", id: "249", depto: "Mercearia", hierarquia: "Mercearia > Chocolates", nome: "Mercearia > Chocolates" },
+  { url: "https://super.angeloni.com.br/mercearia/balas-e-guloseimas", pathReal: "/mercearia/balas-e-guloseimas", tipo: "sub", id: "247", depto: "Mercearia", hierarquia: "Mercearia > Balas e Guloseimas", nome: "Mercearia > Balas e Guloseimas" },
+  { url: "https://super.angeloni.com.br/mercearia/cereais-e-farinaceos", pathReal: "/mercearia/cereais-e-farinaceos", tipo: "sub", id: "251", depto: "Mercearia", hierarquia: "Mercearia > Cereais e Farináceos", nome: "Mercearia > Cereais e Farináceos" },
+  { url: "https://super.angeloni.com.br/mercearia/conservas-e-enlatados", pathReal: "/mercearia/conservas-e-enlatados", tipo: "sub", id: "252", depto: "Mercearia", hierarquia: "Mercearia > Conservas e Enlatados", nome: "Mercearia > Conservas e Enlatados" },
+  { url: "https://super.angeloni.com.br/mercearia/doces-e-confeitaria", pathReal: "/mercearia/doces-e-confeitaria", tipo: "sub", id: "253", depto: "Mercearia", hierarquia: "Mercearia > Doces e Confeitaria", nome: "Mercearia > Doces e Confeitaria" },
+  { url: "https://super.angeloni.com.br/mercearia/molhos-temperos-e-condimentos", pathReal: "/mercearia/molhos-temperos-e-condimentos", tipo: "sub", id: "256", depto: "Mercearia", hierarquia: "Mercearia > Molhos, Temperos e Condimentos", nome: "Mercearia > Molhos, Temperos e Condimentos" },
+  { url: "https://super.angeloni.com.br/mercearia/leite-em-po", pathReal: "/mercearia/leite-em-po", tipo: "sub", id: "255", depto: "Mercearia", hierarquia: "Mercearia > Leite em Pó", nome: "Mercearia > Leite em Pó" },
+  { url: "https://super.angeloni.com.br/mercearia/achocolatado-em-po", pathReal: "/mercearia/achocolatado-em-po", tipo: "sub", id: "231", depto: "Mercearia", hierarquia: "Mercearia > Achocolatado Em Pó", nome: "Mercearia > Achocolatado Em Pó" },
+  { url: "https://super.angeloni.com.br/mercearia/erva-mate", pathReal: "/mercearia/erva-mate", tipo: "sub", id: "254", depto: "Mercearia", hierarquia: "Mercearia > Erva Mate", nome: "Mercearia > Erva Mate" },
+  { url: "https://super.angeloni.com.br/mercearia/sopas-e-cremes", pathReal: "/mercearia/sopas-e-cremes", tipo: "sub", id: "257", depto: "Mercearia", hierarquia: "Mercearia > Sopas e Cremes", nome: "Mercearia > Sopas e Cremes" },
+  { url: "https://super.angeloni.com.br/mercearia/suplemento-alimentar", pathReal: "/mercearia/suplemento-alimentar", tipo: "sub", id: "258", depto: "Mercearia", hierarquia: "Mercearia > Suplemento Alimentar", nome: "Mercearia > Suplemento Alimentar" },
+  { url: "https://super.angeloni.com.br/mercearia/produtos-orientais-e-mexicanos", pathReal: "/mercearia/produtos-orientais-e-mexicanos", tipo: "sub", id: "392", depto: "Mercearia", hierarquia: "Mercearia > Produtos Orientais e Mexicanos", nome: "Mercearia > Produtos Orientais e Mexicanos" },
+  { url: "https://super.angeloni.com.br/mercearia/lentilha", pathReal: "/mercearia/lentilha", tipo: "sub", id: "241", depto: "Mercearia", hierarquia: "Mercearia > Lentilha", nome: "Mercearia > Lentilha" },
+  { url: "https://super.angeloni.com.br/hortifruti", pathReal: "/hortifruti", tipo: "depto", id: "153", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/hortifruti/frutas", pathReal: "/hortifruti/frutas", tipo: "sub", id: "183", depto: "Hortifruti", hierarquia: "Hortifruti > Frutas", nome: "Hortifruti > Frutas" },
+  { url: "https://super.angeloni.com.br/hortifruti/legumes", pathReal: "/hortifruti/legumes", tipo: "sub", id: "185", depto: "Hortifruti", hierarquia: "Hortifruti > Legumes", nome: "Hortifruti > Legumes" },
+  { url: "https://super.angeloni.com.br/hortifruti/verduras", pathReal: "/hortifruti/verduras", tipo: "sub", id: "190", depto: "Hortifruti", hierarquia: "Hortifruti > Verduras", nome: "Hortifruti > Verduras" },
+  { url: "https://super.angeloni.com.br/hortifruti/ovos", pathReal: "/hortifruti/ovos", tipo: "sub", id: "187", depto: "Hortifruti", hierarquia: "Hortifruti > Ovos", nome: "Hortifruti > Ovos" },
+  { url: "https://super.angeloni.com.br/hortifruti/ervas-e-temperos", pathReal: "/hortifruti/ervas-e-temperos", tipo: "sub", id: "182", depto: "Hortifruti", hierarquia: "Hortifruti > Ervas e Temperos", nome: "Hortifruti > Ervas e Temperos" },
+  { url: "https://super.angeloni.com.br/hortifruti/frutas-secas", pathReal: "/hortifruti/frutas-secas", tipo: "sub", id: "184", depto: "Hortifruti", hierarquia: "Hortifruti > Frutas Secas", nome: "Hortifruti > Frutas Secas" },
+  { url: "https://super.angeloni.com.br/hortifruti/nozes-castanhas-e-sementes", pathReal: "/hortifruti/nozes-castanhas-e-sementes", tipo: "sub", id: "186", depto: "Hortifruti", hierarquia: "Hortifruti > Nozes, Castanhas e Sementes", nome: "Hortifruti > Nozes, Castanhas e Sementes" },
+  { url: "https://super.angeloni.com.br/hortifruti/cogumelos", pathReal: "/hortifruti/cogumelos", tipo: "sub", id: "181", depto: "Hortifruti", hierarquia: "Hortifruti > Cogumelos", nome: "Hortifruti > Cogumelos" },
+  { url: "https://super.angeloni.com.br/hortifruti/polpa-e-suco-de-fruta", pathReal: "/hortifruti/polpa-e-suco-de-fruta", tipo: "sub", id: "189", depto: "Hortifruti", hierarquia: "Hortifruti > Polpa e Suco de Fruta", nome: "Hortifruti > Polpa e Suco de Fruta" },
+  { url: "https://super.angeloni.com.br/hortifruti/pratos-prontos", pathReal: "/hortifruti/pratos-prontos", tipo: "sub", id: "453", depto: "Hortifruti", hierarquia: "Hortifruti > Pratos prontos", nome: "Hortifruti > Pratos prontos" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes", pathReal: "/carnes-aves-e-peixes", tipo: "depto", id: "82", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes", nome: "Carnes, Aves e Peixes (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/carnes-bovinas", pathReal: "/carnes-aves-e-peixes/carnes-bovinas", tipo: "sub", id: "84", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Carnes Bovinas", nome: "Carnes, Aves e Peixes > Carnes Bovinas" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/aves", pathReal: "/carnes-aves-e-peixes/aves", tipo: "sub", id: "83", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Aves", nome: "Carnes, Aves e Peixes > Aves" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/carnes-suinas", pathReal: "/carnes-aves-e-peixes/carnes-suinas", tipo: "sub", id: "88", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Carnes Suínas", nome: "Carnes, Aves e Peixes > Carnes Suínas" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/linguica", pathReal: "/carnes-aves-e-peixes/linguica", tipo: "sub", id: "87", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Linguiça", nome: "Carnes, Aves e Peixes > Linguiça" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/peixes-e-frutos-do-mar", pathReal: "/carnes-aves-e-peixes/peixes-e-frutos-do-mar", tipo: "sub", id: "86", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Peixes e Frutos Do Mar", nome: "Carnes, Aves e Peixes > Peixes e Frutos Do Mar" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/pao-de-alho", pathReal: "/carnes-aves-e-peixes/pao-de-alho", tipo: "sub", id: "399", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Pão de Alho", nome: "Carnes, Aves e Peixes > Pão de Alho" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/espetinho", pathReal: "/carnes-aves-e-peixes/espetinho", tipo: "sub", id: "400", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Espetinho", nome: "Carnes, Aves e Peixes > Espetinho" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes/carnes-exoticas", pathReal: "/carnes-aves-e-peixes/carnes-exoticas", tipo: "sub", id: "85", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes > Carnes Exóticas", nome: "Carnes, Aves e Peixes > Carnes Exóticas" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios", pathReal: "/frios-e-laticinios", tipo: "depto", id: "138", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios", nome: "Frios e Laticínios (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/leite", pathReal: "/frios-e-laticinios/leite", tipo: "sub", id: "390", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Leite", nome: "Frios e Laticínios > Leite" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/queijos", pathReal: "/frios-e-laticinios/queijos", tipo: "sub", id: "149", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Queijos", nome: "Frios e Laticínios > Queijos" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/iogurte", pathReal: "/frios-e-laticinios/iogurte", tipo: "sub", id: "144", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Iogurte", nome: "Frios e Laticínios > Iogurte" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/manteiga-e-margarina", pathReal: "/frios-e-laticinios/manteiga-e-margarina", tipo: "sub", id: "146", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Manteiga e Margarina", nome: "Frios e Laticínios > Manteiga e Margarina" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/requeijao", pathReal: "/frios-e-laticinios/requeijao", tipo: "sub", id: "150", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Requeijão", nome: "Frios e Laticínios > Requeijão" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/defumados-e-embutidos", pathReal: "/frios-e-laticinios/defumados-e-embutidos", tipo: "sub", id: "142", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Defumados e Embutidos", nome: "Frios e Laticínios > Defumados e Embutidos" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/creme-de-leite-e-nata", pathReal: "/frios-e-laticinios/creme-de-leite-e-nata", tipo: "sub", id: "141", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Creme de Leite e Nata", nome: "Frios e Laticínios > Creme de Leite e Nata" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/bebida-lactea", pathReal: "/frios-e-laticinios/bebida-lactea", tipo: "sub", id: "139", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Bebida Láctea", nome: "Frios e Laticínios > Bebida Láctea" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/leite-fermentado", pathReal: "/frios-e-laticinios/leite-fermentado", tipo: "sub", id: "145", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Leite Fermentado", nome: "Frios e Laticínios > Leite Fermentado" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/massas-frescas", pathReal: "/frios-e-laticinios/massas-frescas", tipo: "sub", id: "147", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Massas Frescas", nome: "Frios e Laticínios > Massas Frescas" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/pratos-prontos-refrigerados", pathReal: "/frios-e-laticinios/pratos-prontos-refrigerados", tipo: "sub", id: "148", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Pratos Prontos Refrigerados", nome: "Frios e Laticínios > Pratos Prontos Refrigerados" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/carne-seca-e-charque", pathReal: "/frios-e-laticinios/carne-seca-e-charque", tipo: "sub", id: "140", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Carne Seca e Charque", nome: "Frios e Laticínios > Carne Seca e Charque" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios/pate-e-tofu", pathReal: "/frios-e-laticinios/pate-e-tofu", tipo: "sub", id: "151", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios > Patê e Tofu", nome: "Frios e Laticínios > Patê e Tofu" },
+  { url: "https://super.angeloni.com.br/bebidas", pathReal: "/bebidas", tipo: "depto", id: "58", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas/refrigerante", pathReal: "/bebidas/refrigerante", tipo: "sub", id: "67", depto: "Bebidas", hierarquia: "Bebidas > Refrigerante", nome: "Bebidas > Refrigerante" },
+  { url: "https://super.angeloni.com.br/bebidas/suco-e-nectar", pathReal: "/bebidas/suco-e-nectar", tipo: "sub", id: "68", depto: "Bebidas", hierarquia: "Bebidas > Suco e Néctar", nome: "Bebidas > Suco e Néctar" },
+  { url: "https://super.angeloni.com.br/bebidas/agua", pathReal: "/bebidas/agua", tipo: "sub", id: "61", depto: "Bebidas", hierarquia: "Bebidas > Água", nome: "Bebidas > Água" },
+  { url: "https://super.angeloni.com.br/bebidas/energetico", pathReal: "/bebidas/energetico", tipo: "sub", id: "65", depto: "Bebidas", hierarquia: "Bebidas > Energético", nome: "Bebidas > Energético" },
+  { url: "https://super.angeloni.com.br/bebidas/agua-de-coco", pathReal: "/bebidas/agua-de-coco", tipo: "sub", id: "62", depto: "Bebidas", hierarquia: "Bebidas > Água de Coco", nome: "Bebidas > Água de Coco" },
+  { url: "https://super.angeloni.com.br/bebidas/isotonicos", pathReal: "/bebidas/isotonicos", tipo: "sub", id: "66", depto: "Bebidas", hierarquia: "Bebidas > Isotônicos", nome: "Bebidas > Isotônicos" },
+  { url: "https://super.angeloni.com.br/bebidas/cafes-e-chas-prontos", pathReal: "/bebidas/cafes-e-chas-prontos", tipo: "sub", id: "64", depto: "Bebidas", hierarquia: "Bebidas > Cafés e Chás Prontos", nome: "Bebidas > Cafés e Chás Prontos" },
+  { url: "https://super.angeloni.com.br/bebidas/bebida-vegetal", pathReal: "/bebidas/bebida-vegetal", tipo: "sub", id: "63", depto: "Bebidas", hierarquia: "Bebidas > Bebida Vegetal", nome: "Bebidas > Bebida Vegetal" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas", pathReal: "/bebidas-alcoolicas", tipo: "depto", id: "59", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas/cervejas", pathReal: "/bebidas-alcoolicas/cervejas", tipo: "sub", id: "69", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas > Cervejas", nome: "Bebidas Alcoólicas > Cervejas" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas/destilados", pathReal: "/bebidas-alcoolicas/destilados", tipo: "sub", id: "70", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas > Destilados", nome: "Bebidas Alcoólicas > Destilados" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas/drinks", pathReal: "/bebidas-alcoolicas/drinks", tipo: "sub", id: "71", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas > Drinks", nome: "Bebidas Alcoólicas > Drinks" },
+  { url: "https://super.angeloni.com.br/adega", pathReal: "/adega", tipo: "depto", id: "72", depto: "Adega", hierarquia: "Adega", nome: "Adega (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/adega/vinhos", pathReal: "/adega/vinhos", tipo: "sub", id: "73", depto: "Adega", hierarquia: "Adega > Vinhos", nome: "Adega > Vinhos" },
+  { url: "https://super.angeloni.com.br/adega/espumante-e-champagne", pathReal: "/adega/espumante-e-champagne", tipo: "sub", id: "75", depto: "Adega", hierarquia: "Adega > Espumante e Champagne", nome: "Adega > Espumante e Champagne" },
+  { url: "https://super.angeloni.com.br/adega/frisantes", pathReal: "/adega/frisantes", tipo: "sub", id: "74", depto: "Adega", hierarquia: "Adega > Frisantes", nome: "Adega > Frisantes" },
+  { url: "https://super.angeloni.com.br/adega/sidras", pathReal: "/adega/sidras", tipo: "sub", id: "76", depto: "Adega", hierarquia: "Adega > Sidras", nome: "Adega > Sidras" },
+  { url: "https://super.angeloni.com.br/padaria", pathReal: "/padaria", tipo: "depto", id: "218", depto: "Padaria", hierarquia: "Padaria", nome: "Padaria (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/padaria/paes", pathReal: "/padaria/paes", tipo: "sub", id: "226", depto: "Padaria", hierarquia: "Padaria > Pães", nome: "Padaria > Pães" },
+  { url: "https://super.angeloni.com.br/padaria/bolos-e-tortas", pathReal: "/padaria/bolos-e-tortas", tipo: "sub", id: "219", depto: "Padaria", hierarquia: "Padaria > Bolos e Tortas", nome: "Padaria > Bolos e Tortas" },
+  { url: "https://super.angeloni.com.br/padaria/salgados", pathReal: "/padaria/salgados", tipo: "sub", id: "451", depto: "Padaria", hierarquia: "Padaria > Salgados", nome: "Padaria > Salgados" },
+  { url: "https://super.angeloni.com.br/padaria/pao-de-queijo", pathReal: "/padaria/pao-de-queijo", tipo: "sub", id: "229", depto: "Padaria", hierarquia: "Padaria > Pão de Queijo", nome: "Padaria > Pão de Queijo" },
+  { url: "https://super.angeloni.com.br/padaria/roscas-e-biscoitos-caseiros", pathReal: "/padaria/roscas-e-biscoitos-caseiros", tipo: "sub", id: "230", depto: "Padaria", hierarquia: "Padaria > Roscas e Biscoitos Caseiros", nome: "Padaria > Roscas e Biscoitos Caseiros" },
+  { url: "https://super.angeloni.com.br/padaria/cucas", pathReal: "/padaria/cucas", tipo: "sub", id: "221", depto: "Padaria", hierarquia: "Padaria > Cucas", nome: "Padaria > Cucas" },
+  { url: "https://super.angeloni.com.br/padaria/docinhos", pathReal: "/padaria/docinhos", tipo: "sub", id: "222", depto: "Padaria", hierarquia: "Padaria > Docinhos", nome: "Padaria > Docinhos" },
+  { url: "https://super.angeloni.com.br/padaria/panettone-e-chocottone", pathReal: "/padaria/panettone-e-chocottone", tipo: "sub", id: "228", depto: "Padaria", hierarquia: "Padaria > Panettone e Chocottone", nome: "Padaria > Panettone e Chocottone" },
+  { url: "https://super.angeloni.com.br/congelados", pathReal: "/congelados", tipo: "depto", id: "89", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/congelados/pratos-prontos-congelados", pathReal: "/congelados/pratos-prontos-congelados", tipo: "sub", id: "92", depto: "Congelados", hierarquia: "Congelados > Pratos Prontos Congelados", nome: "Congelados > Pratos Prontos Congelados" },
+  { url: "https://super.angeloni.com.br/congelados/pizzas", pathReal: "/congelados/pizzas", tipo: "sub", id: "94", depto: "Congelados", hierarquia: "Congelados > Pizzas", nome: "Congelados > Pizzas" },
+  { url: "https://super.angeloni.com.br/congelados/massas-e-lasanhas", pathReal: "/congelados/massas-e-lasanhas", tipo: "sub", id: "95", depto: "Congelados", hierarquia: "Congelados > Massas e Lasanhas", nome: "Congelados > Massas e Lasanhas" },
+  { url: "https://super.angeloni.com.br/congelados/empanados", pathReal: "/congelados/empanados", tipo: "sub", id: "96", depto: "Congelados", hierarquia: "Congelados > Empanados", nome: "Congelados > Empanados" },
+  { url: "https://super.angeloni.com.br/congelados/hamburguer", pathReal: "/congelados/hamburguer", tipo: "sub", id: "93", depto: "Congelados", hierarquia: "Congelados > Hamburguer", nome: "Congelados > Hamburguer" },
+  { url: "https://super.angeloni.com.br/congelados/pao-de-queijo-congelado", pathReal: "/congelados/pao-de-queijo-congelado", tipo: "sub", id: "97", depto: "Congelados", hierarquia: "Congelados > Pão de Queijo Congelado", nome: "Congelados > Pão de Queijo Congelado" },
+  { url: "https://super.angeloni.com.br/congelados/vegetais-congelados", pathReal: "/congelados/vegetais-congelados", tipo: "sub", id: "99", depto: "Congelados", hierarquia: "Congelados > Vegetais Congelados", nome: "Congelados > Vegetais Congelados" },
+  { url: "https://super.angeloni.com.br/congelados/sorvete-torta-e-picole", pathReal: "/congelados/sorvete-torta-e-picole", tipo: "sub", id: "98", depto: "Congelados", hierarquia: "Congelados > Sorvete, Torta e Picolé", nome: "Congelados > Sorvete, Torta e Picolé" },
+  { url: "https://super.angeloni.com.br/congelados/polpa-e-suco-de-fruta", pathReal: "/congelados/polpa-e-suco-de-fruta", tipo: "sub", id: "91", depto: "Congelados", hierarquia: "Congelados > Polpa e Suco de Fruta", nome: "Congelados > Polpa e Suco de Fruta" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia", pathReal: "/limpeza-e-lavanderia", tipo: "depto", id: "195", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia", nome: "Limpeza e Lavanderia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/lava-roupas", pathReal: "/limpeza-e-lavanderia/lava-roupas", tipo: "sub", id: "207", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Lava-Roupas", nome: "Limpeza e Lavanderia > Lava-Roupas" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/amaciante", pathReal: "/limpeza-e-lavanderia/amaciante", tipo: "sub", id: "199", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Amaciante", nome: "Limpeza e Lavanderia > Amaciante" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/detergente-e-lava-loucas", pathReal: "/limpeza-e-lavanderia/detergente-e-lava-loucas", tipo: "sub", id: "205", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Detergente e Lava-louças", nome: "Limpeza e Lavanderia > Detergente e Lava-louças" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/desinfetante", pathReal: "/limpeza-e-lavanderia/desinfetante", tipo: "sub", id: "203", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Desinfetante", nome: "Limpeza e Lavanderia > Desinfetante" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/agua-sanitaria", pathReal: "/limpeza-e-lavanderia/agua-sanitaria", tipo: "sub", id: "196", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Água Sanitária", nome: "Limpeza e Lavanderia > Água Sanitária" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/alvejante", pathReal: "/limpeza-e-lavanderia/alvejante", tipo: "sub", id: "198", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Alvejante", nome: "Limpeza e Lavanderia > Alvejante" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/limpadores", pathReal: "/limpeza-e-lavanderia/limpadores", tipo: "sub", id: "208", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Limpadores", nome: "Limpeza e Lavanderia > Limpadores" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/desengordurante", pathReal: "/limpeza-e-lavanderia/desengordurante", tipo: "sub", id: "202", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Desengordurante", nome: "Limpeza e Lavanderia > Desengordurante" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/limpador-sanitario", pathReal: "/limpeza-e-lavanderia/limpador-sanitario", tipo: "sub", id: "209", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Limpador Sanitário", nome: "Limpeza e Lavanderia > Limpador Sanitário" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/sabao-em-barra", pathReal: "/limpeza-e-lavanderia/sabao-em-barra", tipo: "sub", id: "216", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Sabão em Barra", nome: "Limpeza e Lavanderia > Sabão em Barra" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/tira-manchas", pathReal: "/limpeza-e-lavanderia/tira-manchas", tipo: "sub", id: "217", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Tira-Manchas", nome: "Limpeza e Lavanderia > Tira-Manchas" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/inseticidas-e-repelentes", pathReal: "/limpeza-e-lavanderia/inseticidas-e-repelentes", tipo: "sub", id: "206", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Inseticidas e Repelentes", nome: "Limpeza e Lavanderia > Inseticidas e Repelentes" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/acessorios-de-limpeza", pathReal: "/limpeza-e-lavanderia/acessorios-de-limpeza", tipo: "sub", id: "210", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Acessórios de Limpeza", nome: "Limpeza e Lavanderia > Acessórios de Limpeza" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia/alcool-e-querosene", pathReal: "/limpeza-e-lavanderia/alcool-e-querosene", tipo: "sub", id: "197", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia > Álcool e Querosene", nome: "Limpeza e Lavanderia > Álcool e Querosene" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza", pathReal: "/higiene-e-beleza", tipo: "depto", id: "152", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "Higiene e Beleza (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/papel-higienico", pathReal: "/higiene-e-beleza/papel-higienico", tipo: "sub", id: "163", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Papel Higiênico", nome: "Higiene e Beleza > Papel Higiênico" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/para-cabelos", pathReal: "/higiene-e-beleza/para-cabelos", tipo: "sub", id: "156", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Para Cabelos", nome: "Higiene e Beleza > Para Cabelos" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/sabonetes-em-barra", pathReal: "/higiene-e-beleza/sabonetes-em-barra", tipo: "sub", id: "166", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Sabonetes em Barra", nome: "Higiene e Beleza > Sabonetes em Barra" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/sabonetes-liquidos", pathReal: "/higiene-e-beleza/sabonetes-liquidos", tipo: "sub", id: "480", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Sabonetes Líquidos", nome: "Higiene e Beleza > Sabonetes Líquidos" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/desodorantes", pathReal: "/higiene-e-beleza/desodorantes", tipo: "sub", id: "157", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Desodorantes", nome: "Higiene e Beleza > Desodorantes" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/higiene-bucal", pathReal: "/higiene-e-beleza/higiene-bucal", tipo: "sub", id: "159", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Higiene Bucal", nome: "Higiene e Beleza > Higiene Bucal" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/higiene-intima", pathReal: "/higiene-e-beleza/higiene-intima", tipo: "sub", id: "161", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Higiene Íntima", nome: "Higiene e Beleza > Higiene Íntima" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/higiene-infantil", pathReal: "/higiene-e-beleza/higiene-infantil", tipo: "sub", id: "160", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Higiene Infantil", nome: "Higiene e Beleza > Higiene Infantil" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/para-o-corpo", pathReal: "/higiene-e-beleza/para-o-corpo", tipo: "sub", id: "164", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Para o Corpo", nome: "Higiene e Beleza > Para o Corpo" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/para-o-rosto", pathReal: "/higiene-e-beleza/para-o-rosto", tipo: "sub", id: "484", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Para o Rosto", nome: "Higiene e Beleza > Para o Rosto" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/barbearia", pathReal: "/higiene-e-beleza/barbearia", tipo: "sub", id: "155", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Barbearia", nome: "Higiene e Beleza > Barbearia" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza/algodao-hastes-flexiveis-e-curativos", pathReal: "/higiene-e-beleza/algodao-hastes-flexiveis-e-curativos", tipo: "sub", id: "158", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza > Algodão, Hastes Flexíveis e Curativos", nome: "Higiene e Beleza > Algodão, Hastes Flexíveis e Curativos" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas", pathReal: "/bebe-e-criancas", tipo: "depto", id: "40", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças", nome: "Bebê e Crianças (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas/alimento-infantil", pathReal: "/bebe-e-criancas/alimento-infantil", tipo: "sub", id: "41", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças > Alimento Infantil", nome: "Bebê e Crianças > Alimento Infantil" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas/higiene-e-cuidados", pathReal: "/bebe-e-criancas/higiene-e-cuidados", tipo: "sub", id: "50", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças > Higiene e Cuidados", nome: "Bebê e Crianças > Higiene e Cuidados" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas/utensilios", pathReal: "/bebe-e-criancas/utensilios", tipo: "sub", id: "42", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças > Utensílios", nome: "Bebê e Crianças > Utensílios" },
+  { url: "https://super.angeloni.com.br/pet-shop", pathReal: "/pet-shop", tipo: "depto", id: "259", depto: "Pet Shop", hierarquia: "Pet Shop", nome: "Pet Shop (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/pet-shop/cachorros", pathReal: "/pet-shop/cachorros", tipo: "sub", id: "326", depto: "Pet Shop", hierarquia: "Pet Shop > Cachorros", nome: "Pet Shop > Cachorros" },
+  { url: "https://super.angeloni.com.br/pet-shop/gatos", pathReal: "/pet-shop/gatos", tipo: "sub", id: "327", depto: "Pet Shop", hierarquia: "Pet Shop > Gatos", nome: "Pet Shop > Gatos" },
+  { url: "https://super.angeloni.com.br/pet-shop/higiene-e-cuidados", pathReal: "/pet-shop/higiene-e-cuidados", tipo: "sub", id: "331", depto: "Pet Shop", hierarquia: "Pet Shop > Higiene e Cuidados", nome: "Pet Shop > Higiene e Cuidados" },
+  { url: "https://super.angeloni.com.br/pet-shop/acessorios-e-brinquedos", pathReal: "/pet-shop/acessorios-e-brinquedos", tipo: "sub", id: "330", depto: "Pet Shop", hierarquia: "Pet Shop > Acessórios e Brinquedos", nome: "Pet Shop > Acessórios e Brinquedos" },
+  { url: "https://super.angeloni.com.br/bazar", pathReal: "/bazar", tipo: "depto", id: "4", depto: "Bazar", hierarquia: "Bazar", nome: "Bazar (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bazar/descartaveis", pathReal: "/bazar/descartaveis", tipo: "sub", id: "10", depto: "Bazar", hierarquia: "Bazar > Descartáveis", nome: "Bazar > Descartáveis" },
+  { url: "https://super.angeloni.com.br/bazar/lavanderia-e-organizacao", pathReal: "/bazar/lavanderia-e-organizacao", tipo: "sub", id: "12", depto: "Bazar", hierarquia: "Bazar > Lavanderia e Organização", nome: "Bazar > Lavanderia e Organização" },
+  { url: "https://super.angeloni.com.br/bazar/instalacoes-e-ferramentas", pathReal: "/bazar/instalacoes-e-ferramentas", tipo: "sub", id: "11", depto: "Bazar", hierarquia: "Bazar > Instalações e Ferramentas", nome: "Bazar > Instalações e Ferramentas" },
+  { url: "https://super.angeloni.com.br/bazar/automotivo", pathReal: "/bazar/automotivo", tipo: "sub", id: "6", depto: "Bazar", hierarquia: "Bazar > Automotivo", nome: "Bazar > Automotivo" },
+  { url: "https://super.angeloni.com.br/bazar/papelaria", pathReal: "/bazar/papelaria", tipo: "sub", id: "13", depto: "Bazar", hierarquia: "Bazar > Papelaria", nome: "Bazar > Papelaria" },
+  { url: "https://super.angeloni.com.br/bazar/jardinagem", pathReal: "/bazar/jardinagem", tipo: "sub", id: "408", depto: "Bazar", hierarquia: "Bazar > Jardinagem", nome: "Bazar > Jardinagem" },
+  { url: "https://super.angeloni.com.br/bazar/chimarrao", pathReal: "/bazar/chimarrao", tipo: "sub", id: "495", depto: "Bazar", hierarquia: "Bazar > Chimarrão", nome: "Bazar > Chimarrão" },
+  { url: "https://super.angeloni.com.br/bazar/artigos-para-festa", pathReal: "/bazar/artigos-para-festa", tipo: "sub", id: "5", depto: "Bazar", hierarquia: "Bazar > Artigos Para Festa", nome: "Bazar > Artigos Para Festa" },
+  { url: "https://super.angeloni.com.br/utilidades-domesticas", pathReal: "/utilidades-domesticas", tipo: "depto", id: "337", depto: "Utilidades Domésticas", hierarquia: "Utilidades Domésticas", nome: "Utilidades Domésticas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/utilidades-domesticas/copa-e-cozinha", pathReal: "/utilidades-domesticas/copa-e-cozinha", tipo: "sub", id: "339", depto: "Utilidades Domésticas", hierarquia: "Utilidades Domésticas > Copa e Cozinha", nome: "Utilidades Domésticas > Copa e Cozinha" },
+  { url: "https://super.angeloni.com.br/utilidades-domesticas/acessorios-para-bar", pathReal: "/utilidades-domesticas/acessorios-para-bar", tipo: "sub", id: "338", depto: "Utilidades Domésticas", hierarquia: "Utilidades Domésticas > Acessórios Para Bar", nome: "Utilidades Domésticas > Acessórios Para Bar" },
+  { url: "https://super.angeloni.com.br/eletro", pathReal: "/eletro", tipo: "depto", id: "100", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/cama-e-banho", pathReal: "/cama-e-banho", tipo: "depto", id: "77", depto: "Cama e Banho", hierarquia: "Cama e Banho", nome: "Cama e Banho (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/esporte-e-lazer", pathReal: "/esporte-e-lazer", tipo: "depto", id: "134", depto: "Esporte e Lazer", hierarquia: "Esporte e Lazer", nome: "Esporte e Lazer (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/cestas-e-kits", pathReal: "/cestas-e-kits", tipo: "depto", id: "191", depto: "Cestas e Kits", hierarquia: "Cestas e Kits", nome: "Cestas e Kits (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/decoracao", pathReal: "/decoracao", tipo: "depto", id: "367", depto: "Decoração", hierarquia: "Decoração", nome: "Decoração (Categoria Inteira)" }
+];
+
+export const ROTAS_RADAR_ANGELONI = [
+  { url: "https://super.angeloni.com.br/super-ofertas", pathReal: "/super-ofertas", tipo: "promocoes", id: "144", depto: "Ofertas", hierarquia: "Ofertas", nome: "⚡ Radar > Super Ofertas da Semana" },
+  { url: "https://super.angeloni.com.br/ofertas-super-noite", pathReal: "/ofertas-super-noite", tipo: "promocoes", id: "146", depto: "Ofertas", hierarquia: "Ofertas", nome: "⚡ Radar > Ofertas Super Noite" },
+  { url: "https://super.angeloni.com.br/hortifruti", pathReal: "/hortifruti", tipo: "depto", id: "153", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "⚡ Radar > Hortifruti (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes", pathReal: "/carnes-aves-e-peixes", tipo: "depto", id: "82", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes", nome: "⚡ Radar > Carnes, Aves e Peixes (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios", pathReal: "/frios-e-laticinios", tipo: "depto", id: "138", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios", nome: "⚡ Radar > Frios e Laticínios (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/padaria", pathReal: "/padaria", tipo: "depto", id: "218", depto: "Padaria", hierarquia: "Padaria", nome: "⚡ Radar > Padaria (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas", pathReal: "/bebidas", tipo: "depto", id: "58", depto: "Bebidas", hierarquia: "Bebidas", nome: "⚡ Radar > Bebidas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas", pathReal: "/bebidas-alcoolicas", tipo: "depto", id: "59", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "⚡ Radar > Bebidas Alcoólicas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/mercearia", pathReal: "/mercearia", tipo: "depto", id: "2", depto: "Mercearia", hierarquia: "Mercearia", nome: "⚡ Radar > Mercearia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia", pathReal: "/limpeza-e-lavanderia", tipo: "depto", id: "195", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia", nome: "⚡ Radar > Limpeza e Lavanderia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza", pathReal: "/higiene-e-beleza", tipo: "depto", id: "152", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "⚡ Radar > Higiene e Beleza (Categoria Inteira)" }
+];
+
+export const ROTAS_DEPTOS_BALANCEADAS_ANGELONI = [
+  { url: "https://super.angeloni.com.br/super-ofertas", pathReal: "/super-ofertas", tipo: "promocoes", id: "144", depto: "Ofertas", hierarquia: "Ofertas", nome: "Promoções (Super Ofertas da Semana)" },
+  { url: "https://super.angeloni.com.br/ofertas-super-noite", pathReal: "/ofertas-super-noite", tipo: "promocoes", id: "146", depto: "Ofertas", hierarquia: "Ofertas", nome: "Promoções (Ofertas Super Noite)" },
+  { url: "https://super.angeloni.com.br/mercearia", pathReal: "/mercearia", tipo: "depto", id: "2", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/hortifruti", pathReal: "/hortifruti", tipo: "depto", id: "153", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes", pathReal: "/carnes-aves-e-peixes", tipo: "depto", id: "82", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes", nome: "Carnes, Aves e Peixes (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios", pathReal: "/frios-e-laticinios", tipo: "depto", id: "138", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios", nome: "Frios e Laticínios (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas", pathReal: "/bebidas", tipo: "depto", id: "58", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas", pathReal: "/bebidas-alcoolicas", tipo: "depto", id: "59", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/adega", pathReal: "/adega", tipo: "depto", id: "72", depto: "Adega", hierarquia: "Adega", nome: "Adega (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/padaria", pathReal: "/padaria", tipo: "depto", id: "218", depto: "Padaria", hierarquia: "Padaria", nome: "Padaria (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/congelados", pathReal: "/congelados", tipo: "depto", id: "89", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia", pathReal: "/limpeza-e-lavanderia", tipo: "depto", id: "195", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia", nome: "Limpeza e Lavanderia (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza", pathReal: "/higiene-e-beleza", tipo: "depto", id: "152", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "Higiene e Beleza (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas", pathReal: "/bebe-e-criancas", tipo: "depto", id: "40", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças", nome: "Bebê e Crianças (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/pet-shop", pathReal: "/pet-shop", tipo: "depto", id: "259", depto: "Pet Shop", hierarquia: "Pet Shop", nome: "Pet Shop (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/bazar", pathReal: "/bazar", tipo: "depto", id: "4", depto: "Bazar", hierarquia: "Bazar", nome: "Bazar (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/utilidades-domesticas", pathReal: "/utilidades-domesticas", tipo: "depto", id: "337", depto: "Utilidades Domésticas", hierarquia: "Utilidades Domésticas", nome: "Utilidades Domésticas (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/eletro", pathReal: "/eletro", tipo: "depto", id: "100", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/cama-e-banho", pathReal: "/cama-e-banho", tipo: "depto", id: "77", depto: "Cama e Banho", hierarquia: "Cama e Banho", nome: "Cama e Banho (Categoria Inteira)" },
+  { url: "https://super.angeloni.com.br/esporte-e-lazer", pathReal: "/esporte-e-lazer", tipo: "depto", id: "134", depto: "Esporte e Lazer", hierarquia: "Esporte e Lazer", nome: "Esporte e Lazer (Categoria Inteira)" }
+];
+
+export const ROTAS_24H_ANGELONI = [
+  { url: "https://super.angeloni.com.br/super-ofertas", pathReal: "/super-ofertas", tipo: "promocoes", id: "144", depto: "Ofertas", hierarquia: "Ofertas", nome: "Promoções & Super Ofertas (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/ofertas-super-noite", pathReal: "/ofertas-super-noite", tipo: "promocoes", id: "146", depto: "Ofertas", hierarquia: "Ofertas", nome: "Ofertas Super Noite (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/mercearia", pathReal: "/mercearia", tipo: "depto", id: "2", depto: "Mercearia", hierarquia: "Mercearia", nome: "Mercearia (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/hortifruti", pathReal: "/hortifruti", tipo: "depto", id: "153", depto: "Hortifruti", hierarquia: "Hortifruti", nome: "Hortifruti (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/carnes-aves-e-peixes", pathReal: "/carnes-aves-e-peixes", tipo: "depto", id: "82", depto: "Carnes, Aves e Peixes", hierarquia: "Carnes, Aves e Peixes", nome: "Carnes, Aves e Peixes (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/frios-e-laticinios", pathReal: "/frios-e-laticinios", tipo: "depto", id: "138", depto: "Frios e Laticínios", hierarquia: "Frios e Laticínios", nome: "Frios e Laticínios (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/bebidas", pathReal: "/bebidas", tipo: "depto", id: "58", depto: "Bebidas", hierarquia: "Bebidas", nome: "Bebidas (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/bebidas-alcoolicas", pathReal: "/bebidas-alcoolicas", tipo: "depto", id: "59", depto: "Bebidas Alcoólicas", hierarquia: "Bebidas Alcoólicas", nome: "Bebidas Alcoólicas (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/adega", pathReal: "/adega", tipo: "depto", id: "72", depto: "Adega", hierarquia: "Adega", nome: "Adega (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/higiene-e-beleza", pathReal: "/higiene-e-beleza", tipo: "depto", id: "152", depto: "Higiene e Beleza", hierarquia: "Higiene e Beleza", nome: "Higiene e Beleza (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/limpeza-e-lavanderia", pathReal: "/limpeza-e-lavanderia", tipo: "depto", id: "195", depto: "Limpeza e Lavanderia", hierarquia: "Limpeza e Lavanderia", nome: "Limpeza e Lavanderia (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/padaria", pathReal: "/padaria", tipo: "depto", id: "218", depto: "Padaria", hierarquia: "Padaria", nome: "Padaria (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/congelados", pathReal: "/congelados", tipo: "depto", id: "89", depto: "Congelados", hierarquia: "Congelados", nome: "Congelados (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/bazar", pathReal: "/bazar", tipo: "depto", id: "4", depto: "Bazar", hierarquia: "Bazar", nome: "Bazar (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/utilidades-domesticas", pathReal: "/utilidades-domesticas", tipo: "depto", id: "337", depto: "Utilidades Domésticas", hierarquia: "Utilidades Domésticas", nome: "Utilidades Domésticas (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/pet-shop", pathReal: "/pet-shop", tipo: "depto", id: "259", depto: "Pet Shop", hierarquia: "Pet Shop", nome: "Pet Shop (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/bebe-e-criancas", pathReal: "/bebe-e-criancas", tipo: "depto", id: "40", depto: "Bebê e Crianças", hierarquia: "Bebê e Crianças", nome: "Bebê e Crianças (Mais Acessados)" },
+  { url: "https://super.angeloni.com.br/eletro", pathReal: "/eletro", tipo: "depto", id: "100", depto: "Eletro", hierarquia: "Eletro", nome: "Eletro (Mais Acessados)" }
+];
+
+// =========================================================================
+// SELETOR UNIVERSAL DE CAMADAS (KOCH 1408 • FORT 1644 • ANGELONI PORTO BELO 28):
 // - 24H / RADAR (Contínuo 1 Máquina): Promoções + Itens Mais Acessados de cada seção
 // - 2A / 3H (A cada 3 Horas • 10 Máquinas): Busca Ampla na maioria do site (Departamentos + Promoções)
 // - COMPLETA / 12H (A cada 12 Horas • 10 Máquinas): Varredura Completa em TODAS as categorias e subcategorias
 // =========================================================================
 export function obterRotasPorCamada(mercado = "koch", camada = "2A", filaCustom = null) {
   const c = String(camada || "2A").toUpperCase();
-  const ehFort = mercado === "fort" || mercado === "fortatacadista";
+  const m = String(mercado || "koch").toLowerCase();
+  const ehFort = m === "fort" || m === "fortatacadista";
+  const ehAngeloni = m === "angeloni" || m === "superangeloni";
 
   if (c === "CUSTOM" && Array.isArray(filaCustom) && filaCustom.length > 0) {
     return filaCustom.map((r) => ({ ...r }));
@@ -436,16 +652,18 @@ export function obterRotasPorCamada(mercado = "koch", camada = "2A", filaCustom 
 
   // Camada 1: 24H Contínua / Radar (1 máquina em cada site buscando os itens mais acessados e promoções sem parar)
   if (c === "24H" || c === "CONTINUO" || c === "CONTINUO_24H" || c === "RADAR" || c === "1" || c === "1A" || c === "OFERTAS") {
-    return (ehFort ? ROTAS_24H_FORT : ROTAS_24H_KOCH).map((r) => ({ ...r }));
+    const base24h = ehAngeloni ? ROTAS_24H_ANGELONI : (ehFort ? ROTAS_24H_FORT : ROTAS_24H_KOCH);
+    return base24h.map((r) => ({ ...r }));
   }
 
   // Camada 2 (2A / 3H / AMPLA / TURNO / DEPTOS): Busca Ampla de 3 em 3 horas com 10 máquinas em cada site
   if (c === "2A" || c === "3H" || c === "AMPLA" || c === "TURNO" || c === "2B" || c === "DEPTOS" || c === "MEDIA" || c === "MEDIANA") {
-    return (ehFort ? ROTAS_DEPTOS_BALANCEADAS_FORT : ROTAS_DEPTOS_BALANCEADAS_KOCH).map((r) => ({ ...r }));
+    const baseAmpla = ehAngeloni ? ROTAS_DEPTOS_BALANCEADAS_ANGELONI : (ehFort ? ROTAS_DEPTOS_BALANCEADAS_FORT : ROTAS_DEPTOS_BALANCEADAS_KOCH);
+    return baseAmpla.map((r) => ({ ...r }));
   }
 
   // Camada 3 (COMPLETA / 12H): Varredura Completa de 12 em 12 horas em TODAS as categorias e subcategorias com 10 máquinas
-  const listaBase = (ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH).map((r) => ({ ...r }));
+  const listaBase = (ehAngeloni ? ROTAS_PADRAO_ANGELONI : (ehFort ? ROTAS_PADRAO_FORT : ROTAS_PADRAO_KOCH)).map((r) => ({ ...r }));
   const promos = listaBase.filter((r) => r.tipo === "promocoes" || r.tipo === "promocao");
   const demais = listaBase.filter((r) => r.tipo !== "promocoes" && r.tipo !== "promocao");
   return [...promos, ...demais];

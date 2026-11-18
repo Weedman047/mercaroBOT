@@ -1,11 +1,11 @@
-name: 🤖 Robô Mercaro (SuperKoch & Fort Atacadista • Enxame Multi-Máquinas)
+name: 🤖 Robô Mercaro (SuperKoch • Fort Atacadista • Angeloni Porto Belo • Enxame Multi-Máquinas)
 
 on:
   # 1. Permite iniciar manualmente com 1 clique pelo Celular ou PC (Operação Customizada com Prioridade)
   workflow_dispatch:
     inputs:
       mercado:
-        description: "🛒 Mercado a Coletar (ambos = Koch + Fort em paralelo, koch = só SuperKoch, fort = só Fort Atacadista)"
+        description: "🛒 Mercado a Coletar (ambos = Todos os 3 em paralelo, koch = SuperKoch, fort = Fort Atacadista, angeloni = Angeloni Porto Belo)"
         required: false
         default: "ambos"
       total_maquinas:
@@ -143,7 +143,7 @@ jobs:
   # Etapa 2A: Enxame SuperKoch (Loja 1408 Itapema)
   extrator-koch:
     needs: preparar-enxame
-    if: needs.preparar-enxame.outputs.mercado_escolhido != 'fort' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
+    if: needs.preparar-enxame.outputs.mercado_escolhido == 'ambos' || needs.preparar-enxame.outputs.mercado_escolhido == 'todos' || needs.preparar-enxame.outputs.mercado_escolhido == 'koch'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     strategy:
@@ -195,7 +195,7 @@ jobs:
   # Etapa 2B: Enxame Fort Atacadista (Loja 1644 Porto Belo) - RODA SIMULTANEAMENTE!
   extrator-fort:
     needs: preparar-enxame
-    if: needs.preparar-enxame.outputs.mercado_escolhido != 'koch' && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
+    if: needs.preparar-enxame.outputs.mercado_escolhido == 'ambos' || needs.preparar-enxame.outputs.mercado_escolhido == 'todos' || needs.preparar-enxame.outputs.mercado_escolhido == 'fort'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     strategy:
@@ -244,9 +244,61 @@ jobs:
           path: backup_fort_1644_antes.json
           retention-days: 14
 
-  # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort)
+  # Etapa 2C: Enxame Angeloni (Loja 28 Porto Belo • CEP 88210-000) - RODA SIMULTANEAMENTE!
+  extrator-angeloni:
+    needs: preparar-enxame
+    if: needs.preparar-enxame.outputs.mercado_escolhido == 'ambos' || needs.preparar-enxame.outputs.mercado_escolhido == 'todos' || needs.preparar-enxame.outputs.mercado_escolhido == 'angeloni'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        worker_id: ${{ fromJson(needs.preparar-enxame.outputs.workers_json) }}
+
+    steps:
+      - name: 📥 Baixar código do projeto
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 🌐 Instalar Playwright Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: 🔵 Executar Angeloni Porto Belo • Máquina #${{ matrix.worker_id }} de ${{ needs.preparar-enxame.outputs.total_workers }}
+        env:
+          FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
+          MERCADO: "angeloni"
+          WORKER_ID: ${{ matrix.worker_id }}
+          TOTAL_WORKERS: ${{ needs.preparar-enxame.outputs.total_workers }}
+          SWARM_RUN_ID: ${{ needs.preparar-enxame.outputs.swarm_id }}
+          MODO_FILA: ${{ needs.preparar-enxame.outputs.modo_camada }}
+          BATCH_SIZE: ${{ github.event.inputs.tamanho_lote_size || '20' }}
+          DELAY_MS: ${{ github.event.inputs.delay_paginas_ms || '2200' }}
+          DELAY_ROTA_MS: ${{ github.event.inputs.delay_categorias_ms || '3800' }}
+          START_INDEX: ${{ github.event.inputs.rota_inicial || '' }}
+          SALVAR_AO_ADICIONAR: ${{ github.event.inputs.salvar_ao_adicionar || '300' }}
+          SALVAR_AO_ATUALIZAR: ${{ github.event.inputs.salvar_ao_atualizar || '100' }}
+          DRY_RUN: ${{ github.event.inputs.modo_teste_sem_gravar || 'false' }}
+        run: node scripts/extrator-cloud.mjs
+
+      - name: 📦 Backup de Segurança do Firebase Angeloni Porto Belo
+        if: always() && matrix.worker_id == 1
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-angeloni-28-${{ github.run_number }}
+          path: backup_angeloni_28_antes.json
+          retention-days: 14
+
+  # Etapa 3: Vinculação Inteligente Multi-Fator (Koch × Fort × Angeloni Porto Belo)
   vincular-produtos:
-    needs: [preparar-enxame, extrator-koch, extrator-fort]
+    needs: [preparar-enxame, extrator-koch, extrator-fort, extrator-angeloni]
     if: always() && !cancelled() && (needs.preparar-enxame.outputs.modo_camada == 'COMPLETA' || needs.preparar-enxame.outputs.modo_camada == '2A' || needs.preparar-enxame.outputs.mercado_escolhido == 'vincular')
     runs-on: ubuntu-latest
     steps:
@@ -258,7 +310,7 @@ jobs:
         with:
           node-version: "20"
 
-      - name: 🔗 Executar Vinculação Inteligente de Produtos (SuperKoch × Fort Atacadista)
+      - name: 🔗 Executar Vinculação Inteligente de Produtos (SuperKoch × Fort × Angeloni Porto Belo)
         env:
           FIREBASE_URL: "https://mercaro-e6035-default-rtdb.firebaseio.com"
           FIREBASE_SECRET: ${{ secrets.FIREBASE_SECRET }}
@@ -266,7 +318,7 @@ jobs:
 
   # Etapa 4: Auto-Revezamento Contínuo 24/7 (Garante que o robô NUNCA pare entre os turnos de 24h, 3h e 12h)
   auto-continuar:
-    needs: [preparar-enxame, extrator-koch, extrator-fort, vincular-produtos]
+    needs: [preparar-enxame, extrator-koch, extrator-fort, extrator-angeloni, vincular-produtos]
     if: always() && !cancelled() && needs.preparar-enxame.outputs.mercado_escolhido != 'vincular'
     runs-on: ubuntu-latest
     steps:
@@ -284,16 +336,19 @@ jobs:
               const sec = (process.env.FIREBASE_SECRET || "").trim();
               const q = sec ? `?auth=${encodeURIComponent(sec)}` : "";
               try {
-                const [rK, rF] = await Promise.all([
+                const [rK, rF, rA] = await Promise.all([
                   fetch(`${base}/robo_controle/comandos.json${q}`).catch(() => null),
-                  fetch(`${base}/robo_controle/comandos_fort.json${q}`).catch(() => null)
+                  fetch(`${base}/robo_controle/comandos_fort.json${q}`).catch(() => null),
+                  fetch(`${base}/robo_controle/comandos_angeloni.json${q}`).catch(() => null)
                 ]);
                 const cK = rK && rK.ok ? await rK.json().catch(() => null) : null;
                 const cF = rF && rF.ok ? await rF.json().catch(() => null) : null;
+                const cA = rA && rA.ok ? await rA.json().catch(() => null) : null;
                 const agora = Date.now();
                 const cancelK = cK && String(cK.acao || "").toUpperCase() === "CANCELAR" && (agora - Number(cK.timestamp || cK.id || 0)) < 10 * 60 * 1000;
                 const cancelF = cF && String(cF.acao || "").toUpperCase() === "CANCELAR" && (agora - Number(cF.timestamp || cF.id || 0)) < 10 * 60 * 1000;
-                if (cancelK || cancelF) {
+                const cancelA = cA && String(cA.acao || "").toUpperCase() === "CANCELAR" && (agora - Number(cA.timestamp || cA.id || 0)) < 10 * 60 * 1000;
+                if (cancelK || cancelF || cancelA) {
                   console.log("Parada manual recente detectada no painel. Aguardando retomada ou próximo ciclo.");
                   return;
                 }

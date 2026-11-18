@@ -6,6 +6,22 @@
 const FIREBASE_URL = "https://mercaro-e6035-default-rtdb.firebaseio.com";
 const FIREBASE_SECRET = "avPevwfA57FK4v9O3Me9dBVmhOM2NmpJJc19AqEh";
 
+const ANGELONI_SEGMENT_TOKEN = Buffer.from(JSON.stringify({
+  campaigns: null,
+  channel: "1",
+  priceTables: null,
+  regionId: "v2.DC9332CCEDF88DFCE5B68FFB43DC60CA",
+  utm_campaign: null,
+  utm_source: null,
+  utmi_campaign: null,
+  currencyCode: "BRL",
+  currencySymbol: "R$",
+  countryCode: "BRA",
+  cultureInfo: "pt-BR",
+  channelPrivacy: "public",
+  facets: "deliveryZonesHash=27265eb54b4cbc05b1eb0ab9d044902c;pickupPointsHash=72781b63183e98f3834d792ea07b989d;zip-code=88210000;country=BRA;coordinates=-48.57570266723633,-27.157468795776367;"
+})).toString("base64");
+
 const CONFIG_LOJAS = {
   koch: {
     contaId: "295",
@@ -24,6 +40,15 @@ const CONFIG_LOJAS = {
     cookieValue: "%7B%22id%22%3A%221644%22%2C%22userSelected%22%3Atrue%7D",
     siteUrl: "https://www.fortatacadista.com.br",
     tabelaFirebase: "fort_loja_1644"
+  },
+  angeloni: {
+    contaId: "superangeloni",
+    lojaId: "28",
+    storePath: "/api/io/_v/api/intelligent-search/product_search/trade-policy/1",
+    cookieName: "vtex_segment",
+    cookieValue: ANGELONI_SEGMENT_TOKEN,
+    siteUrl: "https://super.angeloni.com.br",
+    tabelaFirebase: "angeloni_loja_28"
   }
 };
 
@@ -80,7 +105,7 @@ export const handler = async (event) => {
 
   const params = event.queryStringParameters || {};
   const lojaParam = String(params.loja || params.mercado || "koch").toLowerCase();
-  const mercadoKey = lojaParam.includes("fort") ? "fort" : "koch";
+  const mercadoKey = lojaParam.includes("angeloni") ? "angeloni" : (lojaParam.includes("fort") ? "fort" : "koch");
   const cfg = CONFIG_LOJAS[mercadoKey];
 
   const idProd = String(params.id || "").trim();
@@ -95,6 +120,52 @@ export const handler = async (event) => {
   }
 
   const agoraISO = new Date().toISOString();
+
+  if (mercadoKey === "angeloni") {
+    try {
+      const urlAng = `https://super.angeloni.com.br/api/io/_v/api/intelligent-search/product_search/trade-policy/1?query=${encodeURIComponent(idProd || termoBusca)}&count=5&page=1&deliveryZonesHash=27265eb54b4cbc05b1eb0ab9d044902c&pickupPointHash=72781b63183e98f3834d792ea07b989d`;
+      const resAng = await fetch(urlAng, {
+        headers: {
+          "accept": "application/json",
+          "cookie": `vtex_segment=${ANGELONI_SEGMENT_TOKEN}`,
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (resAng.ok) {
+        const dataAng = await resAng.json();
+        const prodsAng = Array.isArray(dataAng?.products) ? dataAng.products : [];
+        const pAng = (idProd && prodsAng.find((p) => String(p.productId || p.itemId) === idProd)) || prodsAng[0];
+        if (pAng) {
+          const sku = (Array.isArray(pAng.items) && pAng.items[0]) || {};
+          const offer = sku?.sellers?.[0]?.commertialOffer || pAng.offer || {};
+          const precoFinal = Number(offer.Price || 0);
+          const precoOrig = Math.max(precoFinal, Number(offer.ListPrice || precoFinal || 0));
+          const estoque = Number(offer.AvailableQuantity ?? 0);
+          if (precoFinal > 0) {
+            return {
+              statusCode: 200,
+              headers: headersCors,
+              body: JSON.stringify({
+                ok: true,
+                id: String(pAng.productId || idProd),
+                loja: "angeloni",
+                nome: pAng.productName || "",
+                preco: precoFinal,
+                precoOriginal: precoOrig,
+                precoClube: null,
+                precoVuon: null,
+                estoque,
+                emPromocao: precoFinal < precoOrig,
+                atualizadoEm: agoraISO,
+                fonte: "angeloni_porto_belo_live"
+              })
+            };
+          }
+        }
+      }
+    } catch {}
+  }
 
   try {
     const token = await obterTokenValido(mercadoKey, cfg);
